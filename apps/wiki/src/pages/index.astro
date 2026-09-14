@@ -1,0 +1,17 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+<SiteLayout title="Wiki" siteName="Wiki">
+  <section class="hero container">
+    <p class="eyebrow">QUANTUM-CENTRIC COMPUTING</p>
+    <h1>Wiki</h1>
+    <p class="lede">Documentation for the quantum computing platform.</p>
+  </section>
+</SiteLayout>
+
+<style>
+  .hero { padding: 8rem 0 4rem; }
+  .eyebrow { color: var(--purple); font-size: .78rem; font-weight: 700; letter-spacing: .16em; }
+  h1 { margin: .5rem 0 1rem; font-size: clamp(3rem, 9vw, 7rem); line-height: .95; letter-spacing: -.04em; }
+  .lede { max-width: 48rem; color: var(--muted); font-size: clamp(1.1rem, 2vw, 1.4rem); }
+</style>

@@ -1,0 +1,11 @@
+{
+  "name": "@nyameko/ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./SiteLayout.astro": "./src/SiteLayout.astro",
+    "./global.css": "./src/global.css"
+  }
+}

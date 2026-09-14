@@ -1,0 +1,91 @@
+---
+import './global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  siteName?: string;
+}
+
+const { title, description = 'Quantum-centric computing research infrastructure.', siteName = 'Quantum Platform' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <title>{title} · {siteName}</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <a class="brand" href="/">QUANTUM PLATFORM</a>
+        <nav aria-label="Primary">
+          <a href="https://blog.nyameko.com">Blog</a>
+          <a href="https://wiki.quantum.nyameko.com">Wiki</a>
+          <a href="https://users.quantum.nyameko.com">Users</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <span>Nyameko · Quantum Computing Infrastructure</span>
+        <span><a href="https://github.com/nyameko/quantum-platform">GitHub</a></span>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 92%, transparent);
+  }
+  .nav,
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 64px;
+  }
+  .brand {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-decoration: none;
+  }
+  nav {
+    display: flex;
+    gap: 1.25rem;
+  }
+  nav a,
+  .site-footer a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  nav a:hover,
+  .site-footer a:hover {
+    color: var(--text);
+  }
+  .site-footer {
+    margin-top: 6rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  @media (max-width: 700px) {
+    .nav,
+    .footer-inner {
+      flex-direction: column;
+      justify-content: center;
+      padding: 0.9rem 0;
+    }
+  }
+</style>
