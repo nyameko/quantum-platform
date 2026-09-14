@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./SiteLayout.astro": "./src/SiteLayout.astro",
+    "./Card.astro": "./src/Card.astro",
+    "./Button.astro": "./src/Button.astro",
     "./global.css": "./src/global.css"
   }
 }

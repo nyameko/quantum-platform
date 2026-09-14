@@ -1,17 +1,158 @@
 ---
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+import Card from '@nyameko/ui/Card.astro';
+import Button from '@nyameko/ui/Button.astro';
 ---
-<SiteLayout title="Users" siteName="Users">
+<SiteLayout
+  title="Users"
+  siteName="Astro · Users"
+  section="Users"
+  description="User portal for quantum-centric HPC research infrastructure."
+>
   <section class="hero container">
-    <p class="eyebrow">QUANTUM-CENTRIC COMPUTING</p>
-    <h1>Users</h1>
-    <p class="lede">The user portal for quantum and HPC research infrastructure.</p>
+    <div>
+      <p class="eyebrow">QUANTUM · HPC · RESEARCH</p>
+      <h1>One front door to the platform.</h1>
+      <p class="lede">
+        A clean, research-focused portal for people, research programmes and access to quantum-centric computing infrastructure.
+      </p>
+      <div class="actions">
+        <Button href="#access" variant="primary">Explore the platform</Button>
+        <Button href="https://wiki.quantum.nyameko.com" variant="secondary">Read the documentation</Button>
+      </div>
+      <p class="status">Account registration and authentication are the next portal milestone.</p>
+    </div>
+
+    <div class="console" aria-label="Portal preview">
+      <div class="console-top"><span></span><span></span><span></span><strong>ASTRO / USERS</strong></div>
+      <div class="console-body">
+        <p class="console-label">PLATFORM STATUS</p>
+        <div class="metric"><span>Identity</span><b>FOUNDATION</b></div>
+        <div class="metric"><span>Research programmes</span><b>READY</b></div>
+        <div class="metric"><span>HPC access</span><b>COMING SOON</b></div>
+        <div class="metric"><span>Quantum systems</span><b>COMING SOON</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="access" class="section container">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">DESIGNED FOR RESEARCHERS</p>
+        <h2>A portal, not a bureaucratic maze.</h2>
+      </div>
+      <p>Registration, research programmes and infrastructure identities will live here without exposing the underlying private platform.</p>
+    </div>
+
+    <div class="grid grid-3">
+      <Card eyebrow="01" title="Research programmes">
+        <p>Connect people to principal investigators, projects and research groups.</p>
+      </Card>
+      <Card eyebrow="02" title="Secure identities">
+        <p>WebAuthn, SSH and WireGuard identities will be managed independently and auditable.</p>
+      </Card>
+      <Card eyebrow="03" title="Compute access">
+        <p>Provide a single place to understand access to HPC, JupyterHub and quantum resources.</p>
+      </Card>
+    </div>
   </section>
 </SiteLayout>
 
 <style>
-  .hero { padding: 8rem 0 4rem; }
-  .eyebrow { color: var(--purple); font-size: .78rem; font-weight: 700; letter-spacing: .16em; }
-  h1 { margin: .5rem 0 1rem; font-size: clamp(3rem, 9vw, 7rem); line-height: .95; letter-spacing: -.04em; }
-  .lede { max-width: 48rem; color: var(--muted); font-size: clamp(1.1rem, 2vw, 1.4rem); }
+  .hero {
+    min-height: 68vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    align-items: center;
+    gap: 4rem;
+    padding-top: 6rem;
+  }
+
+  h1 {
+    max-width: 900px;
+    margin: 0.8rem 0 0;
+    font-size: clamp(3.1rem, 7vw, 6.4rem);
+    line-height: 0.94;
+    letter-spacing: -0.06em;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 2rem;
+  }
+
+  .status {
+    margin: 1rem 0 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .console {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .console-top {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .console-top span {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--border-strong);
+  }
+
+  .console-top strong {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 0.63rem;
+    letter-spacing: 0.12em;
+  }
+
+  .console-body {
+    padding: 1.25rem;
+  }
+
+  .console-label {
+    margin: 0 0 1rem;
+    color: var(--purple);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+  }
+
+  .metric {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.95rem 0;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+
+  .metric b {
+    color: var(--muted-strong);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+  }
+
+  @media (max-width: 800px) {
+    .hero {
+      min-height: auto;
+      grid-template-columns: 1fr;
+      padding-top: 5rem;
+      gap: 2.5rem;
+    }
+  }
 </style>

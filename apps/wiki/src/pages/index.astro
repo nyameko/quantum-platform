@@ -1,17 +1,117 @@
 ---
+import { getCollection } from 'astro:content';
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+import Card from '@nyameko/ui/Card.astro';
+import Button from '@nyameko/ui/Button.astro';
+
+const docs = (await getCollection('docs', ({ data }) => !data.draft)).sort((a, b) => a.data.order - b.data.order);
 ---
-<SiteLayout title="Wiki" siteName="Wiki">
+<SiteLayout
+  title="Wiki"
+  siteName="Astro · Wiki"
+  section="Wiki"
+  description="Documentation for the Quantum Platform and its research infrastructure."
+>
   <section class="hero container">
-    <p class="eyebrow">QUANTUM-CENTRIC COMPUTING</p>
-    <h1>Wiki</h1>
-    <p class="lede">Documentation for the quantum computing platform.</p>
+    <div>
+      <p class="eyebrow">DOCUMENTATION · OPEN INFRASTRUCTURE</p>
+      <h1>The map for the platform.</h1>
+      <p class="lede">
+        Architecture, getting started guides and operational knowledge for the quantum-centric computing environment.
+      </p>
+      <div class="actions">
+        <Button href="#docs" variant="primary">Browse documentation</Button>
+        <Button href="https://github.com/nyameko/quantum-platform" variant="secondary">Edit on GitHub</Button>
+      </div>
+    </div>
+
+    <aside class="scope">
+      <p class="eyebrow">PLATFORM SCOPE</p>
+      <ul>
+        <li>HPC &amp; accelerators</li>
+        <li>Quantum software &amp; QPUs</li>
+        <li>Security &amp; identity</li>
+        <li>Research workflows</li>
+      </ul>
+    </aside>
+  </section>
+
+  <section id="docs" class="section container">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">KNOWLEDGE BASE</p>
+        <h2>Start here</h2>
+      </div>
+      <p>The wiki is Markdown-first and version controlled alongside the platform.</p>
+    </div>
+
+    <div class="grid grid-2">
+      {docs.map((doc) => (
+        <Card eyebrow={`0${doc.data.order}`} title={doc.data.title}>
+          <p>{doc.data.description ?? 'Platform documentation.'}</p>
+        </Card>
+      ))}
+      {!docs.length && (
+        <Card title="Documentation is taking shape.">
+          <p>The content pipeline is ready for the first operational and research guides.</p>
+        </Card>
+      )}
+    </div>
   </section>
 </SiteLayout>
 
 <style>
-  .hero { padding: 8rem 0 4rem; }
-  .eyebrow { color: var(--purple); font-size: .78rem; font-weight: 700; letter-spacing: .16em; }
-  h1 { margin: .5rem 0 1rem; font-size: clamp(3rem, 9vw, 7rem); line-height: .95; letter-spacing: -.04em; }
-  .lede { max-width: 48rem; color: var(--muted); font-size: clamp(1.1rem, 2vw, 1.4rem); }
+  .hero {
+    min-height: 58vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+    align-items: center;
+    gap: 4rem;
+    padding-top: 6rem;
+  }
+
+  h1 {
+    max-width: 860px;
+    margin: 0.8rem 0 0;
+    font-size: clamp(3.2rem, 7vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: -0.055em;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 2rem;
+  }
+
+  .scope {
+    padding: 1.4rem;
+    border-left: 1px solid var(--border-strong);
+    color: var(--muted);
+    background: linear-gradient(135deg, rgb(139 92 246 / 6%), transparent 70%);
+  }
+
+  .scope ul {
+    display: grid;
+    gap: 0.9rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .scope li::before {
+    content: '—';
+    margin-right: 0.55rem;
+    color: var(--purple);
+  }
+
+  @media (max-width: 800px) {
+    .hero {
+      min-height: auto;
+      grid-template-columns: 1fr;
+      padding-top: 5rem;
+      gap: 2.5rem;
+    }
+  }
 </style>

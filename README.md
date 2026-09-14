@@ -1,62 +1,28 @@
-# Quantum Platform
+# Quantum Platform — visual system v0.2.0
 
-Public web and research platform for quantum-centric computing.
+This overlay evolves the existing `quantum-platform` workspace from commit `1792fb3` into a consistent visual platform across:
 
-This repository contains the public-facing Astro applications and shared content/UI packages for:
+- `blog.nyameko.com`
+- `wiki.quantum.nyameko.com`
+- `users.quantum.nyameko.com`
 
-- `blog.nyameko.com` — public research and project writing
-- `wiki.quantum.nyameko.com` — platform documentation
-- `users.quantum.nyameko.com` — authenticated quantum/HPC user portal
+It introduces a shared Astro layout, shared design tokens, shared cards/buttons, and polished landing pages without introducing authentication, PostgreSQL, or infrastructure dependencies.
 
-The repository is intentionally public. Secrets, production credentials, persistent infrastructure,
-and database data do not belong here.
+## Apply
 
-## Architecture
-
-```text
-quantum-platform
-├── apps/
-│   ├── blog/     -> blog.nyameko.com
-│   ├── wiki/     -> wiki.quantum.nyameko.com
-│   └── users/    -> users.quantum.nyameko.com
-├── packages/
-│   ├── content/  shared content definitions and helpers
-│   └── ui/       shared Astro components and styles
-└── content/      public Markdown/MDX source
-```
-
-Application infrastructure is deployed through `infra-hpc-qc-k8s` and Argo CD.
-
-The users portal will eventually consume a private PostgreSQL database backed by persistent storage in the
-infrastructure repository. Database credentials and other secrets are never committed here.
-
-## Local development
-
-Requirements:
-
-- Node.js 22+
-- npm 10+
-
-Install dependencies:
+From the repository root:
 
 ```bash
-npm install
+tar -xzf quantum-platform-visual-v0.2.0.tar.gz
 ```
 
-Run an application:
+The archive paths are relative to the repository root.
+
+Then run:
 
 ```bash
-npm run dev:blog
-npm run dev:wiki
-npm run dev:users
-```
-
-Build all applications:
-
-```bash
+npm run check
 npm run build
 ```
 
-## License
-
-MIT
+This checkpoint intentionally does **not** add the registration/authentication/database work. That remains the next application milestone.

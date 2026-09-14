@@ -1,17 +1,142 @@
 ---
+import { getCollection } from 'astro:content';
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+import Card from '@nyameko/ui/Card.astro';
+import Button from '@nyameko/ui/Button.astro';
+
+const posts = (await getCollection('posts', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
-<SiteLayout title="Blog" siteName="Blog">
+<SiteLayout
+  title="Blog"
+  siteName="Astro · Blog"
+  section="Blog"
+  description="Research notes, engineering journals and ideas from the Quantum Platform."
+>
   <section class="hero container">
-    <p class="eyebrow">QUANTUM-CENTRIC COMPUTING</p>
-    <h1>Blog</h1>
-    <p class="lede">Public research, engineering notes, and writing.</p>
+    <div class="hero-copy">
+      <p class="eyebrow">PUBLIC RESEARCH · ENGINEERING · IDEAS</p>
+      <h1>Building the future of quantum-centric computing.</h1>
+      <p class="lede">
+        Research notes and engineering work spanning HPC, AI, quantum computing and the infrastructure that brings them together.
+      </p>
+      <div class="actions">
+        <Button href="https://wiki.quantum.nyameko.com" variant="primary">Explore the wiki</Button>
+        <Button href="https://github.com/nyameko/quantum-platform" variant="secondary">View the platform</Button>
+      </div>
+    </div>
+
+    <div class="signal" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </section>
+
+  <section class="section container">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">LATEST</p>
+        <h2>Research and engineering notes</h2>
+      </div>
+      <p>Everything published here remains plain Markdown in Git, so the research record stays portable and reviewable.</p>
+    </div>
+
+    {posts.length ? (
+      <div class="grid grid-2">
+        {posts.map((post) => (
+          <Card eyebrow={post.data.pubDate.toLocaleDateString()} title={post.data.title} href={`/posts/${post.id}/`}>
+            <p>{post.data.description}</p>
+            <div class="tags">
+              {post.data.tags.map((tag) => <span>{tag}</span>)}
+            </div>
+          </Card>
+        ))}
+      </div>
+    ) : (
+      <Card title="The first posts are coming soon.">
+        <p>The blog is connected to the Markdown content pipeline and ready for research writing.</p>
+      </Card>
+    )}
   </section>
 </SiteLayout>
 
 <style>
-  .hero { padding: 8rem 0 4rem; }
-  .eyebrow { color: var(--purple); font-size: .78rem; font-weight: 700; letter-spacing: .16em; }
-  h1 { margin: .5rem 0 1rem; font-size: clamp(3rem, 9vw, 7rem); line-height: .95; letter-spacing: -.04em; }
-  .lede { max-width: 48rem; color: var(--muted); font-size: clamp(1.1rem, 2vw, 1.4rem); }
+  .hero {
+    min-height: 68vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+    align-items: center;
+    gap: 4rem;
+    padding-top: 6rem;
+  }
+
+  h1 {
+    max-width: 900px;
+    margin: 0.8rem 0 0;
+    font-size: clamp(3rem, 7vw, 6.5rem);
+    line-height: 0.94;
+    letter-spacing: -0.06em;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 2rem;
+  }
+
+  .signal {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.65rem;
+    align-items: end;
+    height: 15rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background:
+      linear-gradient(180deg, rgb(139 92 246 / 7%), transparent 55%),
+      var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .signal span {
+    display: block;
+    min-height: 30%;
+    border: 1px solid rgb(167 139 250 / 30%);
+    border-radius: 999px 999px 0 0;
+    background: linear-gradient(180deg, rgb(167 139 250 / 30%), rgb(143 36 48 / 6%));
+  }
+
+  .signal span:nth-child(2) { min-height: 54%; }
+  .signal span:nth-child(3) { min-height: 82%; }
+  .signal span:nth-child(4) { min-height: 62%; }
+  .signal span:nth-child(5) { min-height: 38%; }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 1rem;
+  }
+
+  .tags span {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+
+  @media (max-width: 800px) {
+    .hero {
+      min-height: auto;
+      grid-template-columns: 1fr;
+      padding-top: 5rem;
+      gap: 2.5rem;
+    }
+
+    .signal {
+      height: 10rem;
+    }
+  }
 </style>
