@@ -5,12 +5,12 @@ interface Props {
   title: string;
   description?: string;
   siteName?: string;
-  section?: 'Blog' | 'Wiki' | 'Users';
+  section?: 'Blog' | 'Wiki' | 'User Portal';
 }
 
 const {
   title,
-  description = 'Quantum-centric computing research infrastructure.',
+  description = 'Quantum-centric supercomputing research infrastructure.',
   siteName = 'Quantum Platform',
   section,
 } = Astro.props;
@@ -18,10 +18,17 @@ const {
 const links = [
   ['Blog', 'https://blog.nyameko.com'],
   ['Wiki', 'https://wiki.quantum.nyameko.com'],
-  ['Users', 'https://users.quantum.nyameko.com'],
+  ['User Portal', 'https://users.quantum.nyameko.com'],
 ] as const;
 ---
 <!doctype html>
+<script is:inline>
+  const saved = localStorage.getItem('theme');
+
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.dataset.theme = saved;
+  }
+</script>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
