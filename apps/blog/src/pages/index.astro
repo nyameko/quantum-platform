@@ -8,8 +8,8 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
 <SiteLayout
-  title="Blog"
-  siteName="Astro · Blog"
+  title="Research Blog"
+  siteName="Quantum Platform"
   section="Blog"
   description="Research notes, engineering journals and ideas from the Quantum Platform."
 >
