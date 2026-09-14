@@ -7,14 +7,21 @@ interface Props {
 }
 
 const { eyebrow, title, href, class: className = '' } = Astro.props;
-const tag = href ? 'a' : 'article';
 ---
 
-<{tag} class={`card ${className}`} href={href}>
-  {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
-  {title && <h3>{title}</h3>}
-  <div class="card-body"><slot /></div>
-</{tag}>
+{href ? (
+  <a class={`card ${className}`} href={href}>
+    {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
+    {title && <h3>{title}</h3>}
+    <div class="card-body"><slot /></div>
+  </a>
+) : (
+  <article class={`card ${className}`}>
+    {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
+    {title && <h3>{title}</h3>}
+    <div class="card-body"><slot /></div>
+  </article>
+)}
 
 <style>
   .card {
