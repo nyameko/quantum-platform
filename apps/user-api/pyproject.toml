@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=78"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantum-platform-user-api"
+version = "0.1.0"
+description = "Django backend for the Quantum Platform User Portal."
+requires-python = ">=3.12"
+dependencies = [
+  "Django>=6.1,<6.2",
+  "djangorestframework>=3.18,<3.19",
+  "psycopg[binary]>=3.2,<4",
+  "python-dotenv>=1.1,<2",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["config*", "portal*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
