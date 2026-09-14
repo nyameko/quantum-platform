@@ -8,6 +8,7 @@
     "./SiteLayout.astro": "./src/SiteLayout.astro",
     "./Card.astro": "./src/Card.astro",
     "./Button.astro": "./src/Button.astro",
+    "./ThemeToggle.astro": "./src/ThemeToggle.astro",
     "./global.css": "./src/global.css"
   }
 }

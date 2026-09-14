@@ -1,5 +1,6 @@
 ---
 import './global.css';
+import ThemeToggle from './ThemeToggle.astro';
 
 interface Props {
   title: string;
@@ -20,39 +21,71 @@ const links = [
   ['Wiki', 'https://wiki.quantum.nyameko.com'],
   ['User Portal', 'https://users.quantum.nyameko.com'],
 ] as const;
----
-<!doctype html>
-<script is:inline>
-  const saved = localStorage.getItem('theme');
 
-  if (saved === 'light' || saved === 'dark') {
-    document.documentElement.dataset.theme = saved;
-  }
-</script>
+const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
+---
+
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#08080b" />
+    <meta
+      name="theme-color"
+      content="#08080b"
+      id="theme-color"
+    />
     <title>{title} · {siteName}</title>
+
+    <script is:inline>
+      (() => {
+        const saved = localStorage.getItem('theme');
+        const theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+
+        document.documentElement.dataset.theme = theme;
+
+        const themeColor = document.querySelector(
+          'meta[name="theme-color"]',
+        );
+
+        if (themeColor) {
+          themeColor.content =
+            theme === 'light' ? '#f7f6f8' : '#08080b';
+        }
+      })();
+    </script>
   </head>
+
   <body>
     <header class="site-header">
       <div class="container nav">
-        <a class="brand" href={Astro.url.origin} aria-label="Quantum Platform home">
-          <span class="brand-mark">A</span>
+        <a
+          class="brand"
+          href={Astro.url.origin}
+          aria-label="Quantum Platform home"
+        >
+          <span class="brand-mark">Q</span>
+
           <span>
-            <strong>ASTRO</strong>
-            <small>QUANTUM PLATFORM</small>
+            <strong>QUANTUM</strong>
+            <small>PLATFORM</small>
           </span>
         </a>
 
-        <nav aria-label="Primary">
-          {links.map(([label, href]) => (
-            <a class:list={[{ active: section === label }]} href={href}>{label}</a>
-          ))}
-        </nav>
+        <div class="nav-actions">
+          <nav aria-label="Primary">
+            {
+              links.map(([label, href]) => (
+                <a class:list={[{ active: section === label }]} href={href}>
+                  {label}
+                </a>
+              ))
+            }
+          </nav>
+
+          <ThemeToggle />
+        </div>
       </div>
     </header>
 
@@ -63,14 +96,60 @@ const links = [
     <footer class="site-footer">
       <div class="container footer-top">
         <div>
-          <p class="footer-brand">ASTRO</p>
-          <p class="footer-copy">Quantum computing infrastructure for research, engineering and open collaboration.</p>
+          <p class="footer-brand">QUANTUM PLATFORM</p>
+          <p class="footer-copy">
+            Quantum computing infrastructure for research, engineering and open
+            collaboration.
+          </p>
         </div>
+
         <div class="footer-links">
-          <a href="https://github.com/nyameko/quantum-platform">GitHub</a>
-          <a href="https://github.com/nyameko/quantum-platform">Support the project</a>
+          <a
+            href="https://github.com/nyameko/quantum-platform"
+            aria-label="Quantum Platform on GitHub"
+          >
+            <svg
+              class="footer-icon"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2C6.48 2 2 6.58 2 12.24c0 4.52 2.87 8.35 6.85 9.7.5.1.68-.23.68-.5v-1.77c-2.79.63-3.38-1.2-3.38-1.2-.46-1.2-1.12-1.53-1.12-1.53-.92-.65.07-.64.07-.64 1.02.08 1.56 1.08 1.56 1.08.9 1.58 2.35 1.12 2.92.86.09-.67.35-1.12.63-1.38-2.23-.26-4.57-1.15-4.57-5.07 0-1.12.39-2.04 1.03-2.76-.1-.26-.45-1.31.1-2.73 0 0 .84-.28 2.76 1.05A9.2 9.2 0 0 1 12 7.99c.85 0 1.7.12 2.5.36 1.92-1.33 2.76-1.05 2.76-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.64 1.03 2.76 0 3.93-2.35 4.81-4.59 5.06.36.32.68.94.68 1.9v2.81c0 .27.18.6.69.5A10.25 10.25 0 0 0 22 12.24C22 6.58 17.52 2 12 2Z"
+              />
+            </svg>
+            <span>GitHub</span>
+          </a>
+
+          {
+            discordUrl && (
+              <a
+                href={discordUrl}
+                aria-label="Join the Quantum Platform Discord"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <svg
+                  class="footer-icon"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M19.54 5.17A16 16 0 0 0 15.64 4l-.5 1.04a14.6 14.6 0 0 0-6.28 0L8.36 4a16 16 0 0 0-3.9 1.17C1.98 8.92 1.31 12.58 1.64 16.2a15.9 15.9 0 0 0 4.78 2.38l1.16-1.59a9.9 9.9 0 0 1-1.83-.88l.45-.35c3.53 1.66 7.35 1.66 10.84 0l.45.35c-.58.34-1.19.64-1.83.88l1.16 1.59a15.9 15.9 0 0 0 4.78-2.38c.38-4.18-.65-7.81-2.06-11.03Zm-9.6 8.82c-1.06 0-1.93-.98-1.93-2.18s.85-2.18 1.93-2.18 1.94.98 1.93 2.18-.86 2.18-1.93 2.18Zm4.12 0c-1.07 0-1.94-.98-1.94-2.18s.86-2.18 1.94-2.18 1.93.98 1.93 2.18-.85 2.18-1.93 2.18Z"
+                  />
+                </svg>
+                <span>Discord</span>
+              </a>
+            )
+          }
+
+          <a href="https://github.com/nyameko/quantum-platform">
+            Support the project
+          </a>
         </div>
       </div>
+
       <div class="container footer-bottom">
         <span>Nyameko · Open research platform</span>
         <span>© {new Date().getFullYear()}</span>
@@ -84,8 +163,8 @@ const links = [
     position: sticky;
     top: 0;
     z-index: 20;
-    border-bottom: 1px solid rgb(41 38 50 / 85%);
-    background: rgb(8 8 11 / 82%);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 82%, transparent);
     backdrop-filter: blur(18px);
   }
 
@@ -112,7 +191,11 @@ const links = [
     place-items: center;
     border: 1px solid rgb(167 139 250 / 35%);
     border-radius: 0.55rem;
-    background: linear-gradient(135deg, rgb(139 92 246 / 28%), rgb(143 36 48 / 18%));
+    background: linear-gradient(
+      135deg,
+      rgb(139 92 246 / 28%),
+      rgb(143 36 48 / 18%)
+    );
     color: var(--purple);
     font-size: 0.82rem;
     font-weight: 800;
@@ -135,6 +218,12 @@ const links = [
     letter-spacing: 0.18em;
   }
 
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   nav {
     display: flex;
     gap: 0.25rem;
@@ -152,7 +241,7 @@ const links = [
   nav a:hover,
   nav a.active {
     border-color: var(--border);
-    background: rgb(255 255 255 / 3%);
+    background: color-mix(in srgb, var(--text) 4%, transparent);
     color: var(--text);
   }
 
@@ -194,12 +283,21 @@ const links = [
   }
 
   .footer-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     color: var(--muted-strong);
     text-decoration: none;
   }
 
   .footer-links a:hover {
     color: var(--text);
+  }
+
+  .footer-icon {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
   }
 
   .footer-bottom {
@@ -221,6 +319,17 @@ const links = [
     .footer-top,
     .footer-bottom {
       flex-direction: column;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .nav-actions {
+      gap: 0.25rem;
+    }
+
+    nav a {
+      padding-inline: 0.3rem;
+      font-size: 0.76rem;
     }
   }
 </style>
