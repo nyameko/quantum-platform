@@ -1,0 +1,113 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Verify email"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="message-shell container">
+    <div class="message-card">
+      <p class="eyebrow">ACCOUNT VERIFICATION</p>
+      <h1 id="title">Verifying your email…</h1>
+      <p id="message" class="lede">Please wait.</p>
+      <a id="login-link" href="/login/" hidden>
+        Continue to sign in
+      </a>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    firstError,
+    readPayload,
+  } from '../../lib/auth';
+
+  const title = document.querySelector<HTMLHeadingElement>('#title');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+  const login = document.querySelector<HTMLAnchorElement>('#login-link');
+
+  const key = new URLSearchParams(window.location.search).get('key');
+
+  const finish = (ok: boolean, text: string) => {
+    if (title) {
+      title.textContent = ok
+        ? 'Email verified'
+        : 'Verification failed';
+    }
+
+    if (message) {
+      message.textContent = text;
+    }
+
+    if (login) {
+      login.hidden = false;
+    }
+  };
+
+  if (!key) {
+    finish(false, 'This verification link is incomplete.');
+  } else {
+    const response = await csrfJsonFetch(
+      '/_allauth/browser/v1/auth/email/verify',
+      {
+        method: 'POST',
+        body: JSON.stringify({ key }),
+      },
+    );
+
+    const payload = await readPayload(response);
+
+    // allauth can return 401 after a successful verification when
+    // ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION=False because the user remains
+    // unauthenticated. No errors means the verification itself succeeded.
+    if (
+      response.ok ||
+      (response.status === 401 && !payload.errors?.length)
+    ) {
+      finish(
+        true,
+        'Your email address is verified. You can now sign in.',
+      );
+    } else {
+      finish(
+        false,
+        firstError(
+          payload,
+          'This verification link is invalid or expired.',
+        ),
+      );
+    }
+  }
+</script>
+
+<style>
+  .message-shell {
+    min-height: 65vh;
+    display: grid;
+    place-items: center;
+  }
+
+  .message-card {
+    width: min(100%, 40rem);
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+  }
+
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: 3rem;
+    letter-spacing: -0.04em;
+  }
+
+  a {
+    display: inline-block;
+    margin-top: 1.5rem;
+    color: var(--purple);
+  }
+</style>

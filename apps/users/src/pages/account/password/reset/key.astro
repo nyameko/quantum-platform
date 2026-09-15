@@ -1,0 +1,175 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Choose new password"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="auth-shell container">
+    <div class="auth-card">
+      <p class="eyebrow">ACCOUNT SECURITY</p>
+      <h1>Choose a new password</h1>
+
+      <form id="password-form">
+        <label>
+          New password
+          <input
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            required
+          />
+        </label>
+
+        <label>
+          Confirm password
+          <input
+            name="password_confirm"
+            type="password"
+            autocomplete="new-password"
+            required
+          />
+        </label>
+
+        <button type="submit">Set new password</button>
+        <p id="message" role="status"></p>
+      </form>
+
+      <a id="login-link" href="/login/" hidden>
+        Continue to sign in
+      </a>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    firstError,
+    readPayload,
+  } from '../../../lib/auth';
+
+  const form = document.querySelector<HTMLFormElement>('#password-form');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+  const login = document.querySelector<HTMLAnchorElement>('#login-link');
+
+  const key = new URLSearchParams(window.location.search).get('key');
+
+  if (!key && message) {
+    message.textContent = 'This password-reset link is incomplete.';
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (!key) return;
+
+    const data = new FormData(form);
+    const password = String(data.get('password') ?? '');
+    const confirmation = String(
+      data.get('password_confirm') ?? '',
+    );
+
+    if (password !== confirmation) {
+      if (message) {
+        message.textContent = 'The passwords do not match.';
+      }
+      return;
+    }
+
+    const response = await csrfJsonFetch(
+      '/_allauth/browser/v1/auth/password/reset',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          key,
+          password,
+        }),
+      },
+    );
+
+    const payload = await readPayload(response);
+
+    if (
+      response.ok ||
+      (response.status === 401 && !payload.errors?.length)
+    ) {
+      if (message) {
+        message.textContent = (
+          'Your password has been reset. You can now sign in.'
+        );
+      }
+
+      if (login) {
+        login.hidden = false;
+      }
+
+      form.reset();
+      return;
+    }
+
+    if (message) {
+      message.textContent = firstError(
+        payload,
+        'Unable to reset the password.',
+      );
+    }
+  });
+</script>
+
+<style>
+  .auth-shell {
+    min-height: 65vh;
+    display: grid;
+    place-items: center;
+  }
+
+  .auth-card {
+    width: min(100%, 32rem);
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+  }
+
+  form {
+    display: grid;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  label {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  input {
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    background: var(--background);
+    color: var(--text);
+  }
+
+  button {
+    min-height: 2.8rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: var(--purple-strong);
+    color: white;
+    font-weight: 700;
+  }
+
+  #message {
+    min-height: 1.5rem;
+    color: var(--muted);
+  }
+
+  #login-link {
+    display: inline-block;
+    margin-top: 1rem;
+    color: var(--purple);
+  }
+</style>

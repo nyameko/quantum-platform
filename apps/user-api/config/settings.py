@@ -5,10 +5,6 @@ from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Load local development configuration.
-# In production, Kubernetes should inject these values as environment
-# variables / Secrets rather than mounting a .env file.
 load_dotenv(BASE_DIR / ".env")
 
 
@@ -50,7 +46,6 @@ CSRF_TRUSTED_ORIGINS = [
 # ---------------------------------------------------------------------------
 
 INSTALLED_APPS = [
-    # Django
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -59,16 +54,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    # Authentication
     "allauth",
     "allauth.account",
     "allauth.headless",
     "allauth.mfa",
 
-    # API
     "rest_framework",
 
-    # Quantum Platform domain
     "portal",
 ]
 
@@ -85,15 +77,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-
-    # django-allauth
     "allauth.account.middleware.AccountMiddleware",
 ]
 
-
-# ---------------------------------------------------------------------------
-# URLs
-# ---------------------------------------------------------------------------
 
 ROOT_URLCONF = "config.urls"
 
@@ -102,7 +88,6 @@ ROOT_URLCONF = "config.urls"
 # Templates
 # ---------------------------------------------------------------------------
 
-# Required by Django Admin and django-allauth browser views.
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -120,10 +105,6 @@ TEMPLATES = [
     },
 ]
 
-
-# ---------------------------------------------------------------------------
-# Application servers
-# ---------------------------------------------------------------------------
 
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
@@ -171,85 +152,63 @@ DATABASES = {
 # ---------------------------------------------------------------------------
 
 AUTHENTICATION_BACKENDS = [
-    # Keep Django's normal backend available for the admin and compatibility.
     "django.contrib.auth.backends.ModelBackend",
-
-    # django-allauth authentication.
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
-
-# Use email as the primary public authentication identity.
 ACCOUNT_LOGIN_METHODS = {
     "email",
 }
 
-# Registration currently requires:
-#   - email
-#   - password
-#   - password confirmation
-#
-# Person / PI / programme information is deliberately NOT collected here.
-# That belongs to the later registration workflow.
 ACCOUNT_SIGNUP_FIELDS = [
     "email*",
     "password1*",
     "password2*",
 ]
 
-
-# ---------------------------------------------------------------------------
-# Email verification
-# ---------------------------------------------------------------------------
-
-# Users must verify their email before normal authentication.
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-
-# Do not automatically authenticate a user merely because they clicked
-# the email confirmation link.
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
-
-# Confirmation links are valid for three days.
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
-
-# Avoid leaking account existence through authentication-related responses.
 ACCOUNT_PREVENT_ENUMERATION = True
 
-
-# ---------------------------------------------------------------------------
-# Login / logout / sessions
-# ---------------------------------------------------------------------------
-
-# Keep login sessions bounded.
 ACCOUNT_LOGIN_TIMEOUT = 900
-
-# Logout should not occur simply by visiting a GET URL.
 ACCOUNT_LOGOUT_ON_GET = False
 
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
-
-# ---------------------------------------------------------------------------
-# Password reset
-# ---------------------------------------------------------------------------
-
-# Use the normal email-link password reset workflow for this iteration.
 ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = False
 
 
 # ---------------------------------------------------------------------------
-# Email backend
+# Development email
 # ---------------------------------------------------------------------------
 
-# Local development:
-# verification and password-reset emails are printed to the Django terminal.
-#
-# Production will use a real transactional mail service.
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Quantum Platform] "
+
+
+# ---------------------------------------------------------------------------
+# django-allauth headless frontend integration
+# ---------------------------------------------------------------------------
+
+# Static Astro routes use the confirmation/reset key as a query parameter.
+HEADLESS_FRONTEND_URLS = {
+    "account_confirm_email": (
+        "http://127.0.0.1:4323/account/verify-email?key={key}"
+    ),
+    "account_reset_password": (
+        "http://127.0.0.1:4323/account/password/reset"
+    ),
+    "account_reset_password_from_key": (
+        "http://127.0.0.1:4323/account/password/reset/key?key={key}"
+    ),
+    "account_signup": (
+        "http://127.0.0.1:4323/account/signup"
+    ),
+}
+
 
 # ---------------------------------------------------------------------------
 # Multi-factor authentication
@@ -261,55 +220,21 @@ MFA_SUPPORTED_TYPES = [
     "recovery_codes",
 ]
 
-# Allow an authenticated user to use a passkey as a login method.
 MFA_PASSKEY_LOGIN_ENABLED = True
 
-# Development only.
-#
-# WebAuthn requires a secure origin. The current allauth documentation
-# provides this switch specifically for localhost development.
-#
-# NEVER enable this in production.
+# Development only. DEBUG must be False in production.
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = DEBUG
 
-# TOTP configuration.
 MFA_TOTP_ISSUER = "Quantum Platform"
 MFA_TOTP_PERIOD = 30
 MFA_TOTP_DIGITS = 6
 MFA_TOTP_TOLERANCE = 0
 
-# Recovery codes.
 MFA_RECOVERY_CODE_COUNT = 10
 MFA_RECOVERY_CODE_DIGITS = 8
-
-# Recovery codes should only be displayed when generated.
 MFA_RECOVERY_CODES_SHOW_ONCE = True
 
-# Do not trust browsers automatically.
 MFA_TRUST_ENABLED = False
-
-# ---------------------------------------------------------------------------
-# django-allauth headless frontend integration
-# ---------------------------------------------------------------------------
-
-# These are the future Astro User Portal destinations.
-#
-# The Django backend owns authentication state; the Astro application will
-# consume the allauth headless API once the authentication flows are proven.
-HEADLESS_FRONTEND_URLS = {
-    "account_confirm_email": (
-        "http://127.0.0.1:4323/account/verify-email/{key}"
-    ),
-    "account_reset_password": (
-        "http://127.0.0.1:4323/account/password/reset"
-    ),
-    "account_reset_password_from_key": (
-        "http://127.0.0.1:4323/account/password/reset/key/{key}"
-    ),
-    "account_signup": (
-        "http://127.0.0.1:4323/account/signup"
-    ),
-}
 
 
 # ---------------------------------------------------------------------------
@@ -330,8 +255,6 @@ REST_FRAMEWORK = {
 # Security / reverse proxy
 # ---------------------------------------------------------------------------
 
-# The production deployment will sit behind HAProxy / Traefik.
-# This allows Django to understand the original HTTPS request.
 SECURE_PROXY_SSL_HEADER = (
     "HTTP_X_FORWARDED_PROTO",
     "https",
@@ -357,9 +280,7 @@ CSRF_COOKIE_SECURE = (
 # ---------------------------------------------------------------------------
 
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "Africa/Johannesburg"
-
 USE_I18N = True
 USE_TZ = True
 
@@ -369,12 +290,7 @@ USE_TZ = True
 # ---------------------------------------------------------------------------
 
 STATIC_URL = "/static/"
-
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-
-# ---------------------------------------------------------------------------
-# Django defaults
-# ---------------------------------------------------------------------------
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

@@ -1,0 +1,182 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Create account"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="auth-shell container">
+    <div class="auth-card">
+      <p class="eyebrow">USER PORTAL</p>
+      <h1>Create account</h1>
+      <p class="lede">
+        Start with a verified Quantum Platform identity.
+      </p>
+
+      <form id="signup-form">
+        <label>
+          Email
+          <input
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+          />
+        </label>
+
+        <label>
+          Password
+          <input
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            required
+          />
+        </label>
+
+        <label>
+          Confirm password
+          <input
+            name="password_confirm"
+            type="password"
+            autocomplete="new-password"
+            required
+          />
+        </label>
+
+        <button type="submit">Create account</button>
+        <p id="message" role="status"></p>
+      </form>
+
+      <p class="secondary">
+        Already registered? <a href="/login/">Sign in</a>
+      </p>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    firstError,
+    hasPendingFlow,
+    readPayload,
+  } from '../../lib/auth';
+
+  const form = document.querySelector<HTMLFormElement>('#signup-form');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const data = new FormData(form);
+    const password = String(data.get('password') ?? '');
+    const confirmation = String(
+      data.get('password_confirm') ?? '',
+    );
+
+    if (password !== confirmation) {
+      if (message) {
+        message.textContent = 'The passwords do not match.';
+      }
+      return;
+    }
+
+    const response = await csrfJsonFetch(
+      '/_allauth/browser/v1/auth/signup',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email: data.get('email'),
+          password,
+        }),
+      },
+    );
+
+    const payload = await readPayload(response);
+
+    if (response.ok) {
+      window.location.href = '/dashboard/';
+      return;
+    }
+
+    if (hasPendingFlow(payload, 'verify_email')) {
+      window.location.href = '/account/verification-pending/';
+      return;
+    }
+
+    if (message) {
+      message.textContent = firstError(
+        payload,
+        'Unable to create the account.',
+      );
+    }
+  });
+</script>
+
+<style>
+  .auth-shell {
+    min-height: 72vh;
+    display: grid;
+    place-items: center;
+  }
+
+  .auth-card {
+    width: min(100%, 32rem);
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: 2.8rem;
+    letter-spacing: -0.04em;
+  }
+
+  form {
+    display: grid;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  label {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    background: var(--background);
+    color: var(--text);
+    font: inherit;
+  }
+
+  button {
+    min-height: 2.8rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: var(--purple-strong);
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  #message {
+    min-height: 1.5rem;
+    color: var(--red-strong);
+  }
+
+  .secondary {
+    margin-top: 1.5rem;
+    color: var(--muted);
+  }
+</style>

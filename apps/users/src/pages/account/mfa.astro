@@ -1,0 +1,140 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Two-factor authentication"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="auth-shell container">
+    <div class="auth-card">
+      <p class="eyebrow">ACCOUNT SECURITY</p>
+      <h1>Verify your sign in</h1>
+      <p class="lede">
+        Enter a TOTP authenticator code or one of your recovery codes.
+      </p>
+
+      <form id="mfa-form">
+        <label>
+          Authentication code
+          <input
+            name="code"
+            autocomplete="one-time-code"
+            inputmode="numeric"
+            required
+          />
+        </label>
+
+        <button type="submit">Continue</button>
+        <p id="message" role="status"></p>
+      </form>
+
+      <p class="note">
+        WebAuthn/passkey support remains enabled in Django. This MVP page
+        handles TOTP and recovery-code challenges first.
+      </p>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    firstError,
+    readPayload,
+  } from '../../lib/auth';
+
+  const form = document.querySelector<HTMLFormElement>('#mfa-form');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const data = new FormData(form);
+
+    const response = await csrfJsonFetch(
+      '/_allauth/browser/v1/auth/2fa/authenticate',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          code: data.get('code'),
+        }),
+      },
+    );
+
+    const payload = await readPayload(response);
+
+    if (response.ok) {
+      window.location.href = '/dashboard/';
+      return;
+    }
+
+    if (message) {
+      message.textContent = firstError(
+        payload,
+        'That authentication code was not accepted.',
+      );
+    }
+  });
+</script>
+
+<style>
+  .auth-shell {
+    min-height: 72vh;
+    display: grid;
+    place-items: center;
+  }
+
+  .auth-card {
+    width: min(100%, 32rem);
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+  }
+
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: 2.8rem;
+  }
+
+  form {
+    display: grid;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  label {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  input {
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    background: var(--background);
+    color: var(--text);
+  }
+
+  button {
+    min-height: 2.8rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: var(--purple-strong);
+    color: white;
+    font-weight: 700;
+  }
+
+  #message {
+    min-height: 1.5rem;
+    color: var(--red-strong);
+  }
+
+  .note {
+    margin-top: 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+</style>

@@ -1,0 +1,175 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Sign in"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="auth-shell container">
+    <div class="auth-card">
+      <p class="eyebrow">USER PORTAL</p>
+      <h1>Sign in</h1>
+      <p class="lede">
+        Access your Quantum Platform research account.
+      </p>
+
+      <form id="login-form">
+        <label>
+          Email
+          <input
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+          />
+        </label>
+
+        <label>
+          Password
+          <input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+
+        <button type="submit">Sign in</button>
+        <p id="message" role="status"></p>
+      </form>
+
+      <div class="links">
+        <a href="/account/signup/">Create account</a>
+        <a href="/account/password/reset/">Forgot password?</a>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    firstError,
+    hasPendingFlow,
+    readPayload,
+  } from '../lib/auth';
+
+  const form = document.querySelector<HTMLFormElement>('#login-form');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const data = new FormData(form);
+
+    const response = await csrfJsonFetch(
+      '/_allauth/browser/v1/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email: data.get('email'),
+          password: data.get('password'),
+        }),
+      },
+    );
+
+    const payload = await readPayload(response);
+
+    if (response.ok) {
+      window.location.href = '/dashboard/';
+      return;
+    }
+
+    if (hasPendingFlow(payload, 'mfa_authenticate')) {
+      window.location.href = '/account/mfa/';
+      return;
+    }
+
+    if (hasPendingFlow(payload, 'verify_email')) {
+      window.location.href = '/account/verification-pending/';
+      return;
+    }
+
+    if (message) {
+      message.textContent = firstError(
+        payload,
+        'Unable to sign in with those credentials.',
+      );
+    }
+  });
+</script>
+
+<style>
+  .auth-shell {
+    min-height: 72vh;
+    display: grid;
+    place-items: center;
+  }
+
+  .auth-card {
+    width: min(100%, 32rem);
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: 2.8rem;
+    letter-spacing: -0.04em;
+  }
+
+  form {
+    display: grid;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  label {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--muted-strong);
+  }
+
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    background: var(--background);
+    color: var(--text);
+    font: inherit;
+  }
+
+  button {
+    min-height: 2.8rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: var(--purple-strong);
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  #message {
+    min-height: 1.5rem;
+    margin: 0;
+    color: var(--red-strong);
+  }
+
+  .links {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .links a {
+    color: var(--muted-strong);
+  }
+</style>

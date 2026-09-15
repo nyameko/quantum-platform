@@ -112,6 +112,8 @@ def _can_review_membership(user, membership):
 
     return membership.programme.pi.user_id == user.id
 
+def home(request):
+    return render(request, "home.html")
 
 @api_view(["GET"])
 @permission_classes([AllowAny])

@@ -1,0 +1,48 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Verify your email"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="message-shell container">
+    <div class="message-card">
+      <p class="eyebrow">EMAIL VERIFICATION</p>
+      <h1>Check your email.</h1>
+      <p class="lede">
+        We've sent a confirmation link. Verify your email before signing in.
+      </p>
+      <a href="/login/">Return to sign in</a>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .message-shell {
+    min-height: 65vh;
+    display: grid;
+    place-items: center;
+  }
+
+  .message-card {
+    width: min(100%, 40rem);
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+  }
+
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: 3rem;
+    letter-spacing: -0.04em;
+  }
+
+  a {
+    display: inline-block;
+    margin-top: 1.5rem;
+    color: var(--purple);
+  }
+</style>

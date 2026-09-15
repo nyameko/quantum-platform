@@ -1,0 +1,138 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+import Card from '@nyameko/ui/Card.astro';
+---
+
+<SiteLayout
+  title="Dashboard"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="section container">
+    <p class="eyebrow">USER PORTAL</p>
+    <h1>Research access dashboard</h1>
+    <p id="identity" class="lede">
+      Loading your account…
+    </p>
+
+    <div class="grid grid-3 dashboard-grid">
+      <Card eyebrow="Identity" title="Profile">
+        <p id="profile-state">
+          Loading profile state…
+        </p>
+      </Card>
+
+      <Card eyebrow="Security" title="Account">
+        <p id="security-state">
+          Loading security state…
+        </p>
+      </Card>
+
+      <Card eyebrow="Research" title="Memberships">
+        <p id="membership-state">
+          Loading programme memberships…
+        </p>
+      </Card>
+    </div>
+
+    <div class="actions">
+      <a href="/">Portal home</a>
+      <button id="logout" type="button">Sign out</button>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    getSession,
+    logout,
+  } from '../lib/auth';
+
+  const identity = document.querySelector<HTMLParagraphElement>('#identity');
+  const profile = document.querySelector<HTMLParagraphElement>('#profile-state');
+  const security = document.querySelector<HTMLParagraphElement>('#security-state');
+  const memberships = document.querySelector<HTMLParagraphElement>('#membership-state');
+  const logoutButton = document.querySelector<HTMLButtonElement>('#logout');
+
+  const { response } = await getSession();
+
+  if (!response.ok) {
+    window.location.href = '/login/';
+  } else {
+    const me = await fetch('/api/v1/me/', {
+      credentials: 'same-origin',
+    });
+
+    if (me.status === 401 || me.status === 403) {
+      window.location.href = '/login/';
+    } else if (me.ok) {
+      const account = await me.json();
+
+      if (identity) {
+        const name = account.person?.preferred_name
+          || account.person?.given_names
+          || account.email;
+
+        identity.textContent = `Welcome back, ${name}.`;
+      }
+
+      if (profile) {
+        profile.textContent = account.person
+          ? `${account.person.institution || 'Institution not set'}`
+          : 'Profile not yet completed.';
+      }
+
+      if (security) {
+        security.textContent = account.email_verified
+          ? 'Email verified. MFA is available on your account.'
+          : 'Email verification required.';
+      }
+
+      if (memberships) {
+        const count = account.memberships?.length ?? 0;
+        memberships.textContent = count === 1
+          ? '1 programme membership.'
+          : `${count} programme memberships.`;
+      }
+    }
+  }
+
+  logoutButton?.addEventListener('click', async () => {
+    await logout();
+    window.location.href = '/login/';
+  });
+</script>
+
+<style>
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: clamp(2.7rem, 6vw, 5.5rem);
+    letter-spacing: -0.05em;
+  }
+
+  .dashboard-grid {
+    margin-top: 2.5rem;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .actions a,
+  .actions button {
+    min-height: 2.6rem;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+</style>
