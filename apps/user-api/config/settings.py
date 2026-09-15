@@ -71,6 +71,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -182,10 +183,30 @@ ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = False
 
 
 # ---------------------------------------------------------------------------
-# Development email
+# Email
 # ---------------------------------------------------------------------------
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = os.getenv(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+
+EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = (
+    os.getenv(
+        "DJANGO_EMAIL_USE_TLS",
+        "true",
+    ).lower() == "true"
+)
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DJANGO_DEFAULT_FROM_EMAIL",
+    "Quantum Platform <noreply@nyameko.com>",
+)
+
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Quantum Platform] "
 
 
@@ -193,19 +214,23 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Quantum Platform] "
 # django-allauth headless frontend integration
 # ---------------------------------------------------------------------------
 
-# Static Astro routes use the confirmation/reset key as a query parameter.
+PORTAL_BASE_URL = os.getenv(
+    "PORTAL_BASE_URL",
+    "http://127.0.0.1:4323",
+).rstrip("/")
+
 HEADLESS_FRONTEND_URLS = {
     "account_confirm_email": (
-        "http://127.0.0.1:4323/account/verify-email?key={key}"
+        f"{PORTAL_BASE_URL}/account/verify-email?key={{key}}"
     ),
     "account_reset_password": (
-        "http://127.0.0.1:4323/account/password/reset"
+        f"{PORTAL_BASE_URL}/account/password/reset"
     ),
     "account_reset_password_from_key": (
-        "http://127.0.0.1:4323/account/password/reset/key?key={key}"
+        f"{PORTAL_BASE_URL}/account/password/reset/key?key={{key}}"
     ),
     "account_signup": (
-        "http://127.0.0.1:4323/account/signup"
+        f"{PORTAL_BASE_URL}/account/signup"
     ),
 }
 
@@ -222,7 +247,7 @@ MFA_SUPPORTED_TYPES = [
 
 MFA_PASSKEY_LOGIN_ENABLED = True
 
-# Development only. DEBUG must be False in production.
+# Development only. Must be False in production.
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = DEBUG
 
 MFA_TOTP_ISSUER = "Quantum Platform"
@@ -291,6 +316,15 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
