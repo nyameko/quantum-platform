@@ -63,7 +63,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.headless",
-    "allauth.mfa"
+    "allauth.mfa",
 
     # API
     "rest_framework",
