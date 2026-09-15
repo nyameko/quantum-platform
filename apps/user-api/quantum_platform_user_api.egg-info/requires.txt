@@ -1,5 +1,7 @@
 Django<6.2,>=6.1
 django-allauth[headless,mfa]<66,>=65.19.3
 djangorestframework<3.19,>=3.18
+gunicorn<24,>=23
 psycopg[binary]<4,>=3.2
 python-dotenv<2,>=1.1
+whitenoise<7,>=6.11

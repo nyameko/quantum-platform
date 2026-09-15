@@ -1,10 +1,12 @@
 Metadata-Version: 2.4
 Name: quantum-platform-user-api
-Version: 0.3.0
+Version: 0.4.0
 Summary: Django backend for the Quantum Platform User Portal.
 Requires-Python: >=3.12
 Requires-Dist: Django<6.2,>=6.1
 Requires-Dist: django-allauth[headless,mfa]<66,>=65.19.3
 Requires-Dist: djangorestframework<3.19,>=3.18
+Requires-Dist: gunicorn<24,>=23
 Requires-Dist: psycopg[binary]<4,>=3.2
 Requires-Dist: python-dotenv<2,>=1.1
+Requires-Dist: whitenoise<7,>=6.11
