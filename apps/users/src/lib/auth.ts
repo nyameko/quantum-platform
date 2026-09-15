@@ -35,10 +35,15 @@ function getCookie(name: string): string | null {
 }
 
 export async function ensureCsrf(): Promise<void> {
-  await fetch('/api/v1/csrf/', {
+  const response = await fetch('/api/v1/csrf/', {
     method: 'GET',
     credentials: 'same-origin',
+    cache: 'no-store',
   });
+
+  if (!response.ok) {
+    throw new Error('Unable to establish CSRF protection.');
+  }
 }
 
 export async function csrfJsonFetch(
@@ -62,6 +67,7 @@ export async function csrfJsonFetch(
     ...init,
     headers,
     credentials: 'same-origin',
+    cache: 'no-store',
   });
 }
 
@@ -80,6 +86,7 @@ export async function getSession(): Promise<{
     {
       method: 'GET',
       credentials: 'same-origin',
+      cache: 'no-store',
     },
   );
 
@@ -109,11 +116,22 @@ export function firstError(
   return payload.errors?.[0]?.message ?? fallback;
 }
 
-export async function logout(): Promise<void> {
-  await csrfJsonFetch(
+export async function logout(): Promise<Response> {
+  return csrfJsonFetch(
     '/_allauth/browser/v1/auth/session',
     {
       method: 'DELETE',
     },
   );
+}
+
+export async function requireSession(): Promise<boolean> {
+  const { response } = await getSession();
+
+  if (!response.ok) {
+    window.location.replace('/login/');
+    return false;
+  }
+
+  return true;
 }

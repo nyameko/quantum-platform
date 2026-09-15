@@ -46,22 +46,33 @@ import Card from '@nyameko/ui/Card.astro';
 
   <section class="section container">
     <div class="grid grid-3">
-      <Card eyebrow="Identity" title="Research profile">
+      <Card
+        eyebrow="Identity"
+        title="Research profile"
+        href="/profile/"
+      >
         <p>
           Maintain your researcher identity and institution information.
         </p>
       </Card>
 
-      <Card eyebrow="Research" title="Programmes">
+      <Card
+        eyebrow="Research"
+        title="Programmes"
+        href="/programmes/"
+      >
         <p>
           Apply as a PI or request membership in an approved programme.
         </p>
       </Card>
 
-      <Card eyebrow="Security" title="Protected access">
+      <Card
+        eyebrow="Security"
+        title="Protected access"
+        href="/security/"
+      >
         <p>
-          Email verification, MFA, recovery codes and WebAuthn are handled
-          by the platform authentication service.
+          Manage password, MFA, recovery codes and WebAuthn credentials.
         </p>
       </Card>
     </div>
@@ -77,7 +88,9 @@ import Card from '@nyameko/ui/Card.astro';
     if (!response.ok || !actions) return;
 
     actions.innerHTML = `
-      <a class="portal-button primary" href="/dashboard/">Open dashboard</a>
+      <a class="portal-button primary" href="/dashboard/">
+        Open dashboard
+      </a>
     `;
   });
 </script>

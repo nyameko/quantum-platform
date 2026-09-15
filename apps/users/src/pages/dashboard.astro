@@ -16,21 +16,21 @@ import Card from '@nyameko/ui/Card.astro';
     </p>
 
     <div class="grid grid-3 dashboard-grid">
-      <Card eyebrow="Identity" title="Profile">
+      <Card eyebrow="Identity" title="Profile" href="/profile/">
         <p id="profile-state">
           Loading profile state…
         </p>
       </Card>
 
-      <Card eyebrow="Security" title="Account">
-        <p id="security-state">
-          Loading security state…
+      <Card eyebrow="Research" title="Programmes" href="/programmes/">
+        <p id="membership-state">
+          Loading programme memberships…
         </p>
       </Card>
 
-      <Card eyebrow="Research" title="Memberships">
-        <p id="membership-state">
-          Loading programme memberships…
+      <Card eyebrow="Security" title="Account" href="/security/">
+        <p id="security-state">
+          Loading security state…
         </p>
       </Card>
     </div>
@@ -38,6 +38,7 @@ import Card from '@nyameko/ui/Card.astro';
     <div class="actions">
       <a href="/">Portal home</a>
       <button id="logout" type="button">Sign out</button>
+      <p id="logout-message" role="status"></p>
     </div>
   </section>
 </SiteLayout>
@@ -53,53 +54,86 @@ import Card from '@nyameko/ui/Card.astro';
   const security = document.querySelector<HTMLParagraphElement>('#security-state');
   const memberships = document.querySelector<HTMLParagraphElement>('#membership-state');
   const logoutButton = document.querySelector<HTMLButtonElement>('#logout');
+  const logoutMessage = document.querySelector<HTMLParagraphElement>('#logout-message');
 
-  const { response } = await getSession();
+  async function validateDashboard() {
+    const { response } = await getSession();
 
-  if (!response.ok) {
-    window.location.href = '/login/';
-  } else {
+    if (!response.ok) {
+      window.location.replace('/login/');
+      return;
+    }
+
     const me = await fetch('/api/v1/me/', {
       credentials: 'same-origin',
+      cache: 'no-store',
     });
 
-    if (me.status === 401 || me.status === 403) {
-      window.location.href = '/login/';
-    } else if (me.ok) {
-      const account = await me.json();
+    if (!me.ok) {
+      window.location.replace('/login/');
+      return;
+    }
 
-      if (identity) {
-        const name = account.person?.preferred_name
-          || account.person?.given_names
-          || account.email;
+    const account = await me.json();
 
-        identity.textContent = `Welcome back, ${name}.`;
-      }
+    if (identity) {
+      const name =
+        account.person?.preferred_name
+        || account.person?.given_names
+        || account.username
+        || account.email;
 
-      if (profile) {
-        profile.textContent = account.person
-          ? `${account.person.institution || 'Institution not set'}`
-          : 'Profile not yet completed.';
-      }
+      identity.textContent = `Welcome back, ${name}.`;
+    }
 
-      if (security) {
-        security.textContent = account.email_verified
-          ? 'Email verified. MFA is available on your account.'
-          : 'Email verification required.';
-      }
+    if (profile) {
+      profile.textContent = account.person
+        ? `${account.person.institution || 'Institution not set'}`
+        : 'Profile not yet completed.';
+    }
 
-      if (memberships) {
-        const count = account.memberships?.length ?? 0;
-        memberships.textContent = count === 1
-          ? '1 programme membership.'
-          : `${count} programme memberships.`;
-      }
+    if (memberships) {
+      const count = account.memberships?.length ?? 0;
+
+      memberships.textContent = count === 1
+        ? '1 programme membership.'
+        : `${count} programme memberships.`;
+    }
+
+    if (security) {
+      security.textContent = account.email_verified
+        ? 'Email verified. Open security settings.'
+        : 'Email verification required.';
     }
   }
 
+  await validateDashboard();
+
+  window.addEventListener('pageshow', () => {
+    void validateDashboard();
+  });
+
   logoutButton?.addEventListener('click', async () => {
-    await logout();
-    window.location.href = '/login/';
+    logoutButton.disabled = true;
+
+    try {
+      const response = await logout();
+
+      if (!response.ok) {
+        throw new Error(`Logout failed (${response.status}).`);
+      }
+
+      window.location.replace('/login/');
+    } catch (error) {
+      logoutButton.disabled = false;
+
+      if (logoutMessage) {
+        logoutMessage.textContent =
+          error instanceof Error
+            ? error.message
+            : 'Unable to sign out.';
+      }
+    }
   });
 </script>
 
@@ -116,6 +150,7 @@ import Card from '@nyameko/ui/Card.astro';
 
   .actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 1rem;
     margin-top: 2rem;
@@ -134,5 +169,9 @@ import Card from '@nyameko/ui/Card.astro';
     font: inherit;
     text-decoration: none;
     cursor: pointer;
+  }
+
+  #logout-message {
+    color: var(--red-strong);
   }
 </style>

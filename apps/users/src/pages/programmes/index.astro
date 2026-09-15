@@ -1,0 +1,223 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Research Programmes"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="section container">
+    <div class="heading-row">
+      <div>
+        <p class="eyebrow">RESEARCH</p>
+        <h1>Research programmes</h1>
+        <p class="lede">
+          Join an active programme or apply to establish one as a PI.
+        </p>
+      </div>
+
+      <a class="primary-action" href="/programmes/apply/">
+        Apply as a PI
+      </a>
+    </div>
+
+    <section class="subsection">
+      <p class="eyebrow">YOUR MEMBERSHIPS</p>
+      <div id="memberships" class="grid grid-2">
+        <p>Loading memberships…</p>
+      </div>
+    </section>
+
+    <section class="subsection">
+      <p class="eyebrow">ACTIVE PROGRAMMES</p>
+      <div id="programmes" class="grid grid-2">
+        <p>Loading programmes…</p>
+      </div>
+    </section>
+
+    <p id="message" role="status"></p>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    requireSession,
+  } from '../../lib/auth';
+
+  const programmesRoot = document.querySelector<HTMLDivElement>('#programmes');
+  const membershipsRoot = document.querySelector<HTMLDivElement>('#memberships');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+
+  if (await requireSession()) {
+    const [programmeResponse, membershipResponse] = await Promise.all([
+      fetch('/api/v1/programmes/', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }),
+      fetch('/api/v1/memberships/', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }),
+    ]);
+
+    const programmes = programmeResponse.ok
+      ? await programmeResponse.json()
+      : [];
+
+    const memberships = membershipResponse.ok
+      ? await membershipResponse.json()
+      : [];
+
+    if (membershipsRoot) {
+      membershipsRoot.innerHTML = memberships.length
+        ? memberships.map((membership: any) => `
+          <article class="portal-panel">
+            <p class="panel-eyebrow">${membership.role}</p>
+            <h2>${membership.programme.acronym || membership.programme.name}</h2>
+            <p>${membership.programme.name}</p>
+            <span class="status-chip">${membership.status}</span>
+          </article>
+        `).join('')
+        : '<p>No programme memberships yet.</p>';
+    }
+
+    if (programmesRoot) {
+      programmesRoot.innerHTML = programmes.length
+        ? programmes.map((programme: any) => `
+          <article class="portal-panel">
+            <p class="panel-eyebrow">${programme.acronym || 'PROGRAMME'}</p>
+            <h2>${programme.name}</h2>
+            <p>${programme.description}</p>
+            <p class="muted">${programme.institution}</p>
+            <p class="muted">PI: ${programme.pi.name}</p>
+            <button data-programme-id="${programme.id}">
+              Request membership
+            </button>
+          </article>
+        `).join('')
+        : '<p>No active research programmes are available yet.</p>';
+    }
+  }
+
+  programmesRoot?.addEventListener('click', async (event) => {
+    const button = event.target as HTMLButtonElement;
+
+    if (!button.matches('button[data-programme-id]')) return;
+
+    button.disabled = true;
+
+    const response = await csrfJsonFetch(
+      `/api/v1/programmes/${button.dataset.programmeId}/membership/`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+    );
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (message) {
+      message.textContent = response.ok
+        ? 'Membership request submitted.'
+        : payload.detail || 'Unable to request membership.';
+    }
+
+    if (response.ok) {
+      button.textContent = 'Requested';
+    } else {
+      button.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .heading-row {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    letter-spacing: -0.05em;
+  }
+
+  .primary-action {
+    flex: 0 0 auto;
+    min-height: 2.8rem;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 1rem;
+    border-radius: 0.65rem;
+    background: var(--purple-strong);
+    color: white;
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .subsection {
+    margin-top: 3rem;
+  }
+
+  :global(.portal-panel) {
+    padding: 1.4rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+  }
+
+  :global(.portal-panel h2) {
+    margin: 0.35rem 0 0.7rem;
+  }
+
+  :global(.panel-eyebrow) {
+    margin: 0;
+    color: var(--purple);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  :global(.muted) {
+    color: var(--muted);
+  }
+
+  :global(.status-chip) {
+    display: inline-flex;
+    margin-top: 0.4rem;
+    padding: 0.3rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted-strong);
+    font-size: 0.76rem;
+    text-transform: capitalize;
+  }
+
+  :global(.portal-panel button) {
+    min-height: 2.6rem;
+    margin-top: 0.6rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    background: var(--surface-elevated);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  #message {
+    margin-top: 2rem;
+    color: var(--muted-strong);
+  }
+
+  @media (max-width: 680px) {
+    .heading-row {
+      align-items: start;
+      flex-direction: column;
+    }
+  }
+</style>

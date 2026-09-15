@@ -1,0 +1,81 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+import Card from '@nyameko/ui/Card.astro';
+---
+
+<SiteLayout
+  title="Security"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="section container">
+    <p class="eyebrow">SECURITY</p>
+    <h1>Account security</h1>
+    <p class="lede">
+      Manage your password and multi-factor authentication.
+    </p>
+
+    <div class="grid grid-3 security-grid">
+      <Card
+        eyebrow="MFA"
+        title="Authenticators"
+        href="/accounts/2fa/"
+      >
+        <p>
+          Manage TOTP, recovery codes and WebAuthn/passkeys.
+        </p>
+      </Card>
+
+      <Card
+        eyebrow="Password"
+        title="Change password"
+        href="/accounts/password/change/"
+      >
+        <p>
+          Replace your current account password.
+        </p>
+      </Card>
+
+      <Card
+        eyebrow="Identity"
+        title="Profile"
+        href="/profile/"
+      >
+        <p>
+          Review the research identity attached to this account.
+        </p>
+      </Card>
+    </div>
+
+    <p class="note">
+      The security management screens are still the functional django-allauth
+      views for the MVP. They can be moved fully into the Astro design system
+      after student testing.
+    </p>
+  </section>
+</SiteLayout>
+
+<script>
+  import { requireSession } from '../lib/auth';
+
+  await requireSession();
+</script>
+
+<style>
+  h1 {
+    margin: 0.4rem 0 0;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    letter-spacing: -0.05em;
+  }
+
+  .security-grid {
+    margin-top: 2.5rem;
+  }
+
+  .note {
+    max-width: 48rem;
+    margin-top: 2rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+</style>

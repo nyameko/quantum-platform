@@ -24,7 +24,6 @@ const links = [
 
 const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
 ---
-
 <!doctype html>
 <html lang="en">
   <head>
@@ -42,7 +41,6 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
       (() => {
         const saved = localStorage.getItem('theme');
         const theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
-
         document.documentElement.dataset.theme = theme;
 
         const themeColor = document.querySelector(
@@ -60,31 +58,61 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
   <body>
     <header class="site-header">
       <div class="container nav">
-        <a
-          class="brand"
-          href={Astro.url.origin}
-          aria-label="Quantum Platform home"
-        >
-          <span class="brand-mark">Q</span>
+        <div class="nav-left">
+          <ThemeToggle />
 
-          <span>
-            <strong>QUANTUM</strong>
-            <small>PLATFORM</small>
-          </span>
-        </a>
+          <a
+            class="brand"
+            href={Astro.url.origin}
+            aria-label="Quantum Platform home"
+          >
+            <span class="brand-mark">Q</span>
+
+            <span>
+              <strong>QUANTUM</strong>
+              <small>PLATFORM</small>
+            </span>
+          </a>
+        </div>
 
         <div class="nav-actions">
           <nav aria-label="Primary">
             {
               links.map(([label, href]) => (
-                <a class:list={[{ active: section === label }]} href={href}>
+                <a
+                  class:list={[{ active: section === label }]}
+                  href={href}
+                >
                   {label}
                 </a>
               ))
             }
           </nav>
 
-          <ThemeToggle />
+          {
+            section === 'User Portal' && (
+              <a
+                id="portal-account"
+                class="portal-account"
+                href="/profile/"
+                aria-label="Open profile"
+                hidden
+              >
+                <span class="portrait" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  >
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+                  </svg>
+                </span>
+                <span id="portal-username">Account</span>
+              </a>
+            )
+          }
         </div>
       </div>
     </header>
@@ -155,6 +183,44 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
         <span>© {new Date().getFullYear()}</span>
       </div>
     </footer>
+
+    <script>
+      const account = document.querySelector<HTMLAnchorElement>(
+        '#portal-account',
+      );
+
+      if (account) {
+        (async () => {
+          try {
+            const response = await fetch('/api/v1/me/', {
+              credentials: 'same-origin',
+              cache: 'no-store',
+            });
+
+            if (!response.ok) return;
+
+            const me = await response.json();
+            const username =
+              me.person?.preferred_name
+              || me.person?.given_names
+              || me.username
+              || me.email;
+
+            const label = document.querySelector<HTMLSpanElement>(
+              '#portal-username',
+            );
+
+            if (label) {
+              label.textContent = username;
+            }
+
+            account.hidden = false;
+          } catch {
+            // Anonymous/public pages do not need an account control.
+          }
+        })();
+      }
+    </script>
   </body>
 </html>
 
@@ -174,6 +240,13 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
     justify-content: space-between;
     gap: 1rem;
     min-height: 68px;
+  }
+
+  .nav-left,
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
   }
 
   .brand {
@@ -218,12 +291,6 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
     letter-spacing: 0.18em;
   }
 
-  .nav-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
   nav {
     display: flex;
     gap: 0.25rem;
@@ -243,6 +310,45 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
     border-color: var(--border);
     background: color-mix(in srgb, var(--text) 4%, transparent);
     color: var(--text);
+  }
+
+  .portal-account {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.25rem;
+    padding: 0.25rem 0.65rem 0.25rem 0.3rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted-strong);
+    text-decoration: none;
+    font-size: 0.8rem;
+  }
+
+  .portal-account[hidden] {
+    display: none;
+  }
+
+  .portal-account:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-elevated);
+    color: var(--text);
+  }
+
+  .portrait {
+    display: grid;
+    width: 1.7rem;
+    height: 1.7rem;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--purple) 14%, var(--surface));
+    color: var(--purple);
+  }
+
+  .portrait svg {
+    width: 1rem;
+    height: 1rem;
   }
 
   .site-footer {
@@ -307,29 +413,39 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
     font-size: 0.78rem;
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 760px) {
     .nav {
-      min-height: 60px;
+      flex-wrap: wrap;
+      padding-block: 0.6rem;
+    }
+
+    .nav-actions {
+      width: 100%;
+      justify-content: space-between;
     }
 
     nav a {
       padding-inline: 0.45rem;
     }
-
-    .footer-top,
-    .footer-bottom {
-      flex-direction: column;
-    }
   }
 
   @media (max-width: 560px) {
-    .nav-actions {
-      gap: 0.25rem;
+    .brand strong {
+      font-size: 0.7rem;
     }
 
     nav a {
       padding-inline: 0.3rem;
-      font-size: 0.76rem;
+      font-size: 0.72rem;
+    }
+
+    #portal-username {
+      display: none;
+    }
+
+    .footer-top,
+    .footer-bottom {
+      flex-direction: column;
     }
   }
 </style>
