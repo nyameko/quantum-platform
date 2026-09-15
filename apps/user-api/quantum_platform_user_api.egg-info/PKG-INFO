@@ -4,6 +4,7 @@ Version: 0.1.0
 Summary: Django backend for the Quantum Platform User Portal.
 Requires-Python: >=3.12
 Requires-Dist: Django<6.2,>=6.1
+Requires-Dist: django-allauth[headless]<66,>=65.19.3
 Requires-Dist: djangorestframework<3.19,>=3.18
 Requires-Dist: psycopg[binary]<4,>=3.2
 Requires-Dist: python-dotenv<2,>=1.1
