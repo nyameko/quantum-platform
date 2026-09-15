@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.humanize",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -62,6 +63,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.headless",
+    "allauth.mfa"
 
     # API
     "rest_framework",
@@ -249,6 +251,42 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Quantum Platform] "
 
+# ---------------------------------------------------------------------------
+# Multi-factor authentication
+# ---------------------------------------------------------------------------
+
+MFA_SUPPORTED_TYPES = [
+    "totp",
+    "webauthn",
+    "recovery_codes",
+]
+
+# Allow an authenticated user to use a passkey as a login method.
+MFA_PASSKEY_LOGIN_ENABLED = True
+
+# Development only.
+#
+# WebAuthn requires a secure origin. The current allauth documentation
+# provides this switch specifically for localhost development.
+#
+# NEVER enable this in production.
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = DEBUG
+
+# TOTP configuration.
+MFA_TOTP_ISSUER = "Quantum Platform"
+MFA_TOTP_PERIOD = 30
+MFA_TOTP_DIGITS = 6
+MFA_TOTP_TOLERANCE = 0
+
+# Recovery codes.
+MFA_RECOVERY_CODE_COUNT = 10
+MFA_RECOVERY_CODE_DIGITS = 8
+
+# Recovery codes should only be displayed when generated.
+MFA_RECOVERY_CODES_SHOW_ONCE = True
+
+# Do not trust browsers automatically.
+MFA_TRUST_ENABLED = False
 
 # ---------------------------------------------------------------------------
 # django-allauth headless frontend integration
