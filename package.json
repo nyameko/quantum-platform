@@ -10,7 +10,6 @@
   ],
   "scripts": {
     "dev:blog": "npm run dev -w @nyameko/blog",
-    "dev:wiki": "npm run dev -w @nyameko/wiki",
     "dev:users": "npm run dev -w @nyameko/users",
     "build": "npm run build --workspaces --if-present",
     "check": "npm run check --workspaces --if-present",

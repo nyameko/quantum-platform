@@ -261,7 +261,6 @@ The application repository publishes:
 
 ```text
 ghcr.io/nyameko/quantum-platform-blog
-ghcr.io/nyameko/quantum-platform-wiki
 ghcr.io/nyameko/quantum-platform-users
 ghcr.io/nyameko/quantum-platform-user-api
 ```

@@ -7,20 +7,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
-        app: [blog, wiki, users]
+        app: [blog, users]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install dependencies
         run: npm install
+
       - name: Check ${{ matrix.app }}
         run: npm run check -w @nyameko/${{ matrix.app }}
+
       - name: Build ${{ matrix.app }}
         run: npm run build -w @nyameko/${{ matrix.app }}

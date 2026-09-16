@@ -6,7 +6,7 @@ interface Props {
   title: string;
   description?: string;
   siteName?: string;
-  section?: 'Blog' | 'Wiki' | 'User Portal';
+  section?: 'Blog' | 'User Portal';
 }
 
 const {
@@ -17,9 +17,16 @@ const {
 } = Astro.props;
 
 const links = [
-  ['Blog', 'https://blog.nyameko.com'],
-  ['Wiki', 'https://wiki.quantum.nyameko.com'],
-  ['User Portal', 'https://users.quantum.nyameko.com'],
+  {
+    label: 'Blog',
+    href: 'https://blog.nyameko.com',
+    section: 'Blog',
+  },
+  {
+    label: 'Quantum Platform',
+    href: 'https://quantum.nyameko.com',
+    section: 'User Portal',
+  },
 ] as const;
 
 const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
@@ -78,12 +85,12 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
         <div class="nav-actions">
           <nav aria-label="Primary">
             {
-              links.map(([label, href]) => (
+              links.map(([label) => (
                 <a
-                  class:list={[{ active: section === label }]}
-                  href={href}
+                  class:list={[{ active: section === label.section }]}
+                  href={link.href}
                 >
-                  {label}
+                  {link.label}
                 </a>
               ))
             }

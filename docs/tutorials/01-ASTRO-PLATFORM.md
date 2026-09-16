@@ -8,7 +8,6 @@ The target surfaces are:
 
 ```text
 blog.nyameko.com
-wiki.quantum.nyameko.com
 users.quantum.nyameko.com
 ```
 
@@ -16,7 +15,7 @@ The first two are public information surfaces. The third becomes the authenticat
 
 ## 2. Why three applications?
 
-It would be easy to build one large website with routes such as `/blog`, `/wiki`, and `/users`. That is not the goal.
+It would be easy to build one large website with routes such as `/blog`, and `/users`. That is not the goal.
 
 Separate applications give us:
 
@@ -31,7 +30,7 @@ What *is* shared is the design system.
 
 ```text
 apps/blog ─┐
-apps/wiki ─┼──► packages/ui
+           ┼──► packages/ui
 apps/users ┘
 ```
 
@@ -54,7 +53,6 @@ The important root commands are:
 
 ```bash
 npm run dev:blog
-npm run dev:wiki
 npm run dev:users
 
 npm run check
@@ -101,7 +99,6 @@ Astro creates:
 
 ```text
 apps/blog/dist/
-apps/wiki/dist/
 apps/users/dist/
 ```
 
@@ -219,7 +216,7 @@ Astro's `site` value is used for canonical URL generation and build-time URL beh
 ## 11. Student exercise
 
 1. Add a new shared card component.
-2. Use it in Blog and Wiki.
+2. Use it in Blog.
 3. Confirm User Portal is unaffected unless it imports the component.
 4. Break an import deliberately.
 5. Run `npm run check`.
@@ -240,7 +237,6 @@ Astro's `site` value is used for canonical URL generation and build-time URL beh
 ```text
 ✓ npm install succeeds
 ✓ Blog runs
-✓ Wiki runs
 ✓ User Portal runs on 127.0.0.1:4323
 ✓ shared layout is visible on all applications
 ✓ npm run check passes

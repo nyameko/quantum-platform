@@ -16,7 +16,7 @@ Working today:
 
 - Astro monorepo with a shared design system
 - public Blog
-- public Wiki
+- ~public Wiki~ (removed)
 - authenticated User Portal
 - Django backend API
 - PostgreSQL-backed application state
@@ -44,8 +44,7 @@ The Phase 2 MVP is intentionally small enough to stress-test with students befor
 
 | Surface | Purpose | Technology | Target hostname |
 | --- | --- | --- | --- |
-| Blog | Research writing, announcements, project notes | Astro | `blog.nyameko.com` |
-| Wiki | Public technical and research documentation | Astro | `wiki.quantum.nyameko.com` |
+| Blog | Research writing, public technical documentation & announcements, project notes | Astro | `blog.nyameko.com` |
 | User Portal | Research identity, security, programmes, access workflow | Astro | `users.quantum.nyameko.com` |
 | User API | Authentication and platform business logic | Django + DRF + allauth | same origin as User Portal |
 | Database | Identity and application state | PostgreSQL | internal Kubernetes service only |
@@ -103,11 +102,6 @@ quantum-platform/
 │
 ├── apps/
 │   ├── blog/
-│   │   ├── src/
-│   │   ├── astro.config.mjs
-│   │   └── Dockerfile
-│   │
-│   ├── wiki/
 │   │   ├── src/
 │   │   ├── astro.config.mjs
 │   │   └── Dockerfile
@@ -352,7 +346,6 @@ Run individual applications:
 
 ```bash
 npm run dev:blog
-npm run dev:wiki
 npm run dev:users
 ```
 
@@ -477,7 +470,6 @@ The expected Kubernetes services are:
 
 ```text
 quantum-platform-blog
-quantum-platform-wiki
 quantum-platform-users
 quantum-platform-user-api
 quantum-platform-postgres
@@ -494,9 +486,6 @@ Traefik should route:
 ```text
 blog.nyameko.com
   /                   → quantum-platform-blog
-
-wiki.quantum.nyameko.com
-  /                   → quantum-platform-wiki
 
 users.quantum.nyameko.com
   /_allauth/*          → quantum-platform-user-api
@@ -583,7 +572,6 @@ Phase 1 — public web platform:
 - [x] Astro workspace
 - [x] shared visual system
 - [x] Blog
-- [x] Wiki
 - [x] User Portal shell
 
 Phase 2 — identity and research workflow:

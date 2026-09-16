@@ -1,7 +1,6 @@
 export const publicSites = {
   blog: 'https://blog.nyameko.com',
-  wiki: 'https://wiki.quantum.nyameko.com',
-  users: 'https://users.quantum.nyameko.com',
+  users: 'https://quantum.nyameko.com',
 } as const;
 
 export const privateSites = {
