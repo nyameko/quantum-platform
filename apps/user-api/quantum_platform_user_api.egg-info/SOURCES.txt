@@ -9,6 +9,7 @@ portal/__init__.py
 portal/admin.py
 portal/api_urls.py
 portal/apps.py
+portal/metrics.py
 portal/models.py
 portal/views.py
 portal/migrations/0001_initial.py

@@ -5,3 +5,4 @@ gunicorn<24,>=23
 psycopg[binary]<4,>=3.2
 python-dotenv<2,>=1.1
 whitenoise<7,>=6.11
+prometheus-client<1,>=0.22
