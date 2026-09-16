@@ -1,6 +1,5 @@
 ---
 import './global.css';
-import ThemeToggle from './ThemeToggle.astro';
 
 interface Props {
   title: string;
@@ -15,112 +14,34 @@ const {
   siteName = 'Quantum Platform',
   section,
 } = Astro.props;
-
-const links = [
-  {
-    label: 'Blog',
-    href: 'https://blog.nyameko.com',
-    section: 'Blog',
-  },
-  {
-    label: 'Quantum Platform',
-    href: 'https://quantum.nyameko.com',
-    section: 'User Portal',
-  },
-] as const;
-
-const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
 ---
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
-    <meta
-      name="theme-color"
-      content="#08080b"
-      id="theme-color"
-    />
+
     <title>{title} · {siteName}</title>
-
-    <script is:inline>
-      (() => {
-        const saved = localStorage.getItem('theme');
-        const theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
-        document.documentElement.dataset.theme = theme;
-
-        const themeColor = document.querySelector(
-          'meta[name="theme-color"]',
-        );
-
-        if (themeColor) {
-          themeColor.content =
-            theme === 'light' ? '#f7f6f8' : '#08080b';
-        }
-      })();
-    </script>
   </head>
 
   <body>
     <header class="site-header">
       <div class="container nav">
-        <div class="nav-left">
-          <ThemeToggle />
+        <a class="brand" href="https://quantum.nyameko.com">
+          QUANTUM PLATFORM
+        </a>
 
-          <a
-            class="brand"
-            href={Astro.url.origin}
-            aria-label="Quantum Platform home"
-          >
-            <span class="brand-mark">Q</span>
+        <nav aria-label="Primary">
+          <a class:list={[{ active: section === 'Blog' }]} href="https://blog.nyameko.com">Blog</a>
 
-            <span>
-              <strong>QUANTUM</strong>
-              <small>PLATFORM</small>
-            </span>
-          </a>
-        </div>
-
-        <div class="nav-actions">
-          <nav aria-label="Primary">
-            {
-              links.map(([label) => (
-                <a
-                  class:list={[{ active: section === label.section }]}
-                  href={link.href}
-                >
-                  {link.label}
-                </a>
-              ))
-            }
-          </nav>
-
-          {
-            section === 'User Portal' && (
-              <a
-                id="portal-account"
-                class="portal-account"
-                href="/profile/"
-                aria-label="Open profile"
-                hidden
-              >
-                <span class="portrait" aria-hidden="true">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                  >
-                    <circle cx="12" cy="8" r="4" />
-                    <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
-                  </svg>
-                </span>
-                <span id="portal-username">Account</span>
-              </a>
-            )
-          }
-        </div>
+          <a class:list={[{ active: section === 'User Portal' }]} href="https://quantum.nyameko.com">Quantum Platform</a>
+        </nav>
+        <nav aria-label="Primary">
+          <a href="https://blog.nyameko.com">Blog</a>
+          <a href="https://quantum.nyameko.com">Quantum Platform</a>
+        </nav>
       </div>
     </header>
 
@@ -129,330 +50,74 @@ const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
     </main>
 
     <footer class="site-footer">
-      <div class="container footer-top">
-        <div>
-          <p class="footer-brand">QUANTUM PLATFORM</p>
-          <p class="footer-copy">
-            Quantum computing infrastructure for research, engineering and open
-            collaboration.
-          </p>
-        </div>
+      <div class="container footer-inner">
+        <span>Nyameko · Quantum Computing Infrastructure</span>
 
-        <div class="footer-links">
-          <a
-            href="https://github.com/nyameko/quantum-platform"
-            aria-label="Quantum Platform on GitHub"
-          >
-            <svg
-              class="footer-icon"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                d="M12 2C6.48 2 2 6.58 2 12.24c0 4.52 2.87 8.35 6.85 9.7.5.1.68-.23.68-.5v-1.77c-2.79.63-3.38-1.2-3.38-1.2-.46-1.2-1.12-1.53-1.12-1.53-.92-.65.07-.64.07-.64 1.02.08 1.56 1.08 1.56 1.08.9 1.58 2.35 1.12 2.92.86.09-.67.35-1.12.63-1.38-2.23-.26-4.57-1.15-4.57-5.07 0-1.12.39-2.04 1.03-2.76-.1-.26-.45-1.31.1-2.73 0 0 .84-.28 2.76 1.05A9.2 9.2 0 0 1 12 7.99c.85 0 1.7.12 2.5.36 1.92-1.33 2.76-1.05 2.76-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.64 1.03 2.76 0 3.93-2.35 4.81-4.59 5.06.36.32.68.94.68 1.9v2.81c0 .27.18.6.69.5A10.25 10.25 0 0 0 22 12.24C22 6.58 17.52 2 12 2Z"
-              />
-            </svg>
-            <span>GitHub</span>
-          </a>
-
-          {
-            discordUrl && (
-              <a
-                href={discordUrl}
-                aria-label="Join the Quantum Platform Discord"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <svg
-                  class="footer-icon"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M19.54 5.17A16 16 0 0 0 15.64 4l-.5 1.04a14.6 14.6 0 0 0-6.28 0L8.36 4a16 16 0 0 0-3.9 1.17C1.98 8.92 1.31 12.58 1.64 16.2a15.9 15.9 0 0 0 4.78 2.38l1.16-1.59a9.9 9.9 0 0 1-1.83-.88l.45-.35c3.53 1.66 7.35 1.66 10.84 0l.45.35c-.58.34-1.19.64-1.83.88l1.16 1.59a15.9 15.9 0 0 0 4.78-2.38c.38-4.18-.65-7.81-2.06-11.03Zm-9.6 8.82c-1.06 0-1.93-.98-1.93-2.18s.85-2.18 1.93-2.18 1.94.98 1.93 2.18-.86 2.18-1.93 2.18Zm4.12 0c-1.07 0-1.94-.98-1.94-2.18s.86-2.18 1.94-2.18 1.93.98 1.93 2.18-.85 2.18-1.93 2.18Z"
-                  />
-                </svg>
-                <span>Discord</span>
-              </a>
-            )
-          }
-
+        <span>
           <a href="https://github.com/nyameko/quantum-platform">
-            Support the project
+            GitHub
           </a>
-        </div>
-      </div>
-
-      <div class="container footer-bottom">
-        <span>Nyameko · Open research platform</span>
-        <span>© {new Date().getFullYear()}</span>
+        </span>
       </div>
     </footer>
-
-    <script>
-      const account = document.querySelector<HTMLAnchorElement>(
-        '#portal-account',
-      );
-
-      if (account) {
-        (async () => {
-          try {
-            const response = await fetch('/api/v1/me/', {
-              credentials: 'same-origin',
-              cache: 'no-store',
-            });
-
-            if (!response.ok) return;
-
-            const me = await response.json();
-            const username =
-              me.person?.preferred_name
-              || me.person?.given_names
-              || me.username
-              || me.email;
-
-            const label = document.querySelector<HTMLSpanElement>(
-              '#portal-username',
-            );
-
-            if (label) {
-              label.textContent = username;
-            }
-
-            account.hidden = false;
-          } catch {
-            // Anonymous/public pages do not need an account control.
-          }
-        })();
-      }
-    </script>
   </body>
 </html>
 
 <style>
   .site-header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
     border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--background) 82%, transparent);
-    backdrop-filter: blur(18px);
+    background: color-mix(
+      in srgb,
+      var(--background) 92%,
+      transparent
+    );
   }
 
-  .nav {
+  .nav,
+  .footer-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    min-height: 68px;
-  }
-
-  .nav-left,
-  .nav-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
+    min-height: 64px;
   }
 
   .brand {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    color: var(--text);
-    text-decoration: none;
-  }
-
-  .brand-mark {
-    display: grid;
-    width: 2rem;
-    height: 2rem;
-    place-items: center;
-    border: 1px solid rgb(167 139 250 / 35%);
-    border-radius: 0.55rem;
-    background: linear-gradient(
-      135deg,
-      rgb(139 92 246 / 28%),
-      rgb(143 36 48 / 18%)
-    );
-    color: var(--purple);
     font-size: 0.82rem;
-    font-weight: 800;
-  }
-
-  .brand span:last-child {
-    display: grid;
-    line-height: 1;
-  }
-
-  .brand strong {
-    font-size: 0.78rem;
-    letter-spacing: 0.18em;
-  }
-
-  .brand small {
-    margin-top: 0.25rem;
-    color: var(--muted);
-    font-size: 0.48rem;
-    letter-spacing: 0.18em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-decoration: none;
   }
 
   nav {
     display: flex;
-    gap: 0.25rem;
+    gap: 1.25rem;
   }
 
-  nav a {
-    padding: 0.5rem 0.7rem;
-    border: 1px solid transparent;
-    border-radius: 0.55rem;
+  nav a,
+  .site-footer a {
     color: var(--muted);
-    font-size: 0.82rem;
     text-decoration: none;
   }
 
   nav a:hover,
-  nav a.active {
-    border-color: var(--border);
-    background: color-mix(in srgb, var(--text) 4%, transparent);
+  .site-footer a:hover {
     color: var(--text);
-  }
-
-  .portal-account {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: 2.25rem;
-    padding: 0.25rem 0.65rem 0.25rem 0.3rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--surface);
-    color: var(--muted-strong);
-    text-decoration: none;
-    font-size: 0.8rem;
-  }
-
-  .portal-account[hidden] {
-    display: none;
-  }
-
-  .portal-account:hover {
-    border-color: var(--border-strong);
-    background: var(--surface-elevated);
-    color: var(--text);
-  }
-
-  .portrait {
-    display: grid;
-    width: 1.7rem;
-    height: 1.7rem;
-    place-items: center;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--purple) 14%, var(--surface));
-    color: var(--purple);
-  }
-
-  .portrait svg {
-    width: 1rem;
-    height: 1rem;
   }
 
   .site-footer {
-    margin-top: 7rem;
-    border-top: 1px solid var(--border);
-    background: var(--background-soft);
-  }
-
-  .footer-top,
-  .footer-bottom {
-    display: flex;
-    justify-content: space-between;
-    gap: 2rem;
-  }
-
-  .footer-top {
-    padding: 3.5rem 0;
-  }
-
-  .footer-brand {
-    margin: 0;
-    color: var(--purple);
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.18em;
-  }
-
-  .footer-copy {
-    max-width: 32rem;
-    margin: 0.75rem 0 0;
-    color: var(--muted);
-  }
-
-  .footer-links {
-    display: flex;
-    align-items: start;
-    gap: 1rem;
-  }
-
-  .footer-links a {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--muted-strong);
-    text-decoration: none;
-  }
-
-  .footer-links a:hover {
-    color: var(--text);
-  }
-
-  .footer-icon {
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 auto;
-  }
-
-  .footer-bottom {
-    padding: 1rem 0;
+    margin-top: 6rem;
     border-top: 1px solid var(--border);
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 0.85rem;
   }
 
-  @media (max-width: 760px) {
-    .nav {
-      flex-wrap: wrap;
-      padding-block: 0.6rem;
-    }
-
-    .nav-actions {
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    nav a {
-      padding-inline: 0.45rem;
-    }
-  }
-
-  @media (max-width: 560px) {
-    .brand strong {
-      font-size: 0.7rem;
-    }
-
-    nav a {
-      padding-inline: 0.3rem;
-      font-size: 0.72rem;
-    }
-
-    #portal-username {
-      display: none;
-    }
-
-    .footer-top,
-    .footer-bottom {
+  @media (max-width: 700px) {
+    .nav,
+    .footer-inner {
       flex-direction: column;
+      justify-content: center;
+      padding: 0.9rem 0;
     }
   }
 </style>
