@@ -1,0 +1,8 @@
+{% extends "admin/index.html" %}
+{% block content %}
+<div class="module">
+  <h2>Agent Control Plane</h2>
+  <p><a href="{% url 'agent-history' %}">Infrastructure diagnostics and task history</a></p>
+</div>
+{{ block.super }}
+{% endblock %}

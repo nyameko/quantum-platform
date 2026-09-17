@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; Diagnostics</div>
+{% endblock %}
+{% block content %}
+<p>Check pod Ready-condition counts in the quantum-platform namespace and request a Hermes explanation.</p>
+<p>The diagnostic can read metrics. It cannot change infrastructure.</p>
+{% if service_error %}<p class="errornote" role="alert">{{ service_error }}</p>{% endif %}
+<form method="post">
+  {% csrf_token %}{{ form.as_p }}
+  <input type="submit" value="Run pod readiness diagnostic">
+</form>
+<br>
+<table>
+  <caption>Task and run history</caption>
+  <thead><tr><th>Created</th><th>Task</th><th>Status</th><th>Profile</th><th>Model</th></tr></thead>
+  <tbody>{% for task in tasks %}
+    <tr><td>{{ task.created_at }}</td>
+      <td><a href="{% url 'agent-task' task_id=task.task_id %}">{{ task.task_id }}</a></td>
+      <td>{{ task.status }}</td><td>{{ task.profile }}</td><td>{{ task.model|default:"Pending" }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="5">No diagnostic tasks are available.</td></tr>{% endfor %}</tbody>
+</table>
+<p>{% if offset %}<a href="?offset={{ previous_offset }}">Newer tasks</a>{% endif %}
+{% if next_offset != None %}<a href="?offset={{ next_offset }}">Older tasks</a>{% endif %}</p>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+<a href="{% url 'agent-history' %}">Diagnostics</a> &rsaquo; Task</div>
+{% endblock %}
+{% block content %}
+{% if service_error %}<p class="errornote" role="alert">{{ service_error }}</p>{% endif %}
+{% if task %}
+<p><strong>Status:</strong> {{ task.status }} · <a href="">Refresh</a></p>
+<dl>
+  <dt>Task / run</dt><dd>{{ task.task_id }} / {{ task.run_id }}</dd>
+  <dt>Requested by</dt><dd>{{ task.requested_by }}</dd>
+  <dt>Profile / session</dt><dd>{{ task.profile }} / {{ task.session_id|default:"Pending" }}</dd>
+  <dt>Model</dt><dd>{{ task.model|default:"Pending" }}</dd>
+  <dt>Hermes revision</dt><dd>{{ task.runtime_revision|default:"Pending" }}</dd>
+</dl>
+{% if task.failure_code %}<p class="errornote">Run failed: {{ task.failure_code }}. Any completed diagnostic evidence is retained below.</p>{% endif %}
+<h2>Hermes explanation</h2>
+<p>Generated interpretation; compare it with the recorded evidence.</p>
+<div style="white-space: pre-wrap; overflow-wrap: anywhere">{{ task.summary|default:"No explanation is available yet." }}</div>
+<h2>Diagnostic evidence</h2>
+<pre style="white-space: pre-wrap; overflow-wrap: anywhere">{{ evidence_json }}</pre>
+<h2>Run events</h2>
+<table><thead><tr><th>Time</th><th>Event</th></tr></thead>
+<tbody>{% for event in task.events %}<tr><td>{{ event.occurred_at }}</td><td>{{ event.kind }}</td></tr>{% endfor %}</tbody></table>
+{% endif %}
+{% endblock %}
