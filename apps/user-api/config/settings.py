@@ -328,3 +328,9 @@ STORAGES = {
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Internal administrative agent service. Empty URL keeps the integration disabled.
+AGENT_CONTROL_PLANE_URL = os.getenv("AGENT_CONTROL_PLANE_URL", "").rstrip("/")
+AGENT_CONTROL_PLANE_SIGNING_KEY_FILE = os.getenv("AGENT_CONTROL_PLANE_SIGNING_KEY_FILE", "")
+AGENT_CONTROL_PLANE_TENANT = os.getenv("AGENT_CONTROL_PLANE_TENANT", "nyameko")
+AGENT_ADMIN_HOST = os.getenv("AGENT_ADMIN_HOST", "admin.quantum.nyameko.com")

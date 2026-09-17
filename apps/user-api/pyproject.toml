@@ -16,6 +16,8 @@ dependencies = [
   "python-dotenv>=1.1,<2",
   "whitenoise>=6.11,<7",
   "prometheus-client>=0.22,<1",
+  "httpx>=0.28,<1",
+  "PyJWT[crypto]>=2.10,<3",
 ]
 
 [tool.setuptools.packages.find]
