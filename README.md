@@ -619,3 +619,13 @@ Later platform phases live primarily in `infra-hpc-qc-k8s`:
 ## License
 
 MIT.
+
+<!-- identity-programme-doc -->
+## Identity and programme authorization
+
+Quantum Platform allocates immutable infrastructure usernames at registration
+and uses approved programme membership as the future resource-authorization
+boundary. This is intentionally separate from the Agent Control Plane
+principal/task identity and from scientific workflow provenance.
+
+See [Identity and programme authorization](docs/identity-programmes.md).

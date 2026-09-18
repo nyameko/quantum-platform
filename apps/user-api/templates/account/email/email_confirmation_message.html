@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Verify your Quantum Platform account</title>
+</head>
+<body style="margin:0;padding:0;background:#08080b;color:#f5f3ff;font-family:Arial,Helvetica,sans-serif">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+         style="background:#08080b;padding:32px 16px">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+               style="max-width:620px;background:#111116;border:1px solid #292933;border-radius:16px">
+          <tr>
+            <td style="padding:38px">
+              <p style="margin:0 0 18px;color:#a78bfa;font-size:13px;font-weight:800;letter-spacing:.18em">
+                QUANTUM PLATFORM
+              </p>
+              <h1 style="margin:0 0 16px;color:#fff;font-size:28px;line-height:1.2">
+                Verify your email address
+              </h1>
+              <p style="margin:0 0 10px;color:#c7c5d1;line-height:1.6">
+                Hello {{ user.first_name|default:user.username }},
+              </p>
+              <p style="margin:0 0 26px;color:#c7c5d1;line-height:1.6">
+                Confirm your email address to activate your Quantum Platform research account.
+              </p>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 28px">
+                <tr>
+                  <td bgcolor="#7c3aed" style="border-radius:8px">
+                    <a href="{{ activate_url }}"
+                       style="display:inline-block;padding:14px 24px;color:#fff;text-decoration:none;font-weight:700">
+                      Verify email address
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 8px;color:#8f8c9d;font-size:13px">
+                Your system username
+              </p>
+              <div style="padding:12px 16px;margin-bottom:22px;background:#0b0b10;border:1px solid #292933;border-radius:8px;font-family:monospace;font-size:17px;color:#fff">
+                {{ user.username }}
+              </div>
+              <p style="margin:0 0 24px;color:#8f8c9d;font-size:13px;line-height:1.6">
+                This immutable identifier may be used for SSH, Slurm, JupyterHub and other approved research resources.
+              </p>
+              <p style="margin:0 0 6px;color:#8f8c9d;font-size:12px">
+                If the button does not work, open this link:
+              </p>
+              <p style="margin:0;word-break:break-all;font-size:12px">
+                <a href="{{ activate_url }}" style="color:#a78bfa">{{ activate_url }}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

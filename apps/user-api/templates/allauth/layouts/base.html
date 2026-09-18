@@ -1,0 +1,47 @@
+{% load static i18n %}
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <meta name="theme-color" content="#08080b">
+  <title>{% block head_title %}Account{% endblock head_title %} · Quantum Platform</title>
+  <link rel="stylesheet" href="{% static 'portal/account.css' %}">
+  {% block extra_head %}{% endblock extra_head %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="https://quantum.nyameko.com/">
+        <span class="brand-mark">Q</span>
+        <span><strong>QUANTUM</strong><small>PLATFORM</small></span>
+      </a>
+      <nav>
+        <a href="https://blog.nyameko.com/">Blog</a>
+        <a href="https://quantum.nyameko.com/">Quantum Platform</a>
+        <a href="https://quantum.nyameko.com/security/">Security</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container account-shell">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <section class="account-card">
+      {% block content %}{% endblock content %}
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer">
+      <span>Quantum Platform · Open research infrastructure</span>
+      <a href="https://github.com/nyameko/quantum-platform">GitHub</a>
+    </div>
+  </footer>
+
+  {% block extra_body %}{% endblock extra_body %}
+</body>
+</html>

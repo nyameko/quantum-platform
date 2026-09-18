@@ -2,19 +2,22 @@
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 ---
 
-<SiteLayout
-  title="Profile"
-  siteName="Quantum Platform"
-  section="User Portal"
->
+<SiteLayout title="Profile" siteName="Quantum Platform" section="User Portal">
   <section class="section container page-shell">
     <p class="eyebrow">IDENTITY</p>
     <h1>Research profile</h1>
     <p class="lede">
-      Maintain the identity information used by programme and access workflows.
+      Your username is an immutable infrastructure identity. Human profile
+      details can change without renaming SSH, Slurm or historical records.
     </p>
 
     <form id="profile-form">
+      <label class="wide">
+        Username
+        <input name="username" readonly aria-readonly="true" />
+        <small>Automatically generated at registration; cannot be changed.</small>
+      </label>
+
       <label>
         Given names
         <input name="given_names" required />
@@ -25,171 +28,103 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         <input name="family_name" required />
       </label>
 
-      <label>
-        Preferred name
-        <input name="preferred_name" />
+      <label class="wide">
+        Primary institution
+        <select name="institution" id="institution" required></select>
       </label>
 
-      <label>
-        Institution
-        <input name="institution" />
-      </label>
-
-      <label>
-        Department
-        <input name="department" />
-      </label>
-
-      <label>
+      <label class="wide">
         ORCID
         <input name="orcid" placeholder="0000-0000-0000-0000" />
       </label>
 
-      <div class="actions">
+      <div class="actions wide">
         <button type="submit">Save profile</button>
         <a href="/dashboard/">Back to dashboard</a>
       </div>
 
-      <p id="message" role="status"></p>
+      <p id="message" class="wide" role="status"></p>
     </form>
   </section>
 </SiteLayout>
 
 <script>
+  import { csrfJsonFetch, requireSession } from '../lib/auth';
   import {
-    csrfJsonFetch,
-    requireSession,
-  } from '../lib/auth';
+    loadInstitutions,
+    populateInstitutionSelect,
+  } from '../lib/institutions';
 
   const form = document.querySelector<HTMLFormElement>('#profile-form');
   const message = document.querySelector<HTMLParagraphElement>('#message');
+  const institution = document.querySelector<HTMLSelectElement>('#institution');
 
-  if (await requireSession()) {
-    const response = await fetch('/api/v1/me/', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
+  async function initialise() {
+    if (!(await requireSession())) return;
 
-    if (response.ok) {
-      const me = await response.json();
-      const person = me.person;
+    const [response, institutions] = await Promise.all([
+      fetch('/api/v1/me/', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }),
+      loadInstitutions(),
+    ]);
 
-      if (person && form) {
-        const fields = [
-          'given_names',
-          'family_name',
-          'preferred_name',
-          'institution',
-          'department',
-          'orcid',
-        ];
+    if (!response.ok || !form) return;
 
-        for (const name of fields) {
-          const input = form.elements.namedItem(name) as HTMLInputElement | null;
+    const me = await response.json();
+    const username = form.elements.namedItem('username') as HTMLInputElement | null;
+    if (username) username.value = me.username ?? '';
 
-          if (input) {
-            input.value = person[name] ?? '';
-          }
-        }
-      }
+    const person = me.person;
+    for (const name of ['given_names', 'family_name', 'orcid']) {
+      const input = form.elements.namedItem(name) as HTMLInputElement | null;
+      if (input) input.value = person?.[name] ?? '';
+    }
+
+    if (institution) {
+      populateInstitutionSelect(
+        institution,
+        institutions,
+        person?.institution ?? '',
+      );
     }
   }
+
+  void initialise();
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    const body = Object.fromEntries(new FormData(form).entries());
+    const data = new FormData(form);
+    data.delete('username');
 
     const response = await csrfJsonFetch('/api/v1/profile/', {
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: JSON.stringify(Object.fromEntries(data.entries())),
     });
+    const payload = await response.json().catch(() => ({}));
 
     if (message) {
       message.textContent = response.ok
         ? 'Profile saved.'
-        : 'Unable to save profile.';
+        : payload.detail || 'Unable to save profile.';
     }
   });
 </script>
 
 <style>
-  .page-shell {
-    max-width: 56rem;
-  }
-
-  h1 {
-    margin: 0.4rem 0 0;
-    font-size: clamp(2.8rem, 6vw, 5rem);
-    letter-spacing: -0.05em;
-  }
-
-  form {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-    margin-top: 2rem;
-  }
-
-  label {
-    display: grid;
-    gap: 0.45rem;
-    color: var(--muted-strong);
-  }
-
-  input {
-    padding: 0.8rem;
-    border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    background: var(--background);
-    color: var(--text);
-    font: inherit;
-  }
-
-  .actions,
-  #message {
-    grid-column: 1 / -1;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.8rem;
-    align-items: center;
-    margin-top: 0.5rem;
-  }
-
-  button,
-  .actions a {
-    min-height: 2.7rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 1rem;
-    border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    text-decoration: none;
-    font: inherit;
-  }
-
-  button {
-    border: 0;
-    background: var(--purple-strong);
-    color: white;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .actions a {
-    background: var(--surface);
-    color: var(--text);
-  }
-
-  #message {
-    color: var(--muted-strong);
-  }
-
-  @media (max-width: 680px) {
-    form {
-      grid-template-columns: 1fr;
-    }
-  }
+  .page-shell { max-width:56rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.8rem,6vw,5rem); letter-spacing:-.05em; }
+  form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-top:2.5rem; }
+  label { display:grid; gap:.45rem; color:var(--muted-strong); }
+  .wide { grid-column:1/-1; }
+  input, select { box-sizing:border-box; width:100%; padding:.8rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); color:var(--text); font:inherit; }
+  input[readonly] { color:var(--purple); background:var(--background-soft); }
+  small { color:var(--muted); }
+  .actions { display:flex; align-items:center; gap:1rem; margin-top:.5rem; }
+  button { min-height:2.8rem; padding:0 1rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; }
+  .actions a { color:var(--muted-strong); }
+  #message { color:var(--muted-strong); }
+  @media (max-width:680px) { form { grid-template-columns:1fr; } .wide { grid-column:auto; } }
 </style>

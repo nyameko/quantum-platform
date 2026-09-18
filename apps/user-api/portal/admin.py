@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from .models import (
     AuditEvent,
@@ -8,6 +8,11 @@ from .models import (
     ResearchProgramme,
     SSHKey,
     WireGuardKey,
+)
+from .programme_services import (
+    ApprovalError,
+    approve_pi_application_record,
+    reject_pi_application_record,
 )
 
 
@@ -30,7 +35,12 @@ class PersonAdmin(admin.ModelAdmin):
 @admin.register(ResearchProgramme)
 class ResearchProgrammeAdmin(admin.ModelAdmin):
     list_display = ("name", "acronym", "pi", "institution", "status")
-    search_fields = ("name", "acronym", "institution", "pi__family_name")
+    search_fields = (
+        "name",
+        "acronym",
+        "institution",
+        "pi__family_name",
+    )
     list_filter = ("status", "institution")
     autocomplete_fields = ("pi",)
 
@@ -47,8 +57,10 @@ class ProgrammeMembershipAdmin(admin.ModelAdmin):
     )
     search_fields = (
         "programme__name",
+        "programme__acronym",
         "person__family_name",
         "person__given_names",
+        "person__user__username",
         "person__user__email",
     )
     list_filter = ("status", "role")
@@ -60,6 +72,7 @@ class ProgrammeMembershipAdmin(admin.ModelAdmin):
 class PIApplicationAdmin(admin.ModelAdmin):
     list_display = (
         "programme_name",
+        "programme_acronym",
         "applicant",
         "institution",
         "status",
@@ -72,11 +85,59 @@ class PIApplicationAdmin(admin.ModelAdmin):
         "institution",
         "applicant__family_name",
         "applicant__given_names",
+        "applicant__user__username",
         "applicant__user__email",
     )
     list_filter = ("status", "institution")
-    autocomplete_fields = ("applicant", "reviewed_by")
+    autocomplete_fields = ("applicant",)
+    readonly_fields = (
+        "programme_acronym",
+        "status",
+        "reviewed_at",
+        "reviewed_by",
+    )
     date_hierarchy = "created_at"
+    actions = ("approve_selected", "reject_selected")
+
+    @admin.action(description="Approve selected PI applications")
+    def approve_selected(self, request, queryset):
+        approved = 0
+        for application in queryset:
+            try:
+                approve_pi_application_record(application, request.user)
+                approved += 1
+            except ApprovalError as exc:
+                self.message_user(
+                    request,
+                    f"{application}: {exc}",
+                    level=messages.WARNING,
+                )
+        if approved:
+            self.message_user(
+                request,
+                f"Approved {approved} PI application(s).",
+                level=messages.SUCCESS,
+            )
+
+    @admin.action(description="Reject selected PI applications")
+    def reject_selected(self, request, queryset):
+        rejected = 0
+        for application in queryset:
+            try:
+                reject_pi_application_record(application, request.user)
+                rejected += 1
+            except ApprovalError as exc:
+                self.message_user(
+                    request,
+                    f"{application}: {exc}",
+                    level=messages.WARNING,
+                )
+        if rejected:
+            self.message_user(
+                request,
+                f"Rejected {rejected} PI application(s).",
+                level=messages.SUCCESS,
+            )
 
 
 @admin.register(AuditEvent)
@@ -114,7 +175,13 @@ class AuditEventAdmin(admin.ModelAdmin):
 
 @admin.register(SSHKey)
 class SSHKeyAdmin(admin.ModelAdmin):
-    list_display = ("person", "name", "fingerprint", "active", "created_at")
+    list_display = (
+        "person",
+        "name",
+        "fingerprint",
+        "active",
+        "created_at",
+    )
     search_fields = (
         "person__family_name",
         "person__given_names",
@@ -127,7 +194,13 @@ class SSHKeyAdmin(admin.ModelAdmin):
 
 @admin.register(WireGuardKey)
 class WireGuardKeyAdmin(admin.ModelAdmin):
-    list_display = ("person", "name", "public_key", "active", "created_at")
+    list_display = (
+        "person",
+        "name",
+        "public_key",
+        "active",
+        "created_at",
+    )
     search_fields = (
         "person__family_name",
         "person__given_names",

@@ -1,0 +1,19 @@
+Hello {{ user.first_name|default:user.username }},
+
+Welcome to Quantum Platform.
+
+Please verify your email address to activate your research account:
+
+{{ activate_url }}
+
+Your immutable system username is:
+
+{{ user.username }}
+
+This username is used as your Quantum Platform infrastructure identity and may
+later be used for SSH, Slurm, JupyterHub and approved HPC/QPU resources.
+
+If you did not create this account, you can safely ignore this message.
+
+Quantum Platform
+https://quantum.nyameko.com/

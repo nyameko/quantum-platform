@@ -334,3 +334,38 @@ AGENT_CONTROL_PLANE_URL = os.getenv("AGENT_CONTROL_PLANE_URL", "").rstrip("/")
 AGENT_CONTROL_PLANE_SIGNING_KEY_FILE = os.getenv("AGENT_CONTROL_PLANE_SIGNING_KEY_FILE", "")
 AGENT_CONTROL_PLANE_TENANT = os.getenv("AGENT_CONTROL_PLANE_TENANT", "nyameko")
 AGENT_ADMIN_HOST = os.getenv("AGENT_ADMIN_HOST", "admin.quantum.nyameko.com")
+
+# BEGIN QUANTUM_PLATFORM_IDENTITY_PROGRAMME
+# This block is intentionally appended instead of replacing settings.py.
+# The Agent Control Plane settings added in the reviewed orchestration work
+# remain untouched above it.
+ACCOUNT_LOGIN_METHODS = {"email", "username"}
+
+# Optional at allauth's schema layer. The public UI does not ask for username
+# and QuantumAccountAdapter always overwrites any supplied value.
+ACCOUNT_SIGNUP_FIELDS = [
+    "username",
+    "email*",
+    "password1*",
+    "password2*",
+]
+ACCOUNT_SIGNUP_FORM_CLASS = "portal.forms.AccountSignupForm"
+ACCOUNT_ADAPTER = "portal.adapters.QuantumAccountAdapter"
+
+# Canonical Astro directory URLs prevent nginx from constructing redirects
+# using its internal http://:8080 listener.
+HEADLESS_FRONTEND_URLS = {
+    "account_confirm_email": (
+        f"{PORTAL_BASE_URL}/account/verify-email/?key={{key}}"
+    ),
+    "account_reset_password": (
+        f"{PORTAL_BASE_URL}/account/password/reset/"
+    ),
+    "account_reset_password_from_key": (
+        f"{PORTAL_BASE_URL}/account/password/reset/key/?key={{key}}"
+    ),
+    "account_signup": (
+        f"{PORTAL_BASE_URL}/account/signup/"
+    ),
+}
+# END QUANTUM_PLATFORM_IDENTITY_PROGRAMME

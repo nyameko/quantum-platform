@@ -2,51 +2,51 @@
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 ---
 
-<SiteLayout
-  title="Create account"
-  siteName="Quantum Platform"
-  section="User Portal"
->
+<SiteLayout title="Create account" siteName="Quantum Platform" section="User Portal">
   <section class="auth-shell container">
     <div class="auth-card">
       <p class="eyebrow">USER PORTAL</p>
       <h1>Create account</h1>
       <p class="lede">
-        Start with a verified Quantum Platform identity.
+        Create a verified research identity. Your immutable system username is
+        generated automatically for future SSH, Slurm and approved resources.
       </p>
 
       <form id="signup-form">
+        <div class="field-grid">
+          <label>
+            Given name(s)
+            <input name="given_names" autocomplete="given-name" required />
+          </label>
+          <label>
+            Family name
+            <input name="family_name" autocomplete="family-name" required />
+          </label>
+        </div>
+
+        <label>
+          Primary institution
+          <select name="institution" id="institution" required disabled>
+            <option>Loading institutions…</option>
+          </select>
+        </label>
+
         <label>
           Email
-          <input
-            name="email"
-            type="email"
-            autocomplete="email"
-            required
-          />
+          <input name="email" type="email" autocomplete="email" required />
         </label>
 
         <label>
           Password
-          <input
-            name="password"
-            type="password"
-            autocomplete="new-password"
-            required
-          />
+          <input name="password" type="password" autocomplete="new-password" required />
         </label>
 
         <label>
           Confirm password
-          <input
-            name="password_confirm"
-            type="password"
-            autocomplete="new-password"
-            required
-          />
+          <input name="password_confirm" type="password" autocomplete="new-password" required />
         </label>
 
-        <button type="submit">Create account</button>
+        <button id="submit" type="submit" disabled>Create account</button>
         <p id="message" role="status"></p>
       </form>
 
@@ -64,31 +64,58 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     hasPendingFlow,
     readPayload,
   } from '../../lib/auth';
+  import {
+    loadInstitutions,
+    populateInstitutionSelect,
+  } from '../../lib/institutions';
 
   const form = document.querySelector<HTMLFormElement>('#signup-form');
   const message = document.querySelector<HTMLParagraphElement>('#message');
+  const institution = document.querySelector<HTMLSelectElement>('#institution');
+  const submit = document.querySelector<HTMLButtonElement>('#submit');
+
+  async function initialise() {
+    try {
+      const institutions = await loadInstitutions();
+      if (institution) {
+        populateInstitutionSelect(institution, institutions);
+        institution.disabled = false;
+      }
+      if (submit) submit.disabled = false;
+    } catch (error) {
+      if (message) {
+        message.textContent =
+          error instanceof Error
+            ? error.message
+            : 'Unable to load registration data.';
+      }
+    }
+  }
+
+  void initialise();
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const data = new FormData(form);
     const password = String(data.get('password') ?? '');
-    const confirmation = String(
-      data.get('password_confirm') ?? '',
-    );
+    const confirmation = String(data.get('password_confirm') ?? '');
 
     if (password !== confirmation) {
-      if (message) {
-        message.textContent = 'The passwords do not match.';
-      }
+      if (message) message.textContent = 'The passwords do not match.';
       return;
     }
+
+    if (submit) submit.disabled = true;
 
     const response = await csrfJsonFetch(
       '/_allauth/browser/v1/auth/signup',
       {
         method: 'POST',
         body: JSON.stringify({
+          given_names: data.get('given_names'),
+          family_name: data.get('family_name'),
+          institution: data.get('institution'),
           email: data.get('email'),
           password,
         }),
@@ -113,70 +140,21 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         'Unable to create the account.',
       );
     }
+    if (submit) submit.disabled = false;
   });
 </script>
 
 <style>
-  .auth-shell {
-    min-height: 72vh;
-    display: grid;
-    place-items: center;
-  }
-
-  .auth-card {
-    width: min(100%, 32rem);
-    padding: 2rem;
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    background: var(--surface);
-    box-shadow: var(--shadow);
-  }
-
-  h1 {
-    margin: 0.4rem 0 0;
-    font-size: 2.8rem;
-    letter-spacing: -0.04em;
-  }
-
-  form {
-    display: grid;
-    gap: 1rem;
-    margin-top: 2rem;
-  }
-
-  label {
-    display: grid;
-    gap: 0.45rem;
-  }
-
-  input {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 0.8rem;
-    border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    background: var(--background);
-    color: var(--text);
-    font: inherit;
-  }
-
-  button {
-    min-height: 2.8rem;
-    border: 0;
-    border-radius: 0.65rem;
-    background: var(--purple-strong);
-    color: white;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  #message {
-    min-height: 1.5rem;
-    color: var(--red-strong);
-  }
-
-  .secondary {
-    margin-top: 1.5rem;
-    color: var(--muted);
-  }
+  .auth-shell { min-height:72vh; display:grid; place-items:center; }
+  .auth-card { width:min(100%,42rem); padding:2rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); box-shadow:var(--shadow); }
+  h1 { margin:.4rem 0 0; font-size:2.8rem; letter-spacing:-.04em; }
+  form { display:grid; gap:1rem; margin-top:2rem; }
+  .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+  label { display:grid; gap:.45rem; color:var(--muted-strong); }
+  input, select { box-sizing:border-box; width:100%; padding:.8rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); color:var(--text); font:inherit; }
+  button { min-height:2.8rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  #message { min-height:1.5rem; margin:0; color:var(--red-strong); }
+  .secondary { margin-top:1.5rem; color:var(--muted); }
+  @media (max-width:680px) { .field-grid { grid-template-columns:1fr; } }
 </style>

@@ -1,26 +1,29 @@
 from django.urls import path
 
-from .views import (
-    approve_membership,
+from .identity_api import (
     approve_pi_application,
     create_pi_application,
-    csrf,
-    health,
-    list_membership_requests,
+    institutions,
     list_memberships,
     list_pi_applications,
     list_programmes,
     me,
-    reject_membership,
     reject_pi_application,
-    request_membership,
     upsert_profile,
 )
-
+from .views import (
+    approve_membership,
+    csrf,
+    health,
+    list_membership_requests,
+    reject_membership,
+    request_membership,
+)
 
 urlpatterns = [
     path("health/", health, name="health"),
     path("csrf/", csrf, name="csrf"),
+    path("institutions/", institutions, name="institutions"),
     path("me/", me, name="me"),
     path("profile/", upsert_profile, name="profile"),
     path("programmes/", list_programmes, name="programmes"),

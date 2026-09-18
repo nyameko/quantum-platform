@@ -2,47 +2,47 @@
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 ---
 
-<SiteLayout
-  title="PI Application"
-  siteName="Quantum Platform"
-  section="User Portal"
->
+<SiteLayout title="PI Application" siteName="Quantum Platform" section="User Portal">
   <section class="section container page-shell">
     <p class="eyebrow">RESEARCH PROGRAMME</p>
     <h1>Apply as a Principal Investigator</h1>
     <p class="lede">
-      Submit a research programme for platform administrator approval.
+      Each approved programme is an independent authorization and resource
+      scope. A PI may own multiple programmes.
     </p>
 
     <form id="application-form">
       <label>
+        Username
+        <input name="username" readonly />
+      </label>
+
+      <label>
         Given names
-        <input name="given_names" required />
+        <input name="given_names" readonly />
       </label>
 
       <label>
         Family name
-        <input name="family_name" required />
+        <input name="family_name" readonly />
       </label>
 
       <label>
-        Institution
-        <input name="institution" required />
+        Primary institution
+        <select name="institution" id="institution" required></select>
       </label>
 
-      <label>
-        Department
-        <input name="department" />
-      </label>
-
-      <label>
+      <label class="wide">
         Programme name
-        <input name="programme_name" required />
+        <input name="programme_name" id="programme-name" required />
       </label>
 
-      <label>
-        Programme acronym
-        <input name="programme_acronym" />
+      <label class="wide">
+        Programme identifier
+        <input id="programme-acronym" readonly aria-readonly="true" />
+        <small>
+          Preview only. Django allocates the authoritative identifier on submission.
+        </small>
       </label>
 
       <label class="wide">
@@ -61,140 +61,141 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 </SiteLayout>
 
 <script>
+  import { csrfJsonFetch, requireSession } from '../../lib/auth';
   import {
-    csrfJsonFetch,
-    requireSession,
-  } from '../../lib/auth';
+    loadInstitutions,
+    populateInstitutionSelect,
+  } from '../../lib/institutions';
 
   const form = document.querySelector<HTMLFormElement>('#application-form');
   const message = document.querySelector<HTMLParagraphElement>('#message');
+  const institution = document.querySelector<HTMLSelectElement>('#institution');
+  const programmeName = document.querySelector<HTMLInputElement>('#programme-name');
+  const acronym = document.querySelector<HTMLInputElement>('#programme-acronym');
 
-  if (await requireSession()) {
-    const meResponse = await fetch('/api/v1/me/', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
+  let username = '';
 
-    if (meResponse.ok && form) {
-      const me = await meResponse.json();
-
-      if (me.person) {
-        for (const name of [
-          'given_names',
-          'family_name',
-          'institution',
-          'department',
-        ]) {
-          const field = form.elements.namedItem(name) as HTMLInputElement | null;
-          if (field) field.value = me.person[name] ?? '';
-        }
-      }
+  function programmeCode(name: string) {
+    const generic = new Set([
+      'a','an','and','for','from','framework','hybrid','in','of','on',
+      'platform','program','programme','project','research','the','to',
+      'with','workflow','workflows',
+    ]);
+    const codes: Record<string,string> = {
+      artificial:'a', centered:'c', centred:'c', centric:'c',
+      computing:'c', intelligence:'i', learning:'l', machine:'m',
+      medical:'m', medicine:'m', nuclear:'n', optics:'o',
+      photonics:'p', physics:'p', quantum:'q', simulation:'s',
+      supercomputer:'sc', supercomputing:'sc',
+    };
+    const words = name.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+    const meaningful = words.filter((word) => !generic.has(word));
+    let code = meaningful.map((word) => codes[word] ?? word.slice(0,1)).join('');
+    if (code.length < 2) {
+      code = (code + words.map((word) => word.slice(0,1)).join('')).slice(0,2);
     }
+    return (code || 'rp').slice(0,6);
   }
+
+  function updatePreview() {
+    if (!acronym || !institution || !programmeName) return;
+    const institutionCode = institution.value.toLowerCase();
+    const name = programmeName.value.trim();
+    acronym.value =
+      institutionCode && username && name
+        ? `${institutionCode}-${username}-${programmeCode(name)}`
+        : '';
+  }
+
+  async function initialise() {
+    if (!(await requireSession())) return;
+
+    const [meResponse, institutions] = await Promise.all([
+      fetch('/api/v1/me/', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }),
+      loadInstitutions(),
+    ]);
+
+    if (!meResponse.ok || !form) return;
+
+    const me = await meResponse.json();
+    username = me.username ?? '';
+
+    for (const [name, value] of [
+      ['username', me.username],
+      ['given_names', me.person?.given_names],
+      ['family_name', me.person?.family_name],
+    ]) {
+      const field = form.elements.namedItem(name) as HTMLInputElement | null;
+      if (field) field.value = String(value ?? '');
+    }
+
+    if (institution) {
+      populateInstitutionSelect(
+        institution,
+        institutions,
+        me.person?.institution ?? '',
+      );
+    }
+
+    updatePreview();
+  }
+
+  void initialise();
+  institution?.addEventListener('change', updatePreview);
+  programmeName?.addEventListener('input', updatePreview);
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
-
-    const body = Object.fromEntries(new FormData(form).entries());
+    const data = new FormData(form);
 
     const response = await csrfJsonFetch(
       '/api/v1/pi-applications/submit/',
       {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          institution: data.get('institution'),
+          programme_name: data.get('programme_name'),
+          programme_description: data.get('programme_description'),
+        }),
       },
     );
 
     const payload = await response.json().catch(() => ({}));
 
-    if (message) {
-      message.textContent = response.ok
-        ? 'PI application submitted for review.'
-        : payload.detail || 'Unable to submit PI application.';
+    if (!response.ok) {
+      if (message) {
+        message.textContent =
+          payload.detail || 'Unable to submit PI application.';
+      }
+      return;
     }
 
-    if (response.ok) {
-      form.reset();
+    if (message) {
+      message.textContent =
+        `Application submitted as ${payload.programme_acronym}.`;
     }
+
+    window.setTimeout(() => {
+      window.location.href = '/programmes/';
+    }, 700);
   });
 </script>
 
 <style>
-  .page-shell {
-    max-width: 60rem;
-  }
-
-  h1 {
-    margin: 0.4rem 0 0;
-    font-size: clamp(2.8rem, 6vw, 5rem);
-    letter-spacing: -0.05em;
-  }
-
-  form {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-    margin-top: 2rem;
-  }
-
-  label {
-    display: grid;
-    gap: 0.45rem;
-  }
-
-  input,
-  textarea {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 0.8rem;
-    border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    background: var(--background);
-    color: var(--text);
-    font: inherit;
-  }
-
-  .wide {
-    grid-column: 1 / -1;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.8rem;
-    align-items: center;
-  }
-
-  button,
-  .actions a {
-    min-height: 2.7rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 1rem;
-    border-radius: 0.65rem;
-    text-decoration: none;
-  }
-
-  button {
-    border: 0;
-    background: var(--purple-strong);
-    color: white;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .actions a {
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-  }
-
-  #message {
-    color: var(--muted-strong);
-  }
-
-  @media (max-width: 680px) {
-    form {
-      grid-template-columns: 1fr;
-    }
-  }
+  .page-shell { max-width:60rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.7rem,6vw,5rem); letter-spacing:-.05em; }
+  form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-top:2.5rem; }
+  label { display:grid; gap:.45rem; color:var(--muted-strong); }
+  .wide { grid-column:1/-1; }
+  input, select, textarea { box-sizing:border-box; width:100%; padding:.8rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); color:var(--text); font:inherit; }
+  input[readonly] { color:var(--purple); background:var(--background-soft); }
+  small { color:var(--muted); }
+  .actions { display:flex; align-items:center; gap:1rem; }
+  button { min-height:2.8rem; padding:0 1rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; }
+  .actions a { color:var(--muted-strong); }
+  #message { color:var(--muted-strong); }
+  @media (max-width:680px) { form { grid-template-columns:1fr; } .wide { grid-column:auto; } }
 </style>

@@ -2,25 +2,25 @@
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 ---
 
-<SiteLayout
-  title="Research Programmes"
-  siteName="Quantum Platform"
-  section="User Portal"
->
+<SiteLayout title="Research Programmes" siteName="Quantum Platform" section="User Portal">
   <section class="section container">
     <div class="heading-row">
       <div>
         <p class="eyebrow">RESEARCH</p>
         <h1>Research programmes</h1>
         <p class="lede">
-          Join an active programme or apply to establish one as a PI.
+          Programme membership is the authorization boundary for research resources.
         </p>
       </div>
-
-      <a class="primary-action" href="/programmes/apply/">
-        Apply as a PI
-      </a>
+      <a class="primary-action" href="/programmes/apply/">Apply as a PI</a>
     </div>
+
+    <section class="subsection">
+      <p class="eyebrow">YOUR PI APPLICATIONS</p>
+      <div id="applications" class="grid grid-2">
+        <p>Loading applications…</p>
+      </div>
+    </section>
 
     <section class="subsection">
       <p class="eyebrow">YOUR MEMBERSHIPS</p>
@@ -41,69 +41,113 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 </SiteLayout>
 
 <script>
-  import {
-    csrfJsonFetch,
-    requireSession,
-  } from '../../lib/auth';
+  import { csrfJsonFetch, requireSession } from '../../lib/auth';
 
   const programmesRoot = document.querySelector<HTMLDivElement>('#programmes');
   const membershipsRoot = document.querySelector<HTMLDivElement>('#memberships');
+  const applicationsRoot = document.querySelector<HTMLDivElement>('#applications');
   const message = document.querySelector<HTMLParagraphElement>('#message');
 
-  if (await requireSession()) {
-    const [programmeResponse, membershipResponse] = await Promise.all([
-      fetch('/api/v1/programmes/', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      }),
-      fetch('/api/v1/memberships/', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      }),
-    ]);
+  const escapeHtml = (value: unknown) =>
+    String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+
+  async function refresh() {
+    if (!(await requireSession())) return;
+
+    const [programmeResponse, membershipResponse, applicationResponse] =
+      await Promise.all([
+        fetch('/api/v1/programmes/', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        }),
+        fetch('/api/v1/memberships/', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        }),
+        fetch('/api/v1/pi-applications/', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        }),
+      ]);
 
     const programmes = programmeResponse.ok
       ? await programmeResponse.json()
       : [];
-
     const memberships = membershipResponse.ok
       ? await membershipResponse.json()
       : [];
+    const applications = applicationResponse.ok
+      ? await applicationResponse.json()
+      : [];
+
+    if (applicationsRoot) {
+      applicationsRoot.innerHTML = applications.length
+        ? applications.map((app: any) => `
+          <article class="portal-panel">
+            <p class="panel-eyebrow">${escapeHtml(app.programme_acronym || 'PI APPLICATION')}</p>
+            <h2>${escapeHtml(app.programme_name)}</h2>
+            <p class="muted">${escapeHtml(app.institution_label || app.institution)}</p>
+            <span class="status-chip">${escapeHtml(app.status)}</span>
+          </article>
+        `).join('')
+        : '<p>No PI applications yet.</p>';
+    }
 
     if (membershipsRoot) {
       membershipsRoot.innerHTML = memberships.length
         ? memberships.map((membership: any) => `
           <article class="portal-panel">
-            <p class="panel-eyebrow">${membership.role}</p>
-            <h2>${membership.programme.acronym || membership.programme.name}</h2>
-            <p>${membership.programme.name}</p>
-            <span class="status-chip">${membership.status}</span>
+            <p class="panel-eyebrow">${escapeHtml(membership.role)}</p>
+            <h2>${escapeHtml(membership.programme.acronym || membership.programme.name)}</h2>
+            <p>${escapeHtml(membership.programme.name)}</p>
+            <span class="status-chip">${escapeHtml(membership.status)}</span>
           </article>
         `).join('')
         : '<p>No programme memberships yet.</p>';
     }
 
     if (programmesRoot) {
+      const membershipByProgramme = new Map(
+        memberships.map((membership: any) => [
+          String(membership.programme.id),
+          membership,
+        ]),
+      );
+
       programmesRoot.innerHTML = programmes.length
-        ? programmes.map((programme: any) => `
-          <article class="portal-panel">
-            <p class="panel-eyebrow">${programme.acronym || 'PROGRAMME'}</p>
-            <h2>${programme.name}</h2>
-            <p>${programme.description}</p>
-            <p class="muted">${programme.institution}</p>
-            <p class="muted">PI: ${programme.pi.name}</p>
-            <button data-programme-id="${programme.id}">
-              Request membership
-            </button>
-          </article>
-        `).join('')
+        ? programmes.map((programme: any) => {
+            const membership: any =
+              membershipByProgramme.get(String(programme.id));
+
+            const action = membership
+              ? `<span class="status-chip">${escapeHtml(membership.status)} · ${escapeHtml(membership.role)}</span>`
+              : `<button data-programme-id="${programme.id}">Request membership</button>`;
+
+            return `
+              <article class="portal-panel">
+                <p class="panel-eyebrow">${escapeHtml(programme.acronym || 'PROGRAMME')}</p>
+                <h2>${escapeHtml(programme.name)}</h2>
+                <p>${escapeHtml(programme.description)}</p>
+                <p class="muted">${escapeHtml(programme.institution_label || programme.institution)}</p>
+                <p class="muted">PI: ${escapeHtml(programme.pi.name)}</p>
+                ${action}
+              </article>
+            `;
+          }).join('')
         : '<p>No active research programmes are available yet.</p>';
     }
   }
 
+  void refresh();
+  window.addEventListener('pageshow', () => void refresh());
+
   programmesRoot?.addEventListener('click', async (event) => {
     const button = event.target as HTMLButtonElement;
-
     if (!button.matches('button[data-programme-id]')) return;
 
     button.disabled = true;
@@ -115,7 +159,6 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         body: JSON.stringify({}),
       },
     );
-
     const payload = await response.json().catch(() => ({}));
 
     if (message) {
@@ -125,7 +168,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     }
 
     if (response.ok) {
-      button.textContent = 'Requested';
+      await refresh();
     } else {
       button.disabled = false;
     }
@@ -133,91 +176,16 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 </script>
 
 <style>
-  .heading-row {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 2rem;
-  }
-
-  h1 {
-    margin: 0.4rem 0 0;
-    font-size: clamp(2.8rem, 6vw, 5rem);
-    letter-spacing: -0.05em;
-  }
-
-  .primary-action {
-    flex: 0 0 auto;
-    min-height: 2.8rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 1rem;
-    border-radius: 0.65rem;
-    background: var(--purple-strong);
-    color: white;
-    text-decoration: none;
-    font-weight: 700;
-  }
-
-  .subsection {
-    margin-top: 3rem;
-  }
-
-  :global(.portal-panel) {
-    padding: 1.4rem;
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    background: var(--surface);
-  }
-
-  :global(.portal-panel h2) {
-    margin: 0.35rem 0 0.7rem;
-  }
-
-  :global(.panel-eyebrow) {
-    margin: 0;
-    color: var(--purple);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  :global(.muted) {
-    color: var(--muted);
-  }
-
-  :global(.status-chip) {
-    display: inline-flex;
-    margin-top: 0.4rem;
-    padding: 0.3rem 0.55rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    color: var(--muted-strong);
-    font-size: 0.76rem;
-    text-transform: capitalize;
-  }
-
-  :global(.portal-panel button) {
-    min-height: 2.6rem;
-    margin-top: 0.6rem;
-    padding: 0 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    background: var(--surface-elevated);
-    color: var(--text);
-    cursor: pointer;
-  }
-
-  #message {
-    margin-top: 2rem;
-    color: var(--muted-strong);
-  }
-
-  @media (max-width: 680px) {
-    .heading-row {
-      align-items: start;
-      flex-direction: column;
-    }
-  }
+  .heading-row { display:flex; align-items:end; justify-content:space-between; gap:2rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.8rem,6vw,5rem); letter-spacing:-.05em; }
+  .primary-action { flex:0 0 auto; min-height:2.8rem; display:inline-flex; align-items:center; padding:0 1rem; border-radius:.65rem; background:var(--purple-strong); color:#fff; text-decoration:none; font-weight:700; }
+  .subsection { margin-top:3rem; }
+  :global(.portal-panel) { padding:1.4rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
+  :global(.portal-panel h2) { margin:.35rem 0 .7rem; }
+  :global(.panel-eyebrow) { margin:0; color:var(--purple); font-size:.7rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+  :global(.muted) { color:var(--muted); }
+  :global(.status-chip) { display:inline-flex; margin-top:.4rem; padding:.3rem .55rem; border:1px solid var(--border); border-radius:999px; color:var(--muted-strong); font-size:.76rem; text-transform:capitalize; }
+  :global(.portal-panel button) { min-height:2.6rem; margin-top:.6rem; padding:0 .9rem; border:1px solid var(--border); border-radius:.65rem; background:var(--surface-elevated); color:var(--text); cursor:pointer; }
+  #message { margin-top:2rem; color:var(--muted-strong); }
+  @media (max-width:680px) { .heading-row { align-items:start; flex-direction:column; } }
 </style>
