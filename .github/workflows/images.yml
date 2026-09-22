@@ -3,7 +3,9 @@ name: Container images
 on:
   push:
     branches:
-      - main
+      - dev
+      - stag
+      - prod
     tags:
       - "v*"
   workflow_dispatch:
@@ -43,7 +45,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/quantum-platform-${{ matrix.app }}
           tags: |
-            type=raw,value=main,enable={{is_default_branch}}
+            type=ref,event=branch
             type=sha,prefix=sha-
             type=ref,event=tag
 
