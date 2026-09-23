@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ COPY package.json .npmrc /app/
 COPY apps /app/apps
 COPY packages /app/packages
 
-RUN npm install
+RUN npm ci
 RUN npm run build -w @nyameko/blog
 
 FROM nginxinc/nginx-unprivileged:1.29-alpine
