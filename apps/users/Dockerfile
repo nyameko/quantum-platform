@@ -2,7 +2,7 @@ FROM node:24-alpine AS build
 
 WORKDIR /app
 
-COPY package.json .npmrc /app/
+COPY package.json package-lock.json .npmrc /app/
 COPY apps /app/apps
 COPY packages /app/packages
 
