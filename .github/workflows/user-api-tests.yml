@@ -15,5 +15,5 @@ jobs:
         with:
           python-version: '3.14'
       - run: python -m pip install -e apps/user-api
-      - run: python apps/user-api/manage.py test portal.test_agent_admin --settings=config.test_settings
+      - run: python apps/user-api/manage.py test portal --settings=config.test_settings
       - run: python apps/user-api/manage.py makemigrations --check --dry-run --settings=config.test_settings
