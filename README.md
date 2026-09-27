@@ -667,3 +667,7 @@ boundary. This is intentionally separate from the Agent Control Plane
 principal/task identity and from scientific workflow provenance.
 
 See [Identity and programme authorization](docs/identity-programmes.md).
+
+## Public topology policy
+
+This repository may describe infrastructure **roles, trust boundaries and logical execution targets**, but it must not duplicate the authoritative live network map. Concrete internal CIDRs, fixed addresses, VPN peer mappings, provider IDs and environment node counts belong in protected `infra-hpc-qc-k8s` environment data. Public examples use semantic role names/placeholders instead.
