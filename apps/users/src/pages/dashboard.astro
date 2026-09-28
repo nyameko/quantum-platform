@@ -47,6 +47,7 @@ import Card from '@nyameko/ui/Card.astro';
   import {
     getSession,
     logout,
+    sessionIsAuthenticated,
   } from '../lib/auth';
 
   const identity = document.querySelector<HTMLParagraphElement>('#identity');
@@ -57,9 +58,9 @@ import Card from '@nyameko/ui/Card.astro';
   const logoutMessage = document.querySelector<HTMLParagraphElement>('#logout-message');
 
   async function validateDashboard() {
-    const { response } = await getSession();
+    const { response, payload } = await getSession();
 
-    if (!response.ok) {
+    if (!sessionIsAuthenticated(response, payload)) {
       window.location.replace('/login/');
       return;
     }
