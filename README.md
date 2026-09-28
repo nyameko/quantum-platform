@@ -433,6 +433,44 @@ npm run build
 
 ---
 
+## Research workbench and execution model
+
+The default Jupyter experience is a **lightweight Kubernetes workbench**, not a long-lived HPC allocation.
+
+```text
+Quantum Platform identity / programme / entitlement
+                |
+                v
+          JupyterHub catalog
+                |
+             KubeSpawner
+                |
+       cheap per-user workbench pod
+                |
+      /home/research/<user>
+                |
+        platform execution API
+          /             \
+       Slurm          QPU broker
+      CPU/GPU       QRMI/QDMI/provider
+```
+
+Quantum Platform ultimately owns the **product-facing catalog and allocation policy**. A catalog offering such as `qiskit-aer-large` or `pennylane-lightning-h200` is a logical product object, not a physical Slurm partition name. The platform resolves it to an immutable environment, resource class, entitlement, programme budget and execution backend.
+
+The default workbench may remain small while the user reads, writes code, works with the research co-scientist and inspects results. Expensive CPU/GPU/QPU resources are acquired only for actual execution stages and released immediately afterward. BatchSpawner remains available for exceptional interactive-HPC sessions where the notebook server itself must reside inside a Slurm allocation.
+
+The same persistent POSIX home must be visible through SSH, the KubeSpawner workbench and Slurm workflow stages. Jupyter must not invent a second canonical home on a per-user Cinder PVC.
+
+Future user-facing concepts should remain distinct:
+
+- **Workbench environment** — Qiskit, PennyLane, Pulser, CUDA-Q, SQD, general research.
+- **Execution offering** — logical target such as `qiskit-aer-large` or `h200-pennylane`.
+- **Resource class** — hidden scheduler request (CPU/RAM/GPU/QoS/partition).
+- **Allocation policy** — programme entitlement, quota, concurrency, expiry and approval.
+- **Usage ledger** — Slurm-backed classical usage plus provider/QPU usage where Slurm accounting is insufficient.
+
+This keeps physical topology hidden by default while preserving inspectable provenance and advanced SSH/HPC access for experienced users.
+
 ## Production deployment model
 
 The public application repository builds container images. The infrastructure repository decides where and how those images run.
@@ -629,3 +667,11 @@ boundary. This is intentionally separate from the Agent Control Plane
 principal/task identity and from scientific workflow provenance.
 
 See [Identity and programme authorization](docs/identity-programmes.md).
+
+## Public topology policy
+
+This repository may describe infrastructure **roles, trust boundaries and logical execution targets**, but it must not duplicate the authoritative live network map. Concrete internal CIDRs, fixed addresses, VPN peer mappings, provider IDs and environment node counts belong in protected `infra-hpc-qc-k8s` environment data. Public examples use semantic role names/placeholders instead.
+
+## Public repository topology policy
+
+Public documentation describes **roles, trust boundaries, interfaces and example topology**, not the authoritative live internal network map. Real CIDRs, fixed host addresses, VPN peer mappings, provider resource IDs and environment-specific routing belong in protected infrastructure inventory/private variables. Examples should use semantic placeholders such as `<MGMT_CIDR>`, `<K8S_API_VIP>`, `<SLURM_CONTROLLER_IP>` or private DNS abstractions rather than production addresses.

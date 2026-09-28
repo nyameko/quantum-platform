@@ -1,4 +1,5 @@
 from allauth.account.models import EmailAddress
+from django.contrib.auth import logout as django_logout
 from django.db import connection, transaction
 from django.http import JsonResponse
 from django.utils import timezone
@@ -134,6 +135,16 @@ def health(_request):
 @ensure_csrf_cookie
 def csrf(_request):
     return JsonResponse({"status": "ok"})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def logout_session(request):
+    actor = request.user if request.user.is_authenticated else None
+    django_logout(request)
+    if actor is not None:
+        _audit(actor, "SESSION_LOGOUT", metadata={"surface": "user-portal"})
+    return Response({"status": "ok"})
 
 
 @api_view(["GET"])

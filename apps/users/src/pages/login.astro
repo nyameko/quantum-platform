@@ -36,12 +36,23 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   import {
     csrfJsonFetch,
     firstError,
+    getSession,
     hasPendingFlow,
     readPayload,
+    sessionIsAuthenticated,
   } from '../lib/auth';
 
   const form = document.querySelector<HTMLFormElement>('#login-form');
   const message = document.querySelector<HTMLParagraphElement>('#message');
+
+  async function redirectAuthenticatedSession() {
+    const { response, payload } = await getSession();
+    if (sessionIsAuthenticated(response, payload)) {
+      window.location.replace('/dashboard/');
+    }
+  }
+
+  void redirectAuthenticatedSession();
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
