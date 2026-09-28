@@ -16,6 +16,7 @@ from .views import (
     csrf,
     health,
     list_membership_requests,
+    logout_session,
     reject_membership,
     request_membership,
 )
@@ -23,6 +24,7 @@ from .views import (
 urlpatterns = [
     path("health/", health, name="health"),
     path("csrf/", csrf, name="csrf"),
+    path("logout/", logout_session, name="logout"),
     path("institutions/", institutions, name="institutions"),
     path("me/", me, name="me"),
     path("profile/", upsert_profile, name="profile"),

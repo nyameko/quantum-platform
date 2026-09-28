@@ -116,19 +116,28 @@ export function firstError(
   return payload.errors?.[0]?.message ?? fallback;
 }
 
-export async function logout(): Promise<Response> {
-  return csrfJsonFetch(
-    '/_allauth/browser/v1/auth/session',
-    {
-      method: 'DELETE',
-    },
+export function sessionIsAuthenticated(
+  response: Response,
+  payload: AllauthPayload,
+): boolean {
+  return (
+    response.ok
+    && payload.meta?.is_authenticated !== false
+    && Boolean(payload.data?.user?.id)
   );
 }
 
-export async function requireSession(): Promise<boolean> {
-  const { response } = await getSession();
+export async function logout(): Promise<Response> {
+  return csrfJsonFetch('/api/v1/logout/', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
 
-  if (!response.ok) {
+export async function requireSession(): Promise<boolean> {
+  const { response, payload } = await getSession();
+
+  if (!sessionIsAuthenticated(response, payload)) {
     window.location.replace('/login/');
     return false;
   }
