@@ -20,7 +20,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           <input name="password" type="password" autocomplete="current-password" required />
         </label>
 
-        <button type="submit">Sign in</button>
+        <button id="signin-button" type="submit">Sign in</button>
         <p id="message" role="status"></p>
       </form>
 
@@ -44,6 +44,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   const form = document.querySelector<HTMLFormElement>('#login-form');
   const message = document.querySelector<HTMLParagraphElement>('#message');
+  const button = document.querySelector<HTMLButtonElement>('#signin-button');
 
   async function redirectAuthenticatedSession() {
     const { response, payload } = await getSession();
@@ -56,6 +57,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    button?.setAttribute('disabled', 'true');
+    if (message) message.textContent = 'Signing in…';
     const data = new FormData(form);
 
     const response = await csrfJsonFetch(
@@ -71,7 +74,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     const payload = await readPayload(response);
 
-    if (response.ok) {
+    if (sessionIsAuthenticated(response, payload)) {
       window.location.href = '/dashboard/';
       return;
     }
@@ -90,6 +93,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         'Unable to sign in with those credentials.',
       );
     }
+    button?.removeAttribute('disabled');
   });
 </script>
 
@@ -101,6 +105,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   label { display:grid; gap:.45rem; color:var(--muted-strong); }
   input { box-sizing:border-box; width:100%; padding:.8rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); color:var(--text); font:inherit; }
   button { min-height:2.8rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
   #message { min-height:1.5rem; margin:0; color:var(--red-strong); }
   .links { display:flex; justify-content:space-between; gap:1rem; margin-top:1.5rem; }
   .links a { color:var(--muted-strong); }
