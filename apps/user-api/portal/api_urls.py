@@ -1,5 +1,11 @@
 from django.urls import path
 
+from .access_keys_api import (
+    revoke_ssh_key,
+    revoke_wireguard_key,
+    ssh_keys,
+    wireguard_keys,
+)
 from .identity_api import (
     approve_pi_application,
     create_pi_application,
@@ -28,6 +34,18 @@ urlpatterns = [
     path("institutions/", institutions, name="institutions"),
     path("me/", me, name="me"),
     path("profile/", upsert_profile, name="profile"),
+    path("ssh-keys/", ssh_keys, name="ssh-keys"),
+    path(
+        "ssh-keys/<int:key_id>/revoke/",
+        revoke_ssh_key,
+        name="ssh-key-revoke",
+    ),
+    path("wireguard-keys/", wireguard_keys, name="wireguard-keys"),
+    path(
+        "wireguard-keys/<int:key_id>/revoke/",
+        revoke_wireguard_key,
+        name="wireguard-key-revoke",
+    ),
     path("programmes/", list_programmes, name="programmes"),
     path(
         "pi-applications/",
