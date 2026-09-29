@@ -1,10 +1,11 @@
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth import logout as django_logout
 from django.db import connection, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -114,6 +115,8 @@ def _can_review_membership(user, membership):
     return membership.programme.pi.user_id == user.id
 
 def home(request):
+    if request.get_host().split(":", 1)[0] == settings.AGENT_ADMIN_HOST:
+        return redirect("/admin/")
     return render(request, "home.html")
 
 @api_view(["GET"])

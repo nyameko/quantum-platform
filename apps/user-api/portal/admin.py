@@ -1,4 +1,6 @@
 from django.contrib import admin, messages
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.models import User
 
 from .models import (
     AuditEvent,
@@ -209,3 +211,28 @@ class WireGuardKeyAdmin(admin.ModelAdmin):
     )
     list_filter = ("active",)
     autocomplete_fields = ("person",)
+
+
+# Make platform identity administration explicit in the Quantum Platform admin
+# rather than relying on an opaque default registration.
+try:
+    admin.site.unregister(User)
+except admin.sites.NotRegistered:
+    pass
+
+
+@admin.register(User)
+class PlatformUserAdmin(DjangoUserAdmin):
+    list_display = (
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "is_staff",
+        "is_superuser",
+        "is_active",
+        "last_login",
+    )
+    search_fields = ("username", "email", "first_name", "last_name")
+    list_filter = ("is_active", "is_staff", "is_superuser")
+    ordering = ("username",)

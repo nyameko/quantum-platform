@@ -33,7 +33,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           />
         </label>
 
-        <button type="submit">Set new password</button>
+        <button id="set-password-button" type="submit" disabled>Set new password</button>
         <p id="message" role="status"></p>
       </form>
 
@@ -54,12 +54,42 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const form = document.querySelector<HTMLFormElement>('#password-form');
   const message = document.querySelector<HTMLParagraphElement>('#message');
   const login = document.querySelector<HTMLAnchorElement>('#login-link');
+  const button = document.querySelector<HTMLButtonElement>('#set-password-button');
 
   const key = new URLSearchParams(window.location.search).get('key');
 
-  if (!key && message) {
-    message.textContent = 'This password-reset link is incomplete.';
+  async function validateResetKey() {
+    if (!key) {
+      if (message) message.textContent = 'This password-reset link is incomplete.';
+      return;
+    }
+
+    const response = await fetch(
+      '/_allauth/browser/v1/auth/password/reset',
+      {
+        method: 'GET',
+        headers: { 'X-Password-Reset-Key': key },
+        credentials: 'same-origin',
+        cache: 'no-store',
+      },
+    );
+    const payload = await readPayload(response);
+
+    if (!response.ok) {
+      if (message) {
+        message.textContent = firstError(
+          payload,
+          'This password-reset link is invalid or has expired.',
+        );
+      }
+      return;
+    }
+
+    button?.removeAttribute('disabled');
+    if (message) message.textContent = 'Reset link verified. Choose a new password.';
   }
+
+  void validateResetKey();
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -79,6 +109,9 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       return;
     }
 
+    button?.setAttribute('disabled', 'true');
+    if (message) message.textContent = 'Updating password…';
+
     const response = await csrfJsonFetch(
       '/_allauth/browser/v1/auth/password/reset',
       {
@@ -92,10 +125,16 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     const payload = await readPayload(response);
 
-    if (
-      response.ok ||
-      (response.status === 401 && !payload.errors?.length)
-    ) {
+    const resetSucceeded = (
+      response.ok
+      || (
+        response.status === 401
+        && payload.meta?.is_authenticated === false
+        && !payload.errors?.length
+      )
+    );
+
+    if (resetSucceeded) {
       if (message) {
         message.textContent = (
           'Your password has been reset. You can now sign in.'
@@ -116,6 +155,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         'Unable to reset the password.',
       );
     }
+    button?.removeAttribute('disabled');
   });
 </script>
 
@@ -160,7 +200,10 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background: var(--purple-strong);
     color: white;
     font-weight: 700;
+    cursor: pointer;
   }
+
+  button:disabled { opacity: .6; cursor: not-allowed; }
 
   #message {
     min-height: 1.5rem;
