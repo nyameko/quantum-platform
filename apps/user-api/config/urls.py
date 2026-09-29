@@ -1,15 +1,11 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from allauth.account.decorators import secure_admin_login
-
 from portal.metrics import metrics
 from portal.views import home
 from portal.agent_admin import agent_history, agent_task
 
 admin.autodiscover()
-admin.site.login = secure_admin_login(admin.site.login)
-
 urlpatterns = [
     path("", home, name="home"),
     path("admin/agent-runs/", admin.site.admin_view(agent_history), name="agent-history"),
