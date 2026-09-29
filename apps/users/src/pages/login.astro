@@ -61,13 +61,19 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     if (message) message.textContent = 'Signing in…';
     const data = new FormData(form);
 
+    const loginValue = String(data.get('login') ?? '').trim();
+    const password = String(data.get('password') ?? '');
+    const credential = loginValue.includes('@')
+      ? { email: loginValue }
+      : { username: loginValue };
+
     const response = await csrfJsonFetch(
       '/_allauth/browser/v1/auth/login',
       {
         method: 'POST',
         body: JSON.stringify({
-          login: data.get('login'),
-          password: data.get('password'),
+          ...credential,
+          password,
         }),
       },
     );
