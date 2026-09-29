@@ -23,7 +23,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           />
         </label>
 
-        <button type="submit">Send reset link</button>
+        <button id="reset-button" type="submit">Send reset link</button>
         <p id="message" role="status"></p>
       </form>
     </div>
@@ -38,9 +38,13 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   const form = document.querySelector<HTMLFormElement>('#reset-form');
   const message = document.querySelector<HTMLParagraphElement>('#message');
+  const button = document.querySelector<HTMLButtonElement>('#reset-button');
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
+
+    button?.setAttribute('disabled', 'true');
+    if (message) message.textContent = 'Sending reset link…';
 
     const data = new FormData(form);
 
@@ -54,7 +58,18 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       },
     );
 
-    await readPayload(response);
+    const payload = await readPayload(response);
+
+    if (!response.ok) {
+      if (message) {
+        message.textContent = (
+          payload.errors?.[0]?.message
+          ?? 'Unable to request a password reset right now.'
+        );
+      }
+      button?.removeAttribute('disabled');
+      return;
+    }
 
     if (message) {
       message.textContent = (
@@ -62,6 +77,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         + 'a password-reset email has been sent.'
       );
     }
+    button?.removeAttribute('disabled');
   });
 </script>
 
@@ -106,5 +122,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background: var(--purple-strong);
     color: white;
     font-weight: 700;
+    cursor: pointer;
   }
+
+  button:disabled { opacity: .6; cursor: wait; }
 </style>
