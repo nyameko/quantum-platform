@@ -1,0 +1,225 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Access keys"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="section container page-shell">
+    <p class="eyebrow">ACCESS</p>
+    <h1>SSH & WireGuard keys</h1>
+    <p class="lede">
+      Register public keys used to access Quantum Platform infrastructure.
+      Private keys never leave your device.
+    </p>
+
+    <div class="key-grid">
+      <article class="panel">
+        <h2>SSH public keys</h2>
+        <p>Paste an OpenSSH public key such as <code>ssh-ed25519 …</code>.</p>
+
+        <form id="ssh-form">
+          <label>
+            Key name
+            <input name="name" placeholder="blackmyth" maxlength="100" required />
+          </label>
+          <label>
+            Public key
+            <textarea name="public_key" rows="5" required></textarea>
+          </label>
+          <button type="submit">Add SSH key</button>
+          <p id="ssh-message" role="status"></p>
+        </form>
+
+        <div id="ssh-list" class="key-list"></div>
+      </article>
+
+      <article class="panel">
+        <h2>WireGuard public keys</h2>
+        <p>
+          Paste only the public key from <code>wg show</code> or
+          <code>wg pubkey</code>. Never upload the private key.
+        </p>
+
+        <form id="wg-form">
+          <label>
+            Key name
+            <input name="name" placeholder="blackmyth-wg" maxlength="100" required />
+          </label>
+          <label>
+            Public key
+            <input name="public_key" autocomplete="off" required />
+          </label>
+          <button type="submit">Add WireGuard key</button>
+          <p id="wg-message" role="status"></p>
+        </form>
+
+        <div id="wg-list" class="key-list"></div>
+      </article>
+    </div>
+
+    <p class="note">
+      Registered keys are authoritative desired access state. Infrastructure
+      provisioning/reconciliation is performed separately; registration does
+      not expose private-key material.
+    </p>
+
+    <a class="back" href="/security/">Back to security</a>
+  </section>
+</SiteLayout>
+
+<script>
+  import { csrfJsonFetch, requireSession } from '../../lib/auth';
+
+  type AccessKey = {
+    id: number;
+    name: string;
+    public_key: string;
+    fingerprint?: string;
+    active: boolean;
+    created_at: string;
+  };
+
+  const sshForm = document.querySelector<HTMLFormElement>('#ssh-form');
+  const wgForm = document.querySelector<HTMLFormElement>('#wg-form');
+  const sshList = document.querySelector<HTMLDivElement>('#ssh-list');
+  const wgList = document.querySelector<HTMLDivElement>('#wg-list');
+  const sshMessage = document.querySelector<HTMLParagraphElement>('#ssh-message');
+  const wgMessage = document.querySelector<HTMLParagraphElement>('#wg-message');
+
+  function renderKeyList(
+    target: HTMLDivElement | null,
+    keys: AccessKey[],
+    kind: 'ssh' | 'wireguard',
+  ) {
+    if (!target) return;
+    target.replaceChildren();
+
+    if (!keys.length) {
+      const empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = 'No keys registered yet.';
+      target.append(empty);
+      return;
+    }
+
+    for (const key of keys) {
+      const item = document.createElement('div');
+      item.className = 'key-item';
+
+      const body = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = key.name;
+
+      const status = document.createElement('span');
+      status.className = key.active ? 'active' : 'revoked';
+      status.textContent = key.active ? 'Active' : 'Revoked';
+
+      const detail = document.createElement('code');
+      detail.textContent = key.fingerprint ?? key.public_key;
+
+      body.append(title, status, detail);
+      item.append(body);
+
+      if (key.active) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary';
+        button.textContent = 'Revoke';
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          const response = await csrfJsonFetch(
+            `/api/v1/${kind === 'ssh' ? 'ssh-keys' : 'wireguard-keys'}/${key.id}/revoke/`,
+            { method: 'POST', body: JSON.stringify({}) },
+          );
+          if (response.ok) {
+            await loadKeys();
+          } else {
+            button.disabled = false;
+          }
+        });
+        item.append(button);
+      }
+
+      target.append(item);
+    }
+  }
+
+  async function loadKeys() {
+    const [sshResponse, wgResponse] = await Promise.all([
+      fetch('/api/v1/ssh-keys/', { credentials: 'same-origin', cache: 'no-store' }),
+      fetch('/api/v1/wireguard-keys/', { credentials: 'same-origin', cache: 'no-store' }),
+    ]);
+
+    if (sshResponse.ok) renderKeyList(sshList, await sshResponse.json(), 'ssh');
+    if (wgResponse.ok) renderKeyList(wgList, await wgResponse.json(), 'wireguard');
+  }
+
+  async function submit(
+    form: HTMLFormElement,
+    endpoint: string,
+    message: HTMLParagraphElement | null,
+  ) {
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    button?.setAttribute('disabled', 'true');
+    if (message) message.textContent = 'Registering key…';
+
+    const data = Object.fromEntries(new FormData(form).entries());
+    const response = await csrfJsonFetch(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      form.reset();
+      if (message) message.textContent = 'Key registered.';
+      await loadKeys();
+    } else if (message) {
+      message.textContent = payload.detail ?? 'Unable to register key.';
+    }
+
+    button?.removeAttribute('disabled');
+  }
+
+  if (await requireSession()) {
+    await loadKeys();
+  }
+
+  sshForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await submit(sshForm, '/api/v1/ssh-keys/', sshMessage);
+  });
+
+  wgForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await submit(wgForm, '/api/v1/wireguard-keys/', wgMessage);
+  });
+</script>
+
+<style>
+  .page-shell { max-width: 74rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.8rem,6vw,5rem); letter-spacing:-.05em; }
+  .key-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.5rem; margin-top:2.5rem; }
+  .panel { padding:1.5rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
+  form { display:grid; gap:1rem; margin-top:1.5rem; }
+  label { display:grid; gap:.45rem; color:var(--muted-strong); }
+  input, textarea { box-sizing:border-box; width:100%; padding:.8rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); color:var(--text); font:inherit; }
+  textarea { resize:vertical; }
+  button { min-height:2.7rem; padding:0 .9rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  button.secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  .key-list { display:grid; gap:.7rem; margin-top:1.5rem; }
+  .key-item { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem; border:1px solid var(--border); border-radius:.7rem; }
+  .key-item > div { display:grid; gap:.3rem; min-width:0; }
+  .key-item code { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted-strong); }
+  .active, .revoked { width:max-content; padding:.15rem .45rem; border-radius:999px; font-size:.78rem; }
+  .active { background:var(--background-soft); color:var(--purple); }
+  .revoked { color:var(--muted); }
+  #ssh-message, #wg-message { min-height:1.4rem; margin:0; color:var(--muted-strong); }
+  .note { max-width:58rem; margin-top:1.5rem; color:var(--muted); }
+  .back { display:inline-block; margin-top:1rem; color:var(--muted-strong); }
+  @media (max-width:760px) { .key-grid { grid-template-columns:1fr; } }
+</style>
