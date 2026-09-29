@@ -9,12 +9,12 @@ class AdminBrowserLoginContractTests(TestCase):
             HTTP_HOST="admin.quantum.nyameko.com",
         )
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login/", response["Location"])
+        self.assertIn("/admin/login/", response["Location"])
 
     @override_settings(ALLOWED_HOSTS=["admin.quantum.nyameko.com", "testserver"])
-    def test_allauth_browser_login_page_renders(self):
+    def test_native_admin_login_page_renders(self):
         response = self.client.get(
-            "/accounts/login/?next=%2Fadmin%2F",
+            "/admin/login/?next=%2Fadmin%2F",
             HTTP_HOST="admin.quantum.nyameko.com",
         )
         self.assertEqual(response.status_code, 200)

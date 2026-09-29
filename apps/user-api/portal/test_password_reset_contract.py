@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.contrib.auth.tokens import default_token_generator
+from allauth.account import app_settings
 from django.test import TestCase
 from allauth.account.models import EmailAddress
 from allauth.account.utils import user_pk_to_url_str
@@ -21,7 +21,7 @@ class HeadlessPasswordResetContractTests(TestCase):
 
     def _key(self):
         uid = user_pk_to_url_str(self.user)
-        token = default_token_generator.make_token(self.user)
+        token = app_settings.PASSWORD_RESET_TOKEN_GENERATOR().make_token(self.user)
         return f"{uid}-{token}"
 
     def test_headless_reset_key_validates_and_changes_password(self):
