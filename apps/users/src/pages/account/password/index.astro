@@ -1,0 +1,103 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Change password"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="section container page-shell">
+    <p class="eyebrow">SECURITY</p>
+    <h1>Change password</h1>
+    <p class="lede">
+      Change the password for your Quantum Platform identity without leaving the portal.
+    </p>
+
+    <form id="password-form" class="panel">
+      <label>
+        Current password
+        <input name="current_password" type="password" autocomplete="current-password" required />
+      </label>
+      <label>
+        New password
+        <input name="new_password" type="password" autocomplete="new-password" required />
+      </label>
+      <label>
+        Confirm new password
+        <input name="confirm_password" type="password" autocomplete="new-password" required />
+      </label>
+      <button id="password-button" type="submit">Change password</button>
+      <p id="message" role="status"></p>
+    </form>
+
+    <a class="back" href="/security/">Back to security</a>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    firstError,
+    readPayload,
+    requireSession,
+  } from '../../lib/auth';
+
+  const form = document.querySelector<HTMLFormElement>('#password-form');
+  const button = document.querySelector<HTMLButtonElement>('#password-button');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+
+  await requireSession();
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const data = new FormData(form);
+    const currentPassword = String(data.get('current_password') ?? '');
+    const newPassword = String(data.get('new_password') ?? '');
+    const confirmPassword = String(data.get('confirm_password') ?? '');
+
+    if (newPassword !== confirmPassword) {
+      if (message) message.textContent = 'The new passwords do not match.';
+      return;
+    }
+
+    button?.setAttribute('disabled', 'true');
+    if (message) message.textContent = 'Changing password…';
+
+    const response = await csrfJsonFetch(
+      '/_allauth/browser/v1/account/password/change',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      },
+    );
+    const payload = await readPayload(response);
+
+    if (response.ok) {
+      form.reset();
+      if (message) {
+        message.textContent = 'Password changed successfully.';
+      }
+    } else if (message) {
+      message.textContent = firstError(payload, 'Unable to change password.');
+    }
+
+    button?.removeAttribute('disabled');
+  });
+</script>
+
+<style>
+  .page-shell { max-width: 42rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.8rem,6vw,5rem); letter-spacing:-.05em; }
+  .panel { display:grid; gap:1rem; margin-top:2rem; padding:1.5rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
+  label { display:grid; gap:.45rem; color:var(--muted-strong); }
+  input { box-sizing:border-box; width:100%; padding:.8rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); color:var(--text); font:inherit; }
+  button { min-height:2.8rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  #message { min-height:1.5rem; color:var(--muted-strong); }
+  .back { display:inline-block; margin-top:1rem; color:var(--muted-strong); }
+</style>

@@ -1,0 +1,317 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Multi-factor authentication"
+  siteName="Quantum Platform"
+  section="User Portal"
+>
+  <section class="section container page-shell">
+    <p class="eyebrow">SECURITY</p>
+    <h1>Multi-factor authentication</h1>
+    <p class="lede">
+      Protect your account with a TOTP authenticator and recovery codes.
+    </p>
+
+    <div class="security-grid">
+      <article class="panel">
+        <h2>Authenticator app</h2>
+        <p id="totp-state">Loading authenticator state…</p>
+
+        <div id="totp-setup" hidden>
+          <p>
+            Add this account to your authenticator application using the setup URI
+            or manual secret below, then enter the six-digit code to activate it.
+          </p>
+          <label>
+            Manual secret
+            <input id="totp-secret" readonly />
+          </label>
+          <label>
+            Setup URI
+            <textarea id="totp-uri" rows="4" readonly></textarea>
+          </label>
+          <form id="totp-form">
+            <label>
+              Authentication code
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" required />
+            </label>
+            <button type="submit">Activate TOTP</button>
+          </form>
+        </div>
+
+        <button id="totp-disable" type="button" class="secondary" hidden>
+          Disable TOTP
+        </button>
+        <p id="totp-message" role="status"></p>
+      </article>
+
+      <article class="panel">
+        <h2>Recovery codes</h2>
+        <p>
+          Recovery codes are shown only when explicitly requested. Store them
+          somewhere secure and separate from your password.
+        </p>
+        <button id="recovery-button" type="button" class="secondary">
+          Generate or show recovery codes
+        </button>
+        <pre id="recovery-codes" hidden></pre>
+        <p id="recovery-message" role="status"></p>
+      </article>
+
+      <article class="panel">
+        <h2>Passkeys</h2>
+        <p>
+          The backend already supports WebAuthn/passkeys. Portal enrollment and
+          device-management UI is the next MFA increment.
+        </p>
+      </article>
+    </div>
+
+    <dialog id="reauth-dialog">
+      <form id="reauth-form" method="dialog" class="dialog-card">
+        <h2>Confirm your password</h2>
+        <p>This security change requires recent authentication.</p>
+        <label>
+          Current password
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel" type="button" id="reauth-cancel" class="secondary">Cancel</button>
+          <button type="submit">Continue</button>
+        </div>
+        <p id="reauth-message" role="status"></p>
+      </form>
+    </dialog>
+
+    <a class="back" href="/security/">Back to security</a>
+  </section>
+</SiteLayout>
+
+<script>
+  import {
+    csrfJsonFetch,
+    firstError,
+    readPayload,
+    requireSession,
+  } from '../../../lib/auth';
+
+  const totpState = document.querySelector<HTMLParagraphElement>('#totp-state');
+  const totpSetup = document.querySelector<HTMLDivElement>('#totp-setup');
+  const totpSecret = document.querySelector<HTMLInputElement>('#totp-secret');
+  const totpUri = document.querySelector<HTMLTextAreaElement>('#totp-uri');
+  const totpForm = document.querySelector<HTMLFormElement>('#totp-form');
+  const totpDisable = document.querySelector<HTMLButtonElement>('#totp-disable');
+  const totpMessage = document.querySelector<HTMLParagraphElement>('#totp-message');
+  const recoveryButton = document.querySelector<HTMLButtonElement>('#recovery-button');
+  const recoveryCodes = document.querySelector<HTMLElement>('#recovery-codes');
+  const recoveryMessage = document.querySelector<HTMLParagraphElement>('#recovery-message');
+  const reauthDialog = document.querySelector<HTMLDialogElement>('#reauth-dialog');
+  const reauthForm = document.querySelector<HTMLFormElement>('#reauth-form');
+  const reauthCancel = document.querySelector<HTMLButtonElement>('#reauth-cancel');
+  const reauthMessage = document.querySelector<HTMLParagraphElement>('#reauth-message');
+
+  async function reauthenticate(): Promise<boolean> {
+    if (!reauthDialog || !reauthForm) return false;
+
+    reauthForm.reset();
+    if (reauthMessage) reauthMessage.textContent = '';
+    reauthDialog.showModal();
+
+    return await new Promise<boolean>((resolve) => {
+      const cancel = () => {
+        reauthDialog.close();
+        cleanup();
+        resolve(false);
+      };
+
+      const submit = async (event: SubmitEvent) => {
+        event.preventDefault();
+        const data = new FormData(reauthForm);
+        const response = await csrfJsonFetch(
+          '/_allauth/browser/v1/auth/reauthenticate',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              password: String(data.get('password') ?? ''),
+            }),
+          },
+        );
+        const payload = await readPayload(response);
+
+        if (response.ok) {
+          reauthDialog.close();
+          cleanup();
+          resolve(true);
+          return;
+        }
+
+        if (reauthMessage) {
+          reauthMessage.textContent = firstError(
+            payload,
+            'Unable to confirm your password.',
+          );
+        }
+      };
+
+      const cleanup = () => {
+        reauthCancel?.removeEventListener('click', cancel);
+        reauthForm.removeEventListener('submit', submit);
+      };
+
+      reauthCancel?.addEventListener('click', cancel);
+      reauthForm.addEventListener('submit', submit);
+    });
+  }
+
+  async function sensitiveFetch(
+    endpoint: string,
+    init: RequestInit,
+  ): Promise<Response> {
+    let response = await csrfJsonFetch(endpoint, init);
+
+    if (response.status !== 401) return response;
+    if (!(await reauthenticate())) return response;
+
+    response = await csrfJsonFetch(endpoint, init);
+    return response;
+  }
+
+  async function loadTotp() {
+    const response = await fetch(
+      '/_allauth/browser/v1/account/authenticators/totp',
+      { credentials: 'same-origin', cache: 'no-store' },
+    );
+    const payload = await readPayload(response);
+
+    if (response.ok) {
+      if (totpState) totpState.textContent = 'TOTP is active.';
+      if (totpSetup) totpSetup.hidden = true;
+      if (totpDisable) totpDisable.hidden = false;
+      return;
+    }
+
+    if (response.status === 404 && payload.meta?.secret) {
+      if (totpState) totpState.textContent = 'TOTP is not active yet.';
+      if (totpSetup) totpSetup.hidden = false;
+      if (totpDisable) totpDisable.hidden = true;
+      if (totpSecret) totpSecret.value = String(payload.meta.secret);
+      if (totpUri) totpUri.value = String(payload.meta.totp_url ?? '');
+      return;
+    }
+
+    if (totpState) {
+      totpState.textContent = firstError(
+        payload,
+        'Unable to load authenticator state.',
+      );
+    }
+  }
+
+  totpForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = totpForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+    button?.setAttribute('disabled', 'true');
+
+    const data = new FormData(totpForm);
+    const response = await sensitiveFetch(
+      '/_allauth/browser/v1/account/authenticators/totp',
+      {
+        method: 'POST',
+        body: JSON.stringify({ code: String(data.get('code') ?? '') }),
+      },
+    );
+    const payload = await readPayload(response);
+
+    if (response.ok) {
+      if (totpMessage) totpMessage.textContent = 'TOTP activated.';
+      totpForm.reset();
+      await loadTotp();
+    } else if (totpMessage) {
+      totpMessage.textContent = firstError(payload, 'Unable to activate TOTP.');
+    }
+
+    button?.removeAttribute('disabled');
+  });
+
+  totpDisable?.addEventListener('click', async () => {
+    totpDisable.disabled = true;
+    const response = await sensitiveFetch(
+      '/_allauth/browser/v1/account/authenticators/totp',
+      { method: 'DELETE', body: JSON.stringify({}) },
+    );
+    const payload = await readPayload(response);
+
+    if (response.ok) {
+      if (totpMessage) totpMessage.textContent = 'TOTP disabled.';
+      await loadTotp();
+    } else if (totpMessage) {
+      totpMessage.textContent = firstError(payload, 'Unable to disable TOTP.');
+    }
+
+    totpDisable.disabled = false;
+  });
+
+  recoveryButton?.addEventListener('click', async () => {
+    recoveryButton.disabled = true;
+    if (recoveryMessage) recoveryMessage.textContent = 'Loading recovery codes…';
+
+    let response = await sensitiveFetch(
+      '/_allauth/browser/v1/account/authenticators/recovery-codes',
+      { method: 'GET' },
+    );
+
+    if (response.status === 404) {
+      response = await sensitiveFetch(
+        '/_allauth/browser/v1/account/authenticators/recovery-codes',
+        { method: 'POST', body: JSON.stringify({}) },
+      );
+    }
+
+    const payload = await readPayload(response);
+    const codes = payload.data?.unused_codes;
+
+    if (response.ok && Array.isArray(codes)) {
+      if (recoveryCodes) {
+        recoveryCodes.textContent = codes.join('\n');
+        recoveryCodes.hidden = false;
+      }
+      if (recoveryMessage) {
+        recoveryMessage.textContent = 'Store these codes securely. They may only be shown once.';
+      }
+    } else if (recoveryMessage) {
+      recoveryMessage.textContent = firstError(
+        payload,
+        'Unable to load recovery codes. Activate TOTP first.',
+      );
+    }
+
+    recoveryButton.disabled = false;
+  });
+
+  if (await requireSession()) {
+    await loadTotp();
+  }
+</script>
+
+<style>
+  .page-shell { max-width: 70rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.8rem,6vw,5rem); letter-spacing:-.05em; }
+  .security-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.2rem; margin-top:2rem; }
+  .panel { padding:1.5rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
+  .panel form, .panel label { display:grid; gap:.55rem; }
+  input, textarea { box-sizing:border-box; width:100%; padding:.8rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); color:var(--text); font:inherit; }
+  textarea { resize:vertical; }
+  button { min-height:2.7rem; padding:0 .9rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; }
+  button.secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  button:disabled { opacity:.6; cursor:wait; }
+  pre { overflow:auto; padding:1rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); }
+  dialog { width:min(92vw,28rem); border:1px solid var(--border); border-radius:1rem; background:var(--surface); color:var(--text); }
+  dialog::backdrop { background:rgb(0 0 0 / .55); }
+  .dialog-card { display:grid; gap:1rem; }
+  .dialog-actions { display:flex; gap:.7rem; justify-content:flex-end; }
+  #totp-message, #recovery-message, #reauth-message { min-height:1.4rem; color:var(--muted-strong); }
+  .back { display:inline-block; margin-top:1rem; color:var(--muted-strong); }
+  @media (max-width:760px) { .security-grid { grid-template-columns:1fr; } }
+</style>

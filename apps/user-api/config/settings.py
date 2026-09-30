@@ -369,3 +369,16 @@ HEADLESS_FRONTEND_URLS = {
     ),
 }
 # END QUANTUM_PLATFORM_IDENTITY_PROGRAMME
+
+
+# ---------------------------------------------------------------------------
+# WireGuard client configuration published to authenticated portal users
+# ---------------------------------------------------------------------------
+
+WIREGUARD_CLIENT_ENDPOINT = os.getenv("WIREGUARD_CLIENT_ENDPOINT", "")
+WIREGUARD_SERVER_PUBLIC_KEY = os.getenv("WIREGUARD_SERVER_PUBLIC_KEY", "")
+WIREGUARD_CLIENT_DNS = os.getenv("WIREGUARD_CLIENT_DNS", "")
+WIREGUARD_CLIENT_ALLOWED_IPS = os.getenv("WIREGUARD_CLIENT_ALLOWED_IPS", "")
+WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE = int(
+    os.getenv("WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE", "25")
+)

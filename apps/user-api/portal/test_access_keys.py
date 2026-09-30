@@ -77,8 +77,13 @@ class AccessKeyApiTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 201, response.content)
-        key = WireGuardKey.objects.get(pk=response.json()["id"])
+        payload = response.json()
+        key = WireGuardKey.objects.get(pk=payload["id"])
         self.assertTrue(key.active)
+        self.assertEqual(payload["client"]["state"], "registered")
+        self.assertFalse(payload["client"]["complete"])
+        self.assertIn("PrivateKey = <YOUR_PRIVATE_KEY>", payload["client"]["config"])
+        self.assertIn("Address = <assigned-after-provisioning>", payload["client"]["config"])
 
         revoke = self.client.post(
             f"/api/v1/wireguard-keys/{key.pk}/revoke/",
