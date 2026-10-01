@@ -8,8 +8,8 @@ from portal.models import ExecutionRecord, Person, ProgrammeMembership, Research
 
 @override_settings(
     SLURM_GATEWAY_HOST="slurm-login.internal",
-    SLURM_GATEWAY_PRIVATE_KEY_FILE="/tmp/test-key",
-    SLURM_GATEWAY_KNOWN_HOSTS_FILE="/tmp/test-known-hosts",
+    SLURM_GATEWAY_PRIVATE_KEY="test-private-key",
+    SLURM_GATEWAY_KNOWN_HOSTS="slurm-login.internal test-host-key",
     QUANTUM_WORKFLOWS_CPU_IMAGE="/var/cache/quantum-platform/containers/qw.sif",
 )
 class ExecutionApiTests(TestCase):
@@ -43,9 +43,8 @@ class ExecutionApiTests(TestCase):
         )
         self.client.force_login(self.user)
 
-    @patch("portal.execution_api.Path.exists", return_value=True)
     @patch("portal.execution_api._gateway", return_value="12345")
-    def test_submit_cpu_smoke_creates_durable_execution(self, gateway, _exists):
+    def test_submit_cpu_smoke_creates_durable_execution(self, gateway):
         response = self.client.post(
             "/api/v1/executions/cpu-smoke/",
             data={},
@@ -61,7 +60,7 @@ class ExecutionApiTests(TestCase):
 
     @patch("portal.execution_api.Path.exists", return_value=True)
     @patch("portal.execution_api._gateway", return_value="COMPLETED|slurm-cpu-01")
-    def test_detail_refreshes_completed_slurm_state(self, _gateway, _exists):
+    def test_detail_refreshes_completed_slurm_state(self, _gateway):
         record = ExecutionRecord.objects.create(
             user=self.user,
             offering="cpu-smoke",
