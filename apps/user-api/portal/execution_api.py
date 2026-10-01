@@ -171,7 +171,7 @@ def _refresh(record):
         return record
 
     state, _, node = output.partition("|")
-    slurm_state = state.strip().split("+", 1)[0]
+    slurm_state = state.strip().split("+", 1)[0].split(" ", 1)[0]
     record.scheduler_state = slurm_state
     record.scheduler_node = node.strip()
     record.state = SLURM_STATE_MAP.get(slurm_state, ExecutionRecord.State.UNKNOWN)
