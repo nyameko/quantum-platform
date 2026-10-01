@@ -67,6 +67,21 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     </p>
 
     <a class="back" href="/security/">Back to security</a>
+
+    <dialog id="wg-config-dialog">
+      <div class="dialog-card">
+        <p class="eyebrow">WIREGUARD</p>
+        <h2>Your client configuration</h2>
+        <p id="wg-config-state"></p>
+        <pre id="wg-config"></pre>
+        <ol id="wg-instructions"></ol>
+        <div class="dialog-actions">
+          <button id="wg-copy" type="button" class="secondary">Copy configuration</button>
+          <button id="wg-download" type="button" class="secondary">Download .conf</button>
+          <button id="wg-close" type="button">Done</button>
+        </div>
+      </div>
+    </dialog>
   </section>
 </SiteLayout>
 
@@ -80,6 +95,13 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     fingerprint?: string;
     active: boolean;
     created_at: string;
+    client?: {
+      complete: boolean;
+      state: 'registered' | 'provisioned' | 'revoked';
+      config: string;
+      filename: string;
+      instructions: string[];
+    };
   };
 
   const sshForm = document.querySelector<HTMLFormElement>('#ssh-form');
@@ -88,6 +110,39 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const wgList = document.querySelector<HTMLDivElement>('#wg-list');
   const sshMessage = document.querySelector<HTMLParagraphElement>('#ssh-message');
   const wgMessage = document.querySelector<HTMLParagraphElement>('#wg-message');
+  const wgDialog = document.querySelector<HTMLDialogElement>('#wg-config-dialog');
+  const wgConfigState = document.querySelector<HTMLParagraphElement>('#wg-config-state');
+  const wgConfig = document.querySelector<HTMLElement>('#wg-config');
+  const wgInstructions = document.querySelector<HTMLOListElement>('#wg-instructions');
+  const wgCopy = document.querySelector<HTMLButtonElement>('#wg-copy');
+  const wgDownload = document.querySelector<HTMLButtonElement>('#wg-download');
+  const wgClose = document.querySelector<HTMLButtonElement>('#wg-close');
+  let currentWireGuardConfig: { config: string; filename: string } | null = null;
+
+  function showWireGuardConfig(key: AccessKey) {
+    if (!key.client || !wgDialog || !wgConfig || !wgInstructions) return;
+
+    wgConfig.textContent = key.client.config;
+    currentWireGuardConfig = {
+      config: key.client.config,
+      filename: key.client.filename,
+    };
+
+    if (wgConfigState) {
+      wgConfigState.textContent = key.client.complete
+        ? 'Provisioned and ready to use. Replace the private-key placeholder locally.'
+        : 'Key registered. This template will become complete after infrastructure provisioning.';
+    }
+
+    wgInstructions.replaceChildren();
+    for (const instruction of key.client.instructions) {
+      const item = document.createElement('li');
+      item.textContent = instruction;
+      wgInstructions.append(item);
+    }
+
+    wgDialog.showModal();
+  }
 
   function renderKeyList(
     target: HTMLDivElement | null,
@@ -161,7 +216,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     form: HTMLFormElement,
     endpoint: string,
     message: HTMLParagraphElement | null,
-  ) {
+  ): Promise<AccessKey | null> {
     const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
     button?.setAttribute('disabled', 'true');
     if (message) message.textContent = 'Registering key…';
@@ -177,11 +232,14 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       form.reset();
       if (message) message.textContent = 'Key registered.';
       await loadKeys();
+      button?.removeAttribute('disabled');
+      return payload as AccessKey;
     } else if (message) {
       message.textContent = payload.detail ?? 'Unable to register key.';
     }
 
     button?.removeAttribute('disabled');
+    return null;
   }
 
   if (await requireSession()) {
@@ -195,7 +253,30 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   wgForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    await submit(wgForm, '/api/v1/wireguard-keys/', wgMessage);
+    const key = await submit(wgForm, '/api/v1/wireguard-keys/', wgMessage);
+    if (key) showWireGuardConfig(key);
+  });
+
+  wgCopy?.addEventListener('click', async () => {
+    if (!currentWireGuardConfig) return;
+    await navigator.clipboard.writeText(currentWireGuardConfig.config);
+    wgCopy.textContent = 'Copied';
+  });
+
+  wgDownload?.addEventListener('click', () => {
+    if (!currentWireGuardConfig) return;
+    const blob = new Blob([currentWireGuardConfig.config], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = currentWireGuardConfig.filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  });
+
+  wgClose?.addEventListener('click', () => {
+    wgDialog?.close();
+    if (wgCopy) wgCopy.textContent = 'Copy configuration';
   });
 </script>
 
@@ -221,5 +302,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   #ssh-message, #wg-message { min-height:1.4rem; margin:0; color:var(--muted-strong); }
   .note { max-width:58rem; margin-top:1.5rem; color:var(--muted); }
   .back { display:inline-block; margin-top:1rem; color:var(--muted-strong); }
+  dialog { width:min(94vw,52rem); border:1px solid var(--border); border-radius:1rem; background:var(--surface); color:var(--text); }
+  dialog::backdrop { background:rgb(0 0 0 / .55); }
+  .dialog-card { padding:.5rem; }
+  .dialog-card h2 { margin:.2rem 0 .5rem; }
+  .dialog-card pre { overflow:auto; padding:1rem; border:1px solid var(--border); border-radius:.65rem; background:var(--background); white-space:pre-wrap; }
+  .dialog-card ol { display:grid; gap:.5rem; color:var(--muted-strong); }
+  .dialog-actions { display:flex; flex-wrap:wrap; gap:.7rem; justify-content:flex-end; }
   @media (max-width:760px) { .key-grid { grid-template-columns:1fr; } }
 </style>

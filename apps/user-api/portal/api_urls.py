@@ -6,6 +6,10 @@ from .access_keys_api import (
     ssh_keys,
     wireguard_keys,
 )
+from .internal_wireguard_api import (
+    acknowledge_wireguard_peers,
+    desired_wireguard_peers,
+)
 from .identity_api import (
     approve_pi_application,
     create_pi_application,
@@ -16,6 +20,11 @@ from .identity_api import (
     me,
     reject_pi_application,
     upsert_profile,
+)
+from .workbench_api import (
+    launch_workbench,
+    stop_workbench,
+    workbench_status,
 )
 from .views import (
     approve_membership,
@@ -29,6 +38,16 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path(
+        "internal/wireguard/peers/",
+        desired_wireguard_peers,
+        name="internal-wireguard-peers",
+    ),
+    path(
+        "internal/wireguard/reconciled/",
+        acknowledge_wireguard_peers,
+        name="internal-wireguard-reconciled",
+    ),
     path("csrf/", csrf, name="csrf"),
     path("logout/", logout_session, name="logout"),
     path("institutions/", institutions, name="institutions"),
@@ -41,6 +60,9 @@ urlpatterns = [
         name="ssh-key-revoke",
     ),
     path("wireguard-keys/", wireguard_keys, name="wireguard-keys"),
+    path("workbench/", workbench_status, name="workbench-status"),
+    path("workbench/launch/", launch_workbench, name="workbench-launch"),
+    path("workbench/stop/", stop_workbench, name="workbench-stop"),
     path(
         "wireguard-keys/<int:key_id>/revoke/",
         revoke_wireguard_key,

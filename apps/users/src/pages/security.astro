@@ -19,7 +19,7 @@ import Card from '@nyameko/ui/Card.astro';
       <Card
         eyebrow="MFA"
         title="Authenticators"
-        href="/accounts/2fa/"
+        href="/account/mfa/settings/"
       >
         <p>
           Manage TOTP, recovery codes and WebAuthn/passkeys.
@@ -29,7 +29,7 @@ import Card from '@nyameko/ui/Card.astro';
       <Card
         eyebrow="Password"
         title="Change password"
-        href="/accounts/password/change/"
+        href="/account/password/"
       >
         <p>
           Replace your current account password.
@@ -58,9 +58,9 @@ import Card from '@nyameko/ui/Card.astro';
     </div>
 
     <p class="note">
-      The security management screens are still the functional django-allauth
-      views for the MVP. They can be moved fully into the Astro design system
-      after student testing.
+      Password, MFA and infrastructure public-key management now remain inside
+      the Quantum Platform portal. Private SSH and WireGuard keys never leave
+      the user's device.
     </p>
   </section>
 </SiteLayout>

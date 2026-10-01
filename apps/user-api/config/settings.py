@@ -369,3 +369,43 @@ HEADLESS_FRONTEND_URLS = {
     ),
 }
 # END QUANTUM_PLATFORM_IDENTITY_PROGRAMME
+
+
+# ---------------------------------------------------------------------------
+# WireGuard client configuration published to authenticated portal users
+# ---------------------------------------------------------------------------
+
+WIREGUARD_CLIENT_ENDPOINT = os.getenv("WIREGUARD_CLIENT_ENDPOINT", "")
+WIREGUARD_SERVER_PUBLIC_KEY = os.getenv("WIREGUARD_SERVER_PUBLIC_KEY", "")
+WIREGUARD_CLIENT_DNS = os.getenv("WIREGUARD_CLIENT_DNS", "")
+WIREGUARD_CLIENT_ALLOWED_IPS = os.getenv("WIREGUARD_CLIENT_ALLOWED_IPS", "")
+WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE = int(
+    os.getenv("WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE", "25")
+)
+
+
+# Internal WireGuard peer reconciler. Values are supplied from protected
+# environment data / SealedSecrets, never from public topology declarations.
+WIREGUARD_RECONCILER_TOKEN = os.getenv("WIREGUARD_RECONCILER_TOKEN", "")
+WIREGUARD_CLIENT_POOL = os.getenv("WIREGUARD_CLIENT_POOL", "")
+WIREGUARD_RESERVED_ADDRESSES = {
+    value.strip()
+    for value in os.getenv("WIREGUARD_RESERVED_ADDRESSES", "").split(",")
+    if value.strip()
+}
+
+
+# ---------------------------------------------------------------------------
+# JupyterHub workbench integration
+# ---------------------------------------------------------------------------
+
+JUPYTERHUB_PUBLIC_URL = os.getenv(
+    "JUPYTERHUB_PUBLIC_URL",
+    "https://jupyter.quantum.nyameko.com",
+).rstrip("/")
+JUPYTERHUB_API_URL = os.getenv("JUPYTERHUB_API_URL", "").rstrip("/")
+JUPYTERHUB_API_TOKEN = os.getenv("JUPYTERHUB_API_TOKEN", "")
+JUPYTERHUB_LAUNCH_SIGNING_KEY = os.getenv("JUPYTERHUB_LAUNCH_SIGNING_KEY", "")
+JUPYTERHUB_LAUNCH_TOKEN_TTL = int(
+    os.getenv("JUPYTERHUB_LAUNCH_TOKEN_TTL", "60")
+)
