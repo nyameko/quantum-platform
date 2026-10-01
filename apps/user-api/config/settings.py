@@ -393,3 +393,19 @@ WIREGUARD_RESERVED_ADDRESSES = {
     for value in os.getenv("WIREGUARD_RESERVED_ADDRESSES", "").split(",")
     if value.strip()
 }
+
+
+# ---------------------------------------------------------------------------
+# JupyterHub workbench integration
+# ---------------------------------------------------------------------------
+
+JUPYTERHUB_PUBLIC_URL = os.getenv(
+    "JUPYTERHUB_PUBLIC_URL",
+    "https://jupyter.quantum.nyameko.com",
+).rstrip("/")
+JUPYTERHUB_API_URL = os.getenv("JUPYTERHUB_API_URL", "").rstrip("/")
+JUPYTERHUB_API_TOKEN = os.getenv("JUPYTERHUB_API_TOKEN", "")
+JUPYTERHUB_LAUNCH_SIGNING_KEY = os.getenv("JUPYTERHUB_LAUNCH_SIGNING_KEY", "")
+JUPYTERHUB_LAUNCH_TOKEN_TTL = int(
+    os.getenv("JUPYTERHUB_LAUNCH_TOKEN_TTL", "60")
+)

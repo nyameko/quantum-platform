@@ -1,0 +1,165 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout title="Workbench" siteName="Quantum Platform" section="User Portal">
+  <section class="section container page-shell">
+    <p class="eyebrow">WORKBENCH</p>
+    <h1>Research workbench</h1>
+    <p class="lede">
+      Your lightweight Kubernetes workbench uses the same research identity and
+      shared home as SSH and Slurm. Heavy execution is submitted separately.
+    </p>
+
+    <article class="panel">
+      <div class="status-row">
+        <div>
+          <span id="status-dot" class="status-dot"></span>
+          <strong id="state">Loading…</strong>
+        </div>
+        <span id="identity"></span>
+      </div>
+
+      <dl>
+        <div><dt>Home</dt><dd id="home">—</dd></div>
+        <div><dt>POSIX identity</dt><dd id="posix">—</dd></div>
+      </dl>
+
+      <p id="message" role="status"></p>
+
+      <div class="actions">
+        <button id="launch" type="button">Launch workbench</button>
+        <a id="open" class="button-link" href="#" hidden>Open Jupyter</a>
+        <button id="stop" class="secondary" type="button" hidden>Stop workbench</button>
+        <button id="refresh" class="secondary" type="button">Refresh status</button>
+      </div>
+    </article>
+
+    <p class="note">
+      Launch assertions are short-lived. Quantum Platform does not expose
+      Kubernetes credentials to your notebook.
+    </p>
+
+    <a class="back" href="/dashboard/">Back to dashboard</a>
+  </section>
+</SiteLayout>
+
+<script>
+  import { csrfJsonFetch, requireSession } from '../lib/auth';
+
+  type WorkbenchStatus = {
+    configured?: boolean;
+    state?: string;
+    detail?: string;
+    open_url?: string | null;
+    username?: string;
+    uid?: number;
+    gid?: number;
+    home?: string;
+  };
+
+  const state = document.querySelector<HTMLElement>('#state');
+  const dot = document.querySelector<HTMLElement>('#status-dot');
+  const identity = document.querySelector<HTMLElement>('#identity');
+  const home = document.querySelector<HTMLElement>('#home');
+  const posix = document.querySelector<HTMLElement>('#posix');
+  const message = document.querySelector<HTMLParagraphElement>('#message');
+  const launch = document.querySelector<HTMLButtonElement>('#launch');
+  const open = document.querySelector<HTMLAnchorElement>('#open');
+  const stop = document.querySelector<HTMLButtonElement>('#stop');
+  const refresh = document.querySelector<HTMLButtonElement>('#refresh');
+
+  async function loadStatus() {
+    const response = await fetch('/api/v1/workbench/', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({})) as WorkbenchStatus;
+
+    const current = payload.state ?? 'unavailable';
+    if (state) state.textContent = current;
+    if (dot) dot.dataset.state = current;
+    if (identity) identity.textContent = payload.username ?? '';
+    if (home) home.textContent = payload.home ?? 'Not provisioned';
+    if (posix) {
+      posix.textContent = payload.uid !== undefined
+        ? `UID ${payload.uid} / GID ${payload.gid}`
+        : 'Not provisioned';
+    }
+
+    const running = current === 'running';
+    if (launch) launch.hidden = running;
+    if (stop) stop.hidden = !running && !['spawn', 'pending'].includes(current);
+    if (open) {
+      open.hidden = !running || !payload.open_url;
+      if (payload.open_url) open.href = payload.open_url;
+    }
+
+    if (!response.ok && message) {
+      message.textContent = payload.detail ?? 'Unable to read workbench state.';
+    } else if (message) {
+      message.textContent = '';
+    }
+  }
+
+  launch?.addEventListener('click', async () => {
+    launch.disabled = true;
+    if (message) message.textContent = 'Creating a short-lived workbench launch…';
+
+    const response = await csrfJsonFetch('/api/v1/workbench/launch/', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (response.ok && payload.launch_url) {
+      window.location.assign(payload.launch_url);
+      return;
+    }
+
+    if (message) message.textContent = payload.detail ?? 'Unable to launch workbench.';
+    launch.disabled = false;
+  });
+
+  stop?.addEventListener('click', async () => {
+    stop.disabled = true;
+    if (message) message.textContent = 'Stopping workbench…';
+    const response = await csrfJsonFetch('/api/v1/workbench/stop/', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok && message) {
+      message.textContent = payload.detail ?? 'Unable to stop workbench.';
+    }
+    stop.disabled = false;
+    await loadStatus();
+  });
+
+  refresh?.addEventListener('click', () => void loadStatus());
+
+  if (await requireSession()) {
+    await loadStatus();
+  }
+</script>
+
+<style>
+  .page-shell { max-width:64rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.8rem,6vw,5rem); letter-spacing:-.05em; }
+  .panel { margin-top:2rem; padding:1.5rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
+  .status-row { display:flex; justify-content:space-between; gap:1rem; align-items:center; }
+  .status-dot { display:inline-block; width:.75rem; height:.75rem; margin-right:.5rem; border-radius:50%; background:var(--muted); }
+  .status-dot[data-state="running"] { background:#22c55e; }
+  .status-dot[data-state="spawn"], .status-dot[data-state="pending"] { background:#f59e0b; }
+  dl { display:grid; gap:.8rem; margin:1.5rem 0; }
+  dl div { display:grid; grid-template-columns:9rem 1fr; gap:1rem; }
+  dt { color:var(--muted); }
+  dd { margin:0; }
+  .actions { display:flex; flex-wrap:wrap; gap:.7rem; }
+  button, .button-link { min-height:2.7rem; display:inline-flex; align-items:center; padding:0 .9rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font:inherit; font-weight:700; text-decoration:none; cursor:pointer; }
+  .secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  button:disabled { opacity:.6; cursor:wait; }
+  #message { min-height:1.4rem; color:var(--muted-strong); }
+  .note { margin-top:1.2rem; color:var(--muted); }
+  .back { display:inline-block; margin-top:1rem; color:var(--muted-strong); }
+</style>
