@@ -60,7 +60,7 @@ class ExecutionApiTests(TestCase):
 
     @patch("portal.execution_api.Path.exists", return_value=True)
     @patch("portal.execution_api._gateway", return_value="COMPLETED|slurm-cpu-01")
-    def test_detail_refreshes_completed_slurm_state(self, _gateway):
+    def test_detail_refreshes_completed_slurm_state(self, _gateway, _path_exists):
         record = ExecutionRecord.objects.create(
             user=self.user,
             offering="cpu-smoke",
