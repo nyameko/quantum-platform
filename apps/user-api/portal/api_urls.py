@@ -17,6 +17,11 @@ from .identity_api import (
     reject_pi_application,
     upsert_profile,
 )
+from .workbench_api import (
+    launch_workbench,
+    stop_workbench,
+    workbench_status,
+)
 from .views import (
     approve_membership,
     csrf,
@@ -41,6 +46,9 @@ urlpatterns = [
         name="ssh-key-revoke",
     ),
     path("wireguard-keys/", wireguard_keys, name="wireguard-keys"),
+    path("workbench/", workbench_status, name="workbench-status"),
+    path("workbench/launch/", launch_workbench, name="workbench-launch"),
+    path("workbench/stop/", stop_workbench, name="workbench-stop"),
     path(
         "wireguard-keys/<int:key_id>/revoke/",
         revoke_wireguard_key,

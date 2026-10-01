@@ -382,3 +382,19 @@ WIREGUARD_CLIENT_ALLOWED_IPS = os.getenv("WIREGUARD_CLIENT_ALLOWED_IPS", "")
 WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE = int(
     os.getenv("WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE", "25")
 )
+
+
+# ---------------------------------------------------------------------------
+# JupyterHub workbench integration
+# ---------------------------------------------------------------------------
+
+JUPYTERHUB_PUBLIC_URL = os.getenv(
+    "JUPYTERHUB_PUBLIC_URL",
+    "https://jupyter.quantum.nyameko.com",
+).rstrip("/")
+JUPYTERHUB_API_URL = os.getenv("JUPYTERHUB_API_URL", "").rstrip("/")
+JUPYTERHUB_API_TOKEN = os.getenv("JUPYTERHUB_API_TOKEN", "")
+JUPYTERHUB_LAUNCH_SIGNING_KEY = os.getenv("JUPYTERHUB_LAUNCH_SIGNING_KEY", "")
+JUPYTERHUB_LAUNCH_TOKEN_TTL = int(
+    os.getenv("JUPYTERHUB_LAUNCH_TOKEN_TTL", "60")
+)
