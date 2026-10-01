@@ -1,5 +1,7 @@
 import shlex
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from django.conf import settings
@@ -59,44 +61,54 @@ def _configured():
     return bool(
         settings.SLURM_GATEWAY_HOST
         and settings.QUANTUM_WORKFLOWS_CPU_IMAGE
-        and Path(settings.SLURM_GATEWAY_PRIVATE_KEY_FILE).exists()
-        and Path(settings.SLURM_GATEWAY_KNOWN_HOSTS_FILE).exists()
+        and settings.SLURM_GATEWAY_PRIVATE_KEY
+        and settings.SLURM_GATEWAY_KNOWN_HOSTS
     )
 
 
 def _gateway(op, arg, stdin=None):
-    command = [
-        "ssh",
-        "-i",
-        settings.SLURM_GATEWAY_PRIVATE_KEY_FILE,
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "IdentitiesOnly=yes",
-        "-o",
-        "StrictHostKeyChecking=yes",
-        "-o",
-        f"UserKnownHostsFile={settings.SLURM_GATEWAY_KNOWN_HOSTS_FILE}",
-        "-p",
-        str(settings.SLURM_GATEWAY_PORT),
-        f"{settings.SLURM_GATEWAY_USER}@{settings.SLURM_GATEWAY_HOST}",
-        f"{op} {arg}",
-    ]
-    try:
-        result = subprocess.run(
-            command,
-            input=stdin,
-            text=True,
-            capture_output=True,
-            check=True,
-            timeout=20,
-        )
-    except subprocess.CalledProcessError as exc:
-        message = (exc.stderr or exc.stdout or "Slurm gateway command failed.").strip()
-        raise RuntimeError(message) from exc
-    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-        raise RuntimeError("Slurm gateway is unavailable.") from exc
-    return result.stdout.strip()
+    with tempfile.TemporaryDirectory(prefix="quantum-slurm-") as directory:
+        key_path = Path(directory) / "id_ed25519"
+        known_hosts_path = Path(directory) / "known_hosts"
+        key_path.write_text(settings.SLURM_GATEWAY_PRIVATE_KEY)
+        known_hosts_path.write_text(settings.SLURM_GATEWAY_KNOWN_HOSTS)
+        os.chmod(key_path, 0o600)
+        os.chmod(known_hosts_path, 0o600)
+
+        command = [
+            "ssh",
+            "-i",
+            str(key_path),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "IdentitiesOnly=yes",
+            "-o",
+            "StrictHostKeyChecking=yes",
+            "-o",
+            f"UserKnownHostsFile={known_hosts_path}",
+            "-p",
+            str(settings.SLURM_GATEWAY_PORT),
+            f"{settings.SLURM_GATEWAY_USER}@{settings.SLURM_GATEWAY_HOST}",
+            f"{op} {arg}",
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                input=stdin,
+                text=True,
+                capture_output=True,
+                check=True,
+                timeout=20,
+            )
+        except subprocess.CalledProcessError as exc:
+            message = (
+                exc.stderr or exc.stdout or "Slurm gateway command failed."
+            ).strip()
+            raise RuntimeError(message) from exc
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError("Slurm gateway is unavailable.") from exc
+        return result.stdout.strip()
 
 
 def _cpu_smoke_script(record):
