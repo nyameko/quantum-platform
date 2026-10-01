@@ -236,3 +236,41 @@ class WireGuardKey(models.Model):
 
     def __str__(self):
         return f"{self.person} — {self.name}"
+
+
+
+class ExecutionRecord(models.Model):
+    class State(models.TextChoices):
+        CREATED = "created", "Created"
+        SUBMITTED = "submitted", "Submitted"
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+        UNKNOWN = "unknown", "Unknown"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="execution_records",
+    )
+    offering = models.CharField(max_length=64)
+    state = models.CharField(max_length=16, choices=State, default=State.CREATED)
+    scheduler_job_id = models.CharField(max_length=64, blank=True)
+    scheduler_state = models.CharField(max_length=64, blank=True)
+    scheduler_node = models.CharField(max_length=255, blank=True)
+    parameters = models.JSONField(default=dict, blank=True)
+    result_path = models.CharField(max_length=512)
+    error_message = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} — {self.offering} — {self.state}"

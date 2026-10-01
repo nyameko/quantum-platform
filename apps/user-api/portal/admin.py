@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 
 from .models import (
     AuditEvent,
+    ExecutionRecord,
     Person,
     PIApplication,
     ProgrammeMembership,
@@ -244,3 +245,40 @@ class PlatformUserAdmin(DjangoUserAdmin):
     search_fields = ("username", "email", "first_name", "last_name")
     list_filter = ("is_active", "is_staff", "is_superuser")
     ordering = ("username",)
+
+
+
+@admin.register(ExecutionRecord)
+class ExecutionRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "offering",
+        "state",
+        "scheduler_job_id",
+        "scheduler_state",
+        "created_at",
+        "finished_at",
+    )
+    search_fields = ("id", "user__username", "scheduler_job_id", "offering")
+    list_filter = ("offering", "state", "scheduler_state")
+    readonly_fields = (
+        "id",
+        "user",
+        "offering",
+        "state",
+        "scheduler_job_id",
+        "scheduler_state",
+        "scheduler_node",
+        "parameters",
+        "result_path",
+        "error_message",
+        "submitted_at",
+        "finished_at",
+        "created_at",
+        "updated_at",
+    )
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False

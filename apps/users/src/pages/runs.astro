@@ -1,0 +1,164 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout title="Runs" siteName="Quantum Platform" section="User Portal">
+  <section class="section container page-shell">
+    <p class="eyebrow">EXECUTION</p>
+    <h1>Research runs</h1>
+    <p class="lede">
+      Submit durable workloads without tying them to the lifetime of your notebook.
+    </p>
+
+    <article class="panel submit-panel">
+      <div>
+        <p class="eyebrow">CPU SMALL</p>
+        <h2>CPU smoke test</h2>
+        <p>
+          A credential-free quantum-workflows run that validates
+          Quantum Platform → restricted gateway → Slurm → shared results.
+        </p>
+      </div>
+      <button id="submit" type="button">Submit cpu-smoke</button>
+      <p id="submit-message" role="status"></p>
+    </article>
+
+    <section class="runs">
+      <div class="section-heading">
+        <h2>Recent runs</h2>
+        <button id="refresh" type="button" class="secondary">Refresh</button>
+      </div>
+      <div id="run-list"></div>
+    </section>
+
+    <a class="back" href="/dashboard/">Back to dashboard</a>
+  </section>
+</SiteLayout>
+
+<script>
+  import { csrfJsonFetch, requireSession } from '../lib/auth';
+
+  type Run = {
+    id: string;
+    offering: string;
+    state: string;
+    scheduler_job_id?: string | null;
+    result_path: string;
+    error_message?: string | null;
+  };
+
+  const submit = document.querySelector<HTMLButtonElement>('#submit');
+  const submitMessage = document.querySelector<HTMLParagraphElement>('#submit-message');
+  const refresh = document.querySelector<HTMLButtonElement>('#refresh');
+  const list = document.querySelector<HTMLDivElement>('#run-list');
+
+  function render(runs: Run[]) {
+    if (!list) return;
+    list.replaceChildren();
+
+    if (!runs.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No runs yet.';
+      list.append(empty);
+      return;
+    }
+
+    for (const run of runs) {
+      const item = document.createElement('article');
+      item.className = 'run';
+
+      const heading = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = run.offering;
+      const state = document.createElement('span');
+      state.className = 'state';
+      state.textContent = run.state;
+      heading.append(title, state);
+
+      const meta = document.createElement('code');
+      meta.textContent = run.scheduler_job_id
+        ? `Slurm ${run.scheduler_job_id} · ${run.result_path}`
+        : run.result_path;
+
+      item.append(heading, meta);
+
+      if (run.error_message) {
+        const error = document.createElement('p');
+        error.textContent = run.error_message;
+        item.append(error);
+      }
+
+      if (!['completed', 'failed', 'cancelled'].includes(run.state) && run.scheduler_job_id) {
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'secondary';
+        cancel.textContent = 'Cancel';
+        cancel.addEventListener('click', async () => {
+          cancel.disabled = true;
+          await csrfJsonFetch(`/api/v1/executions/${run.id}/cancel/`, {
+            method: 'POST',
+            body: JSON.stringify({}),
+          });
+          await load();
+        });
+        item.append(cancel);
+      }
+
+      list.append(item);
+    }
+  }
+
+  async function load() {
+    const response = await fetch('/api/v1/executions/', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    if (response.ok) render(await response.json());
+  }
+
+  submit?.addEventListener('click', async () => {
+    submit.disabled = true;
+    if (submitMessage) submitMessage.textContent = 'Submitting through Slurm…';
+
+    const response = await csrfJsonFetch('/api/v1/executions/cpu-smoke/', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      if (submitMessage) {
+        submitMessage.textContent = `Submitted as Slurm job ${payload.scheduler_job_id}.`;
+      }
+      await load();
+    } else if (submitMessage) {
+      submitMessage.textContent = payload.detail ?? payload.error_message ?? 'Submission failed.';
+    }
+
+    submit.disabled = false;
+  });
+
+  refresh?.addEventListener('click', () => void load());
+
+  if (await requireSession()) {
+    await load();
+  }
+</script>
+
+<style>
+  .page-shell { max-width:70rem; }
+  h1 { margin:.4rem 0 0; font-size:clamp(2.8rem,6vw,5rem); letter-spacing:-.05em; }
+  .panel, .run { border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
+  .submit-panel { margin-top:2rem; padding:1.5rem; display:grid; gap:1rem; }
+  .runs { margin-top:2.5rem; }
+  .section-heading, .run > div { display:flex; justify-content:space-between; gap:1rem; align-items:center; }
+  #run-list { display:grid; gap:.8rem; margin-top:1rem; }
+  .run { display:grid; gap:.6rem; padding:1rem; }
+  .run code { overflow-wrap:anywhere; color:var(--muted-strong); }
+  .state { padding:.2rem .5rem; border:1px solid var(--border); border-radius:999px; font-size:.8rem; }
+  button { min-height:2.7rem; padding:0 .9rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font-weight:700; cursor:pointer; width:max-content; }
+  button.secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  button:disabled { opacity:.6; cursor:wait; }
+  #submit-message { min-height:1.4rem; color:var(--muted-strong); }
+  .back { display:inline-block; margin-top:1.5rem; color:var(--muted-strong); }
+</style>
