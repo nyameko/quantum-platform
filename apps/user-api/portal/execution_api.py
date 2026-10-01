@@ -102,6 +102,7 @@ def _gateway(op, arg, stdin=None):
 def _cpu_smoke_script(record):
     result_path = record.result_path
     image = settings.QUANTUM_WORKFLOWS_CPU_IMAGE
+    log_path = f"/home/research/{record.user.username}/.quantum-platform/slurm-%j.out"
 
     return f"""#!/usr/bin/env bash
 #SBATCH --job-name=jhub-cpu-smoke
@@ -110,7 +111,7 @@ def _cpu_smoke_script(record):
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --output={shlex.quote(result_path)}/slurm-%j.out
+#SBATCH --output={shlex.quote(log_path)}
 
 set -euo pipefail
 
@@ -219,11 +220,13 @@ def submit_cpu_smoke(request):
         offering="cpu-smoke",
         state=ExecutionRecord.State.CREATED,
         parameters={"iterations": 100000, "logical_target": "cpu-small"},
-        result_path=(
-            f"/home/research/{request.user.username}/"
-            f".quantum-platform/runs/{request.user.username}-{timezone.now():%Y%m%dT%H%M%S}"
-        ),
+        result_path="",
     )
+    record.result_path = (
+        f"/home/research/{request.user.username}/"
+        f".quantum-platform/runs/{record.pk}"
+    )
+    record.save(update_fields=["result_path", "updated_at"])
 
     try:
         scheduler_job_id = _gateway(
