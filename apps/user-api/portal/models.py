@@ -17,6 +17,9 @@ class Person(models.Model):
     institution = models.CharField(max_length=255, blank=True)
     department = models.CharField(max_length=255, blank=True)
     orcid = models.CharField(max_length=19, blank=True, unique=True, null=True)
+    posix_uid = models.PositiveIntegerField(blank=True, null=True, unique=True)
+    posix_gid = models.PositiveIntegerField(blank=True, null=True)
+    posix_provisioned_at = models.DateTimeField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

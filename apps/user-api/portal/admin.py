@@ -20,7 +20,15 @@ from .programme_services import (
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
-    list_display = ("family_name", "given_names", "institution", "user")
+    list_display = (
+        "family_name",
+        "given_names",
+        "institution",
+        "user",
+        "posix_uid",
+        "posix_gid",
+        "posix_provisioned_at",
+    )
     search_fields = (
         "family_name",
         "given_names",
