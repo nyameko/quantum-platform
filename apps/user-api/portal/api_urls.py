@@ -11,6 +11,7 @@ from .execution_api import (
     execution_detail,
     executions,
     submit_cpu_smoke,
+)
 from .internal_wireguard_api import (
     acknowledge_wireguard_peers,
     desired_wireguard_peers,
