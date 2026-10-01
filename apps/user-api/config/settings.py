@@ -409,3 +409,15 @@ JUPYTERHUB_LAUNCH_SIGNING_KEY = os.getenv("JUPYTERHUB_LAUNCH_SIGNING_KEY", "")
 JUPYTERHUB_LAUNCH_TOKEN_TTL = int(
     os.getenv("JUPYTERHUB_LAUNCH_TOKEN_TTL", "60")
 )
+
+
+# ---------------------------------------------------------------------------
+# Restricted Slurm execution gateway
+# ---------------------------------------------------------------------------
+
+SLURM_GATEWAY_HOST = os.getenv("SLURM_GATEWAY_HOST", "")
+SLURM_GATEWAY_PORT = int(os.getenv("SLURM_GATEWAY_PORT", "22"))
+SLURM_GATEWAY_USER = os.getenv("SLURM_GATEWAY_USER", "jupyterhub-gateway")
+SLURM_GATEWAY_PRIVATE_KEY = os.getenv("SLURM_GATEWAY_PRIVATE_KEY", "")
+SLURM_GATEWAY_KNOWN_HOSTS = os.getenv("SLURM_GATEWAY_KNOWN_HOSTS", "")
+QUANTUM_WORKFLOWS_CPU_IMAGE = os.getenv("QUANTUM_WORKFLOWS_CPU_IMAGE", "")

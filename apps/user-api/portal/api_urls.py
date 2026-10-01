@@ -6,6 +6,11 @@ from .access_keys_api import (
     ssh_keys,
     wireguard_keys,
 )
+from .execution_api import (
+    cancel_execution,
+    execution_detail,
+    executions,
+    submit_cpu_smoke,
 from .internal_wireguard_api import (
     acknowledge_wireguard_peers,
     desired_wireguard_peers,
@@ -38,6 +43,10 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path("executions/", executions, name="executions"),
+    path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
+    path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),
+    path("executions/<uuid:execution_id>/cancel/", cancel_execution, name="execution-cancel"),
     path(
         "internal/wireguard/peers/",
         desired_wireguard_peers,
