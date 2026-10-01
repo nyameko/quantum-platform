@@ -6,6 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY apps/user-api/pyproject.toml /app/pyproject.toml
 COPY apps/user-api/config /app/config
 COPY apps/user-api/portal /app/portal

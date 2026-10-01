@@ -6,6 +6,12 @@ from .access_keys_api import (
     ssh_keys,
     wireguard_keys,
 )
+from .execution_api import (
+    cancel_execution,
+    execution_detail,
+    executions,
+    submit_cpu_smoke,
+)
 from .identity_api import (
     approve_pi_application,
     create_pi_application,
@@ -34,6 +40,10 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path("executions/", executions, name="executions"),
+    path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
+    path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),
+    path("executions/<uuid:execution_id>/cancel/", cancel_execution, name="execution-cancel"),
     path("csrf/", csrf, name="csrf"),
     path("logout/", logout_session, name="logout"),
     path("institutions/", institutions, name="institutions"),
