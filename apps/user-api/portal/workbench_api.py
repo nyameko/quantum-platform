@@ -59,13 +59,14 @@ def _b64url(value):
     return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
 
 
-def _launch_token(user, person):
+def _launch_token(user, person, theme="dark"):
     now = int(time.time())
     payload = {
         "aud": "jupyterhub-workbench",
         "sub": user.username,
         "uid": person.posix_uid,
         "gid": person.posix_gid,
+        "theme": theme if theme in {"light", "dark"} else "dark",
         "iat": now,
         "exp": now + settings.JUPYTERHUB_LAUNCH_TOKEN_TTL,
         "jti": uuid.uuid4().hex,
@@ -199,7 +200,9 @@ def launch_workbench(request):
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
-    token = _launch_token(request.user, person)
+    requested_theme = str((request.data or {}).get("theme", "dark")).strip().lower()
+    theme = requested_theme if requested_theme in {"light", "dark"} else "dark"
+    token = _launch_token(request.user, person, theme=theme)
     launch_url = (
         f"{settings.JUPYTERHUB_PUBLIC_URL}/hub/platform-login"
         f"?token={urllib.parse.quote(token, safe='')}"
@@ -208,7 +211,7 @@ def launch_workbench(request):
     _audit(
         request.user,
         "WORKBENCH_LAUNCH_REQUESTED",
-        metadata={"uid": person.posix_uid, "gid": person.posix_gid},
+        metadata={"uid": person.posix_uid, "gid": person.posix_gid, "theme": theme},
     )
 
     return Response(
