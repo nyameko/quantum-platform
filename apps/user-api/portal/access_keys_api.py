@@ -135,6 +135,7 @@ def _wireguard_client_config(key):
 
     complete = bool(
         key.assigned_address
+        and key.provisioned_at
         and settings.WIREGUARD_CLIENT_ENDPOINT
         and settings.WIREGUARD_SERVER_PUBLIC_KEY
         and settings.WIREGUARD_CLIENT_DNS

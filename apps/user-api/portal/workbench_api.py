@@ -6,6 +6,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 from django.conf import settings
 from rest_framework import status
@@ -67,6 +68,7 @@ def _launch_token(user, person):
         "gid": person.posix_gid,
         "iat": now,
         "exp": now + settings.JUPYTERHUB_LAUNCH_TOKEN_TTL,
+        "jti": uuid.uuid4().hex,
     }
     encoded = _b64url(
         json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")

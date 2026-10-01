@@ -11,6 +11,9 @@ from .execution_api import (
     execution_detail,
     executions,
     submit_cpu_smoke,
+from .internal_wireguard_api import (
+    acknowledge_wireguard_peers,
+    desired_wireguard_peers,
 )
 from .identity_api import (
     approve_pi_application,
@@ -44,6 +47,16 @@ urlpatterns = [
     path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
     path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),
     path("executions/<uuid:execution_id>/cancel/", cancel_execution, name="execution-cancel"),
+    path(
+        "internal/wireguard/peers/",
+        desired_wireguard_peers,
+        name="internal-wireguard-peers",
+    ),
+    path(
+        "internal/wireguard/reconciled/",
+        acknowledge_wireguard_peers,
+        name="internal-wireguard-reconciled",
+    ),
     path("csrf/", csrf, name="csrf"),
     path("logout/", logout_session, name="logout"),
     path("institutions/", institutions, name="institutions"),

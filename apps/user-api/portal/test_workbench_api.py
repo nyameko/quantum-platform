@@ -62,6 +62,7 @@ class WorkbenchApiTests(TestCase):
         self.assertEqual(payload["uid"], 20999)
         self.assertEqual(payload["gid"], 20999)
         self.assertEqual(payload["aud"], "jupyterhub-workbench")
+        self.assertRegex(payload["jti"], r"^[0-9a-f]{32}$")
         self.assertLessEqual(payload["exp"] - payload["iat"], 60)
 
     @override_settings(
