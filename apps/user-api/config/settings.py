@@ -382,3 +382,14 @@ WIREGUARD_CLIENT_ALLOWED_IPS = os.getenv("WIREGUARD_CLIENT_ALLOWED_IPS", "")
 WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE = int(
     os.getenv("WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE", "25")
 )
+
+
+# Internal WireGuard peer reconciler. Values are supplied from protected
+# environment data / SealedSecrets, never from public topology declarations.
+WIREGUARD_RECONCILER_TOKEN = os.getenv("WIREGUARD_RECONCILER_TOKEN", "")
+WIREGUARD_CLIENT_POOL = os.getenv("WIREGUARD_CLIENT_POOL", "")
+WIREGUARD_RESERVED_ADDRESSES = {
+    value.strip()
+    for value in os.getenv("WIREGUARD_RESERVED_ADDRESSES", "").split(",")
+    if value.strip()
+}

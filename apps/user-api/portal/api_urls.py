@@ -6,6 +6,10 @@ from .access_keys_api import (
     ssh_keys,
     wireguard_keys,
 )
+from .internal_wireguard_api import (
+    acknowledge_wireguard_peers,
+    desired_wireguard_peers,
+)
 from .identity_api import (
     approve_pi_application,
     create_pi_application,
@@ -29,6 +33,16 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path(
+        "internal/wireguard/peers/",
+        desired_wireguard_peers,
+        name="internal-wireguard-peers",
+    ),
+    path(
+        "internal/wireguard/reconciled/",
+        acknowledge_wireguard_peers,
+        name="internal-wireguard-reconciled",
+    ),
     path("csrf/", csrf, name="csrf"),
     path("logout/", logout_session, name="logout"),
     path("institutions/", institutions, name="institutions"),
