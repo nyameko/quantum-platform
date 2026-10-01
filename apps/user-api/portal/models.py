@@ -218,6 +218,8 @@ class WireGuardKey(models.Model):
     name = models.CharField(max_length=100)
     public_key = models.CharField(max_length=64, unique=True)
     active = models.BooleanField(default=True)
+    assigned_address = models.CharField(max_length=64, blank=True)
+    provisioned_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

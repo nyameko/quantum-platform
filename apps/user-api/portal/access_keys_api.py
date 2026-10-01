@@ -3,6 +3,7 @@ import binascii
 import hashlib
 import struct
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -104,13 +105,80 @@ def _ssh_payload(key):
     }
 
 
+def _wireguard_client_config(key):
+    address = key.assigned_address or "<assigned-after-provisioning>"
+    endpoint = settings.WIREGUARD_CLIENT_ENDPOINT or "<wireguard-endpoint>"
+    server_public_key = (
+        settings.WIREGUARD_SERVER_PUBLIC_KEY or "<wireguard-server-public-key>"
+    )
+    dns = settings.WIREGUARD_CLIENT_DNS or "<wireguard-dns>"
+    allowed_ips = settings.WIREGUARD_CLIENT_ALLOWED_IPS or "<allowed-private-networks>"
+
+    config = "\n".join(
+        [
+            "[Interface]",
+            "PrivateKey = <YOUR_PRIVATE_KEY>",
+            f"Address = {address}",
+            f"DNS = {dns}",
+            "",
+            "[Peer]",
+            f"PublicKey = {server_public_key}",
+            f"Endpoint = {endpoint}",
+            f"AllowedIPs = {allowed_ips}",
+            (
+                "PersistentKeepalive = "
+                f"{settings.WIREGUARD_CLIENT_PERSISTENT_KEEPALIVE}"
+            ),
+            "",
+        ]
+    )
+
+    complete = bool(
+        key.assigned_address
+        and key.provisioned_at
+        and settings.WIREGUARD_CLIENT_ENDPOINT
+        and settings.WIREGUARD_SERVER_PUBLIC_KEY
+        and settings.WIREGUARD_CLIENT_DNS
+        and settings.WIREGUARD_CLIENT_ALLOWED_IPS
+    )
+
+    return {
+        "complete": complete,
+        "state": (
+            "revoked"
+            if not key.active
+            else "provisioned"
+            if complete
+            else "registered"
+        ),
+        "config": config,
+        "filename": f"{key.name}.conf",
+        "instructions": [
+            "Keep your WireGuard private key on your own device; never upload it.",
+            "Replace <YOUR_PRIVATE_KEY> locally with the private key paired with the public key you registered.",
+            (
+                "If the configuration still contains angle-bracket placeholders, "
+                "the key is registered but infrastructure provisioning is still pending."
+            ),
+            (
+                "Once provisioned, save the configuration under /etc/wireguard/ "
+                "and start it with wg-quick, or import it into your WireGuard client."
+            ),
+            "Bring the tunnel down with wg-quick down when you no longer need private platform access.",
+        ],
+    }
+
+
 def _wireguard_payload(key):
     return {
         "id": key.id,
         "name": key.name,
         "public_key": key.public_key,
         "active": key.active,
+        "assigned_address": key.assigned_address or None,
+        "provisioned_at": key.provisioned_at,
         "created_at": key.created_at,
+        "client": _wireguard_client_config(key),
     }
 
 

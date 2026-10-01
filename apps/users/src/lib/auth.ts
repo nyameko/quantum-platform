@@ -13,9 +13,15 @@ export type AllauthPayload = {
       username?: string;
     };
     flows?: AllauthFlow[];
+    type?: string;
+    created_at?: number;
+    last_used_at?: number | null;
+    unused_codes?: string[];
   };
   meta?: {
     is_authenticated?: boolean;
+    secret?: string;
+    totp_url?: string;
   };
   errors?: Array<{
     message?: string;
