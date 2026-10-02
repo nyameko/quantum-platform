@@ -29,7 +29,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
       <div class="actions">
         <button id="launch" type="button">Launch workbench</button>
-        <a id="open" class="button-link" href="#" hidden>Open Jupyter</a>
+        <a id="open" class="button-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Jupyter</a>
         <button id="stop" class="secondary" type="button" hidden>Stop workbench</button>
         <button id="refresh" class="secondary" type="button">Refresh status</button>
       </div>
@@ -134,6 +134,14 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const payload = await response.json().catch(() => ({}));
 
     if (response.ok && payload.launch_url) {
+      const jupyterWindow = window.open(payload.launch_url, "_blank", "noopener,noreferrer");
+      if (jupyterWindow) {
+        if (message) message.textContent = "Jupyter opened in a new tab.";
+        launch.disabled = false;
+        launch.textContent = "Launch workbench";
+        return;
+      }
+
       window.location.assign(payload.launch_url);
       return;
     }
