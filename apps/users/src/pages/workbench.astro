@@ -88,8 +88,22 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     }
 
     const running = current === 'running';
-    if (launch) launch.hidden = running;
-    if (stop) stop.hidden = !running && !['spawn', 'pending'].includes(current);
+    const starting = ['spawn', 'pending', 'starting'].includes(current);
+    const stopping = ['stop', 'stopping'].includes(current);
+    const transitional = starting || stopping;
+
+    if (launch) {
+      launch.hidden = running || transitional;
+      launch.disabled = transitional;
+      launch.textContent = starting ? 'Starting…' : 'Launch workbench';
+    }
+
+    if (stop) {
+      stop.hidden = !running && !starting && !stopping;
+      stop.disabled = stopping;
+      stop.textContent = stopping ? 'Stopping…' : 'Stop workbench';
+    }
+
     if (open) {
       open.hidden = !running || !payload.open_url;
       if (payload.open_url) open.href = payload.open_url;
@@ -98,17 +112,24 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     if (!response.ok && message) {
       message.textContent = payload.detail ?? 'Unable to read workbench state.';
     } else if (message) {
-      message.textContent = '';
+      message.textContent = starting
+        ? 'Starting your workbench…'
+        : stopping
+          ? 'Stopping your workbench…'
+          : '';
     }
   }
 
   launch?.addEventListener('click', async () => {
     launch.disabled = true;
+    launch.textContent = 'Launching…';
     if (message) message.textContent = 'Creating a short-lived workbench launch…';
 
     const response = await csrfJsonFetch('/api/v1/workbench/launch/', {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+      }),
     });
     const payload = await response.json().catch(() => ({}));
 
@@ -119,21 +140,34 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     if (message) message.textContent = payload.detail ?? 'Unable to launch workbench.';
     launch.disabled = false;
+    launch.textContent = 'Launch workbench';
   });
 
   stop?.addEventListener('click', async () => {
     stop.disabled = true;
+    stop.textContent = 'Stopping…';
     if (message) message.textContent = 'Stopping workbench…';
+
     const response = await csrfJsonFetch('/api/v1/workbench/stop/', {
       method: 'POST',
       body: JSON.stringify({}),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok && message) {
-      message.textContent = payload.detail ?? 'Unable to stop workbench.';
+
+    if (!response.ok) {
+      if (message) message.textContent = payload.detail ?? 'Unable to stop workbench.';
+      stop.disabled = false;
+      stop.textContent = 'Stop workbench';
+      return;
     }
-    stop.disabled = false;
+
     await loadStatus();
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await loadStatus();
+      if (state?.textContent === 'stopped') break;
+    }
   });
 
   refresh?.addEventListener('click', () => void loadStatus());
@@ -150,7 +184,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .status-row { display:flex; justify-content:space-between; gap:1rem; align-items:center; }
   .status-dot { display:inline-block; width:.75rem; height:.75rem; margin-right:.5rem; border-radius:50%; background:var(--muted); }
   .status-dot[data-state="running"] { background:#22c55e; }
-  .status-dot[data-state="spawn"], .status-dot[data-state="pending"] { background:#f59e0b; }
+  .status-dot[data-state="spawn"],
+  .status-dot[data-state="pending"],
+  .status-dot[data-state="starting"],
+  .status-dot[data-state="stop"],
+  .status-dot[data-state="stopping"] { background:#f59e0b; }
   dl { display:grid; gap:.8rem; margin:1.5rem 0; }
   dl div { display:grid; grid-template-columns:9rem 1fr; gap:1rem; }
   dt { color:var(--muted); }
@@ -158,6 +196,13 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .actions { display:flex; flex-wrap:wrap; gap:.7rem; }
   button, .button-link { min-height:2.7rem; display:inline-flex; align-items:center; padding:0 .9rem; border:0; border-radius:.65rem; background:var(--purple-strong); color:#fff; font:inherit; font-weight:700; text-decoration:none; cursor:pointer; }
   .secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  #stop {
+    background:#b91c1c;
+    color:#fff;
+    border:1px solid #991b1b;
+  }
+  #stop:hover:not(:disabled) { background:#991b1b; }
+  #stop:disabled { background:#7f1d1d; color:#fecaca; }
   button:disabled { opacity:.6; cursor:wait; }
   #message { min-height:1.4rem; color:var(--muted-strong); }
   .note { margin-top:1.2rem; color:var(--muted); }
