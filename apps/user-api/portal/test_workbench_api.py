@@ -37,7 +37,7 @@ class WorkbenchApiTests(TestCase):
     def test_launch_token_contains_posix_identity_and_valid_signature(self):
         response = self.client.post(
             "/api/v1/workbench/launch/",
-            data={},
+            data={"theme": "light"},
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200, response.content)
@@ -61,6 +61,7 @@ class WorkbenchApiTests(TestCase):
         self.assertEqual(payload["sub"], "nlisa")
         self.assertEqual(payload["uid"], 20999)
         self.assertEqual(payload["gid"], 20999)
+        self.assertEqual(payload["theme"], "light")
         self.assertEqual(payload["aud"], "jupyterhub-workbench")
         self.assertRegex(payload["jti"], r"^[0-9a-f]{32}$")
         self.assertLessEqual(payload["exp"] - payload["iat"], 60)
