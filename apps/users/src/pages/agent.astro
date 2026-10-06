@@ -1,0 +1,470 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout title="Personal Agent" siteName="Quantum Platform" section="User Portal">
+  <section class="section container page-shell">
+    <p class="eyebrow">M4A · PERSISTENT PERSONAL AGENT</p>
+    <h1>Persistent conversation</h1>
+    <p class="lede">
+      This is the minimal M4a continuity surface. Projects and conversations are
+      stored canonically by Agent Control Plane, not in this browser.
+    </p>
+
+    <div class="columns">
+      <article class="panel">
+        <h2>Projects</h2>
+        <form id="project-form">
+          <label>
+            New project
+            <input id="project-title" maxlength="200" value="M4 Persistence Test" />
+          </label>
+          <button type="submit">Create project</button>
+        </form>
+        <select id="projects" size="6" aria-label="Projects"></select>
+      </article>
+
+      <article class="panel">
+        <h2>Conversations</h2>
+        <form id="conversation-form">
+          <label>
+            New conversation
+            <input id="conversation-title" maxlength="200" value="Persistence Drill" />
+          </label>
+          <button type="submit">Create conversation</button>
+        </form>
+        <select id="conversations" size="6" aria-label="Conversations"></select>
+      </article>
+    </div>
+
+    <article class="panel conversation-panel">
+      <div class="conversation-heading">
+        <div>
+          <p class="eyebrow">CANONICAL TRANSCRIPT</p>
+          <h2 id="active-title">Select a conversation</h2>
+        </div>
+        <button id="refresh" type="button" class="secondary">Reload</button>
+      </div>
+
+      <div id="transcript" class="transcript" aria-live="polite">
+        <p class="empty">No conversation selected.</p>
+      </div>
+
+      <form id="turn-form">
+        <label>
+          Message
+          <textarea
+            id="message"
+            rows="4"
+            placeholder="Give the agent a fact or ask a question."
+          ></textarea>
+        </label>
+        <button id="send" type="submit">Send</button>
+      </form>
+      <p id="status" role="status"></p>
+    </article>
+
+    <p class="note">
+      M4a deliberately uses polling and a single tool-free personal runtime. Memory,
+      skills, richer projects and the polished Quantum Platform Guide come later.
+    </p>
+    <a class="back" href="/dashboard/">Back to dashboard</a>
+  </section>
+</SiteLayout>
+
+<script>
+  import { csrfJsonFetch, requireSession } from '../lib/auth';
+
+  type Project = { id: string; title: string };
+  type Conversation = { id: string; project_id?: string | null; title: string };
+  type Message = {
+    id: string;
+    author_kind: string;
+    content: unknown;
+    sequence: number;
+  };
+
+  const projects = document.querySelector<HTMLSelectElement>('#projects');
+  const conversations = document.querySelector<HTMLSelectElement>('#conversations');
+  const projectForm = document.querySelector<HTMLFormElement>('#project-form');
+  const projectTitle = document.querySelector<HTMLInputElement>('#project-title');
+  const conversationForm = document.querySelector<HTMLFormElement>('#conversation-form');
+  const conversationTitle = document.querySelector<HTMLInputElement>('#conversation-title');
+  const activeTitle = document.querySelector<HTMLElement>('#active-title');
+  const transcript = document.querySelector<HTMLElement>('#transcript');
+  const turnForm = document.querySelector<HTMLFormElement>('#turn-form');
+  const message = document.querySelector<HTMLTextAreaElement>('#message');
+  const send = document.querySelector<HTMLButtonElement>('#send');
+  const status = document.querySelector<HTMLParagraphElement>('#status');
+  const refresh = document.querySelector<HTMLButtonElement>('#refresh');
+
+  let activeProject: string | null = null;
+  let activeConversation: string | null = null;
+
+  function displayContent(value: unknown): string {
+    if (typeof value === 'string') return value;
+
+    if (
+      value
+      && typeof value === 'object'
+      && 'text' in value
+      && typeof (value as { text?: unknown }).text === 'string'
+    ) {
+      return (value as { text: string }).text;
+    }
+
+    return JSON.stringify(value);
+  }
+
+  async function loadProjects() {
+    const response = await fetch('/api/v1/agent/projects/', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({ items: [] }));
+
+    if (!response.ok || !projects) return;
+
+    projects.replaceChildren();
+
+    for (const project of payload.items as Project[]) {
+      const option = document.createElement('option');
+      option.value = project.id;
+      option.textContent = project.title;
+      projects.append(option);
+    }
+
+    if (!activeProject && projects.options.length) {
+      projects.selectedIndex = 0;
+      activeProject = projects.value;
+    }
+
+    if (activeProject) projects.value = activeProject;
+    await loadConversations();
+  }
+
+  async function loadConversations() {
+    if (!conversations) return;
+
+    conversations.replaceChildren();
+    activeConversation = null;
+
+    if (!activeProject) {
+      renderMessages([]);
+      return;
+    }
+
+    const path = '/api/v1/agent/conversations/?project_id='
+      + encodeURIComponent(activeProject);
+    const response = await fetch(path, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({ items: [] }));
+
+    if (!response.ok) return;
+
+    for (const conversation of payload.items as Conversation[]) {
+      const option = document.createElement('option');
+      option.value = conversation.id;
+      option.textContent = conversation.title;
+      conversations.append(option);
+    }
+
+    if (conversations.options.length) {
+      conversations.selectedIndex = 0;
+      activeConversation = conversations.value;
+      await loadConversation();
+      return;
+    }
+
+    renderMessages([]);
+    if (activeTitle) activeTitle.textContent = 'No conversation yet';
+  }
+
+  function renderMessages(items: Message[]) {
+    if (!transcript) return;
+
+    transcript.replaceChildren();
+
+    if (!items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = 'No messages yet.';
+      transcript.append(empty);
+      return;
+    }
+
+    for (const item of items) {
+      const article = document.createElement('article');
+      article.className = 'message ' + item.author_kind;
+
+      const role = document.createElement('strong');
+      role.textContent = item.author_kind === 'assistant' ? 'Agent' : 'You';
+
+      const body = document.createElement('p');
+      body.textContent = displayContent(item.content);
+
+      article.append(role, body);
+      transcript.append(article);
+    }
+
+    transcript.scrollTop = transcript.scrollHeight;
+  }
+
+  async function loadConversation() {
+    if (!activeConversation) return;
+
+    const path = '/api/v1/agent/conversations/' + activeConversation + '/';
+    const response = await fetch(path, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) return;
+
+    if (activeTitle) activeTitle.textContent = payload.title ?? 'Conversation';
+    renderMessages(payload.messages ?? []);
+  }
+
+  async function pollRun(runId: string) {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      const path = '/api/v1/agent/runs/' + runId + '/';
+      const response = await fetch(path, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const run = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(run.detail ?? 'Unable to read agent run.');
+      }
+
+      if (run.status === 'succeeded') return;
+
+      if (run.status === 'failed') {
+        throw new Error(
+          'Agent run failed: ' + (run.failure_code ?? 'unknown error'),
+        );
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    }
+
+    throw new Error('Agent run is still active. Reload to check again.');
+  }
+
+  projects?.addEventListener('change', async () => {
+    activeProject = projects.value || null;
+    await loadConversations();
+  });
+
+  conversations?.addEventListener('change', async () => {
+    activeConversation = conversations.value || null;
+    await loadConversation();
+  });
+
+  projectForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const title = projectTitle?.value.trim();
+
+    if (!title) return;
+
+    const response = await csrfJsonFetch('/api/v1/agent/projects/', {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if (status) status.textContent = payload.detail ?? 'Unable to create project.';
+      return;
+    }
+
+    activeProject = payload.id;
+    await loadProjects();
+
+    if (projects) projects.value = payload.id;
+    activeProject = payload.id;
+    await loadConversations();
+  });
+
+  conversationForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const title = conversationTitle?.value.trim();
+
+    if (!title || !activeProject) return;
+
+    const response = await csrfJsonFetch('/api/v1/agent/conversations/', {
+      method: 'POST',
+      body: JSON.stringify({ title, project_id: activeProject }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if (status) {
+        status.textContent = payload.detail ?? 'Unable to create conversation.';
+      }
+      return;
+    }
+
+    await loadConversations();
+
+    if (conversations) conversations.value = payload.id;
+    activeConversation = payload.id;
+    await loadConversation();
+  });
+
+  turnForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const content = message?.value.trim();
+
+    if (!content || !activeConversation || !send) return;
+
+    send.disabled = true;
+    if (status) status.textContent = 'Agent run queued…';
+
+    const idempotencyKey = crypto.randomUUID();
+    const clientMessageId = crypto.randomUUID();
+
+    try {
+      const path = '/api/v1/agent/conversations/'
+        + activeConversation
+        + '/turns/';
+      const response = await csrfJsonFetch(path, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify({
+          content: { text: content },
+          source_channel: 'web',
+          client_message_id: clientMessageId,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.detail ?? 'Unable to queue agent turn.');
+      }
+
+      if (message) message.value = '';
+      await loadConversation();
+
+      if (status) status.textContent = 'Agent is responding…';
+      await pollRun(payload.run_id);
+      await loadConversation();
+
+      if (status) status.textContent = 'Response persisted.';
+    } catch (error) {
+      if (status) {
+        status.textContent = error instanceof Error
+          ? error.message
+          : 'Agent request failed.';
+      }
+    } finally {
+      send.disabled = false;
+    }
+  });
+
+  refresh?.addEventListener('click', () => void loadConversation());
+
+  if (await requireSession()) {
+    await loadProjects();
+  }
+</script>
+
+<style>
+  .page-shell { max-width: 76rem; }
+  h1 {
+    margin: .4rem 0 0;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    letter-spacing: -.05em;
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+  .panel {
+    padding: 1.4rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+  }
+  .panel h2 { margin-top: 0; }
+  form { display: grid; gap: .7rem; }
+  label { display: grid; gap: .35rem; color: var(--muted-strong); }
+  input,
+  textarea,
+  select {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    border-radius: .65rem;
+    background: var(--background);
+    color: var(--text);
+    padding: .75rem;
+    font: inherit;
+  }
+  select { margin-top: 1rem; min-height: 9rem; }
+  button {
+    min-height: 2.7rem;
+    width: max-content;
+    padding: 0 .9rem;
+    border: 0;
+    border-radius: .65rem;
+    background: var(--purple-strong);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: wait; }
+  .secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .conversation-panel { margin-top: 1rem; }
+  .conversation-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: start;
+  }
+  .transcript {
+    display: grid;
+    gap: .75rem;
+    max-height: 28rem;
+    overflow: auto;
+    margin: 1rem 0;
+    padding: .75rem;
+    border: 1px solid var(--border);
+    border-radius: .8rem;
+  }
+  .message {
+    max-width: 85%;
+    padding: .8rem 1rem;
+    border-radius: .8rem;
+    background: var(--background);
+  }
+  .message.assistant { margin-right: auto; }
+  .message.user {
+    margin-left: auto;
+    border: 1px solid var(--border);
+  }
+  .message p { margin: .3rem 0 0; white-space: pre-wrap; }
+  .empty,
+  #status,
+  .note { color: var(--muted); }
+  .back {
+    display: inline-block;
+    margin-top: 1rem;
+    color: var(--muted-strong);
+  }
+  @media (max-width: 800px) {
+    .columns { grid-template-columns: 1fr; }
+    .message { max-width: 100%; }
+  }
+</style>
