@@ -45,4 +45,3 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(seed_research_sequence, migrations.RunPython.noop),
     ]
-}
