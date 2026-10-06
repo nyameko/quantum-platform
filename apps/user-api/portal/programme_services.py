@@ -5,6 +5,8 @@ from __future__ import annotations
 from django.db import transaction
 from django.utils import timezone
 
+from .identity import allocate_posix_identity
+
 from .models import (
     AuditEvent,
     PIApplication,
@@ -88,6 +90,8 @@ def approve_pi_application_record(application: PIApplication, reviewer):
         application.applicant,
     )
 
+    uid, gid = allocate_posix_identity(application.applicant)
+
     application.status = PIApplication.Status.APPROVED
     application.reviewed_at = timezone.now()
     application.reviewed_by = reviewer
@@ -109,6 +113,8 @@ def approve_pi_application_record(application: PIApplication, reviewer):
         metadata={
             "programme_id": programme.pk,
             "programme_acronym": programme.acronym,
+            "posix_uid": uid,
+            "posix_gid": gid,
         },
     )
     return programme, membership
