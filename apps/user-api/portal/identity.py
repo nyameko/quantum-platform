@@ -84,9 +84,8 @@ def allocate_posix_identity(person):
         return person.posix_uid, person.posix_gid
 
     with transaction.atomic():
-        sequence, _ = PosixIdentitySequence.objects.select_for_update().get_or_create(
+        sequence = PosixIdentitySequence.objects.select_for_update().get(
             name="research",
-            defaults={"next_uid": POSIX_MANAGED_START},
         )
 
         uid = sequence.next_uid
