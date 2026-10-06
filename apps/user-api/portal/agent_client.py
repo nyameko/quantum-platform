@@ -17,9 +17,14 @@ class AgentServiceError(Exception):
     pass
 
 
-def assertion(user):
-    if not user.is_active or not user.is_staff:
+def assertion(user, *, scope="admin:diagnostics"):
+    if not user.is_active:
+        raise AgentServiceError("An active Quantum Platform account is required.")
+    if scope == "admin:diagnostics" and not user.is_staff:
         raise AgentServiceError("Administrator access is required.")
+    if scope not in {"admin:diagnostics", "agent:personal"}:
+        raise AgentServiceError("Unsupported agent service scope.")
+
     principal, _ = AgentPrincipal.objects.get_or_create(user=user)
     now = int(time.time())
     try:
@@ -30,7 +35,7 @@ def assertion(user):
                 "aud": "agent-control-plane",
                 "sub": f"urn:quantum-platform:user:{principal.pk}",
                 "tenant": settings.AGENT_CONTROL_PLANE_TENANT,
-                "scope": "admin:diagnostics",
+                "scope": scope,
                 "iat": now,
                 "nbf": now,
                 "exp": now + 60,
@@ -43,7 +48,17 @@ def assertion(user):
         raise AgentServiceError("The agent service signing key is not configured.") from None
 
 
-def call(user, method, path, *, key=None, offset=0):
+def call(
+    user,
+    method,
+    path,
+    *,
+    scope="admin:diagnostics",
+    key=None,
+    offset=None,
+    params=None,
+    json_body=None,
+):
     base = settings.AGENT_CONTROL_PLANE_URL
     url = urlsplit(base)
     if (
@@ -55,24 +70,35 @@ def call(user, method, path, *, key=None, offset=0):
         or url.fragment
     ):
         raise AgentServiceError("The agent service has not been enabled.")
-    headers = {"Authorization": f"Bearer {assertion(user)}", "Accept": "application/json"}
-    kwargs = (
-        {"params": {"offset": offset}}
-        if method == "GET"
-        else {
-            "json": {"diagnostic": "quantum-platform-pod-readiness"},
-        }
-    )
+
+    headers = {
+        "Authorization": f"Bearer {assertion(user, scope=scope)}",
+        "Accept": "application/json",
+    }
+    query = dict(params or {})
+    if offset is not None:
+        query["offset"] = offset
+
+    kwargs = {"params": query}
+    if method != "GET":
+        kwargs["json"] = (
+            json_body
+            if json_body is not None
+            else {"diagnostic": "quantum-platform-pod-readiness"}
+        )
     if key is not None:
         headers["Idempotency-Key"] = str(key)
+
     try:
         with (
             httpx.Client(timeout=10, follow_redirects=False, trust_env=False) as client,
             client.stream(method, base + path, headers=headers, **kwargs) as response,
         ):
             if response.status_code == 429:
-                raise AgentServiceError("A diagnostic is already active, or the queue is full.")
-            if response.status_code not in {200, 202}:
+                raise AgentServiceError("The agent service queue is temporarily full.")
+            if response.status_code == 404:
+                raise AgentServiceError("The requested agent resource was not found.")
+            if response.status_code not in {200, 201, 202}:
                 raise AgentServiceError("The agent service is unavailable. Please try again.")
             body = bytearray()
             for chunk in response.iter_bytes(chunk_size=4096):
