@@ -1,5 +1,12 @@
 from django.urls import path
 
+from .agent_api import (
+    agent_conversation,
+    agent_conversations,
+    agent_projects,
+    agent_run,
+    agent_turn,
+)
 from .access_keys_api import (
     revoke_ssh_key,
     revoke_wireguard_key,
@@ -44,6 +51,19 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path("agent/projects/", agent_projects, name="agent-projects"),
+    path("agent/conversations/", agent_conversations, name="agent-conversations"),
+    path(
+        "agent/conversations/<uuid:conversation_id>/",
+        agent_conversation,
+        name="agent-conversation",
+    ),
+    path(
+        "agent/conversations/<uuid:conversation_id>/turns/",
+        agent_turn,
+        name="agent-turn",
+    ),
+    path("agent/runs/<uuid:run_id>/", agent_run, name="agent-run"),
     path("executions/", executions, name="executions"),
     path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
     path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),
