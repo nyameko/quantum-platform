@@ -56,6 +56,9 @@ class ExecutionApiTests(TestCase):
         self.assertEqual(record.state, ExecutionRecord.State.SUBMITTED)
         script = gateway.call_args.kwargs["stdin"]
         self.assertIn("#SBATCH --job-name=jhub-cpu-smoke", script)
+        self.assertIn("#SBATCH --chdir=/home/research/nlisa", script)
+        self.assertIn("/usr/bin/apptainer exec", script)
+        self.assertNotIn("module load apptainer", script)
         self.assertIn("qw cpu-smoke", script)
 
     @patch("portal.execution_api.Path.exists", return_value=True)
