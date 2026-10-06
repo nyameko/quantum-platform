@@ -114,7 +114,8 @@ def _gateway(op, arg, stdin=None):
 def _cpu_smoke_script(record):
     result_path = record.result_path
     image = settings.QUANTUM_WORKFLOWS_CPU_IMAGE
-    log_path = f"/home/research/{record.user.username}/.quantum-platform/slurm-%j.out"
+    home_path = f"/home/research/{record.user.username}"
+    log_path = f"{home_path}/.quantum-platform/slurm-%j.out"
 
     return f"""#!/usr/bin/env bash
 #SBATCH --job-name=jhub-cpu-smoke
@@ -123,6 +124,7 @@ def _cpu_smoke_script(record):
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
+#SBATCH --chdir={shlex.quote(home_path)}
 #SBATCH --output={shlex.quote(log_path)}
 
 set -euo pipefail
@@ -131,8 +133,7 @@ result_root={shlex.quote(result_path)}
 image={shlex.quote(image)}
 
 mkdir -p "$result_root"
-module load apptainer
-srun apptainer exec \
+srun /usr/bin/apptainer exec \
   --bind "$result_root:/results" \
   "$image" \
   qw cpu-smoke \
