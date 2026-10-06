@@ -66,3 +66,52 @@ def allocate_system_username(given_names: str, family_name: str) -> str:
         if not User.objects.filter(username=candidate).exists():
             return candidate
         number += 1
+
+
+POSIX_UID_MIN = 20000
+POSIX_UID_MAX = 29999
+POSIX_MANAGED_START = 21000
+
+
+def allocate_posix_identity(person):
+    """Allocate a never-reused POSIX UID/GID for an entitled research person."""
+    from django.db import transaction
+    from .models import PosixIdentityAllocation, PosixIdentitySequence
+
+    if person.posix_uid is not None or person.posix_gid is not None:
+        if person.posix_uid is None or person.posix_gid is None:
+            raise ValueError("Partial POSIX identity is invalid.")
+        return person.posix_uid, person.posix_gid
+
+    with transaction.atomic():
+        sequence = PosixIdentitySequence.objects.select_for_update().get(
+            name="research",
+        )
+
+        uid = sequence.next_uid
+        if uid < POSIX_MANAGED_START:
+            uid = POSIX_MANAGED_START
+        if uid > POSIX_UID_MAX:
+            raise RuntimeError("Quantum Platform POSIX UID range exhausted.")
+
+        while PosixIdentityAllocation.objects.filter(uid=uid).exists():
+            uid += 1
+            if uid > POSIX_UID_MAX:
+                raise RuntimeError("Quantum Platform POSIX UID range exhausted.")
+
+        gid = uid
+        PosixIdentityAllocation.objects.create(
+            uid=uid,
+            gid=gid,
+            person=person,
+            username=person.user.username,
+        )
+
+        person.posix_uid = uid
+        person.posix_gid = gid
+        person.save(update_fields=["posix_uid", "posix_gid", "updated_at"])
+
+        sequence.next_uid = uid + 1
+        sequence.save(update_fields=["next_uid", "updated_at"])
+
+    return uid, gid

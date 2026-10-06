@@ -33,6 +33,39 @@ class Person(models.Model):
         return self.preferred_name or f"{self.given_names} {self.family_name}"
 
 
+class PosixIdentitySequence(models.Model):
+    """Monotonic allocator state for never-reused platform POSIX IDs."""
+
+    name = models.CharField(max_length=32, primary_key=True)
+    next_uid = models.PositiveIntegerField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name}: next UID {self.next_uid}"
+
+
+class PosixIdentityAllocation(models.Model):
+    """Permanent ledger entry for a platform-managed UID/GID allocation."""
+
+    uid = models.PositiveIntegerField(unique=True)
+    gid = models.PositiveIntegerField(unique=True)
+    person = models.OneToOneField(
+        Person,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="posix_identity_allocation",
+    )
+    username = models.CharField(max_length=150)
+    allocated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["uid"]
+
+    def __str__(self):
+        return f"{self.username}: {self.uid}:{self.gid}"
+
+
 class ResearchProgramme(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
