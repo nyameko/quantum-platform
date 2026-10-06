@@ -8,37 +8,33 @@ The repository is intentionally public. **Secrets, production credentials, priva
 
 ---
 
-## Current status — Phase 2 MVP
+## Current status — M3 research platform
 
-Phase 2 establishes the first complete vertical slice from a public web interface to authenticated research identity and programme approval.
+The platform has progressed beyond the original Phase 2 identity MVP.
 
 Working today:
 
-- Astro monorepo with a shared design system
-- public Blog
-- ~public Wiki~ (removed)
-- authenticated User Portal
-- Django backend API
-- PostgreSQL-backed application state
-- registration and email verification
-- password login, logout, password change, and password reset
-- Django session authentication
-- TOTP MFA
-- recovery codes
-- WebAuthn/passkey foundation
-- researcher profiles
-- Principal Investigator applications
-- research programme creation through approval
-- research programme membership requests
-- PI-controlled membership approval/rejection
-- audit events for approval-sensitive workflows
-- static Astro production builds
-- health API suitable for Kubernetes probes
-- development proxy keeping Astro and Django on one browser origin
+- Astro web applications and shared design system;
+- Django + PostgreSQL application backend;
+- registration, mandatory email verification, password lifecycle and MFA;
+- researcher profiles, PI applications, programmes and memberships;
+- SSH and WireGuard public-key registration;
+- POSIX UID/GID metadata;
+- database-backed, never-reused POSIX allocator seeded at `21000`;
+- JupyterHub signed identity handoff;
+- KubeSpawner workbench using the shared research home;
+- launch / status / stop workbench lifecycle;
+- durable `ExecutionRecord` model;
+- restricted Quantum Platform → Slurm gateway;
+- credential-free `cpu-smoke` execution through `quantum-workflows`;
+- durable result/provenance storage under the research home.
 
-The Phase 2 MVP is intentionally small enough to stress-test with students before deeper automation is added.
+The reference M3c acceptance run completed successfully on Slurm as job 15 with exit code `0:0`.
 
----
+The final M3 identity acceptance gate is a completely fresh approved user receiving UID/GID `21000:21000` and being reconciled across NFS, SSH, Jupyter and Slurm.
+
+The next major product milestone is **M4 persistent agents**.
+
 
 ## Platform surfaces
 
@@ -592,6 +588,8 @@ For serious environments, prefer immutable `sha-*` image tags in the infrastruct
 ---
 
 ## Documentation
+
+- [Quick Start](docs/QUICK_START.md) — current M3 validation and repository ownership
 
 Start here:
 
