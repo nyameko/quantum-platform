@@ -161,3 +161,24 @@ working platform
 ```
 
 That is the conceptual bridge between software development and research infrastructure engineering.
+
+
+### Tutorial 5 — Workbench and durable execution
+
+The M3 research path is documented across the architecture notes and infrastructure tutorials:
+
+- signed Quantum Platform → JupyterHub identity;
+- KubeSpawner workbench;
+- shared POSIX home;
+- restricted Slurm gateway;
+- durable `ExecutionRecord`;
+- `quantum-workflows` cpu-smoke;
+- result/provenance persistence.
+
+Students should be able to explain why the notebook Pod is not the scheduler and why durable work must survive browser/Pod lifetime.
+
+### Tutorial 6 — Persistent agent handoff
+
+M4 will add canonical conversations, projects, memories and skills through Agent Control Plane while preserving the same platform identity and execution boundaries.
+
+The acceptance criterion is continuity across portal, Jupyter and SSH/TUI rather than a separate chatbot embedded in each surface.

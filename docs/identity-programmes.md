@@ -64,3 +64,43 @@ scientific provenance.
 A future scientific submission may authorize a user plus programme and invoke
 a typed adapter. Platform scientific job ID, ACP task/run UUID,
 scheduler/provider job ID and workflow experiment ID stay distinct.
+
+
+## POSIX identity allocation
+
+POSIX identity is now a distinct, durable platform concern.
+
+The managed research range is:
+
+```text
+20000–29999
+```
+
+The established bootstrap identity is:
+
+```text
+nlisa = 20999:20999
+```
+
+The database-backed allocator begins at:
+
+```text
+21000:21000
+```
+
+and maintains a permanent allocation ledger so retired IDs are not reused.
+
+A public account does not receive a POSIX identity merely by registering. Allocation happens only after a trusted entitlement/approval boundary.
+
+This preserves a clean future federation model:
+
+```text
+Person
+├── local authentication identity
+├── future IdentityLink(issuer, subject)
+├── future OrganisationMembership
+├── ORCID
+└── POSIXIdentity
+```
+
+Federated login must not automatically imply compute entitlement.
