@@ -1,11 +1,16 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from .identity import allocate_system_username, username_base
+from .identity import (
+    allocate_posix_identity,
+    allocate_system_username,
+    username_base,
+)
 from .models import (
     AgentPrincipal,
     PIApplication,
     Person,
+    PosixIdentityAllocation,
     ProgrammeMembership,
     ResearchProgramme,
 )
@@ -40,6 +45,77 @@ class UsernameAllocationTests(TestCase):
             allocate_system_username("Nigel", "Lisa"),
             "nlisa2",
         )
+
+
+
+
+class PosixIdentityAllocationTests(TestCase):
+    def _person(self, username):
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@example.invalid",
+            password="x",
+        )
+        return Person.objects.create(
+            user=user,
+            given_names=username,
+            family_name="Researcher",
+            preferred_name=username,
+            institution="CSIR",
+        )
+
+    def test_first_managed_identity_starts_at_21000(self):
+        person = self._person("researcher1")
+
+        uid, gid = allocate_posix_identity(person)
+
+        self.assertEqual((uid, gid), (21000, 21000))
+        person.refresh_from_db()
+        self.assertEqual(person.posix_uid, 21000)
+        self.assertEqual(person.posix_gid, 21000)
+
+    def test_allocator_is_idempotent_for_same_person(self):
+        person = self._person("researcher1")
+
+        first = allocate_posix_identity(person)
+        second = allocate_posix_identity(person)
+
+        self.assertEqual(first, (21000, 21000))
+        self.assertEqual(second, first)
+        self.assertEqual(PosixIdentityAllocation.objects.count(), 1)
+
+    def test_allocator_advances_monotonically(self):
+        first = self._person("researcher1")
+        second = self._person("researcher2")
+
+        self.assertEqual(allocate_posix_identity(first), (21000, 21000))
+        self.assertEqual(allocate_posix_identity(second), (21001, 21001))
+
+    def test_deleted_identity_is_never_reused(self):
+        first = self._person("researcher1")
+        self.assertEqual(allocate_posix_identity(first), (21000, 21000))
+
+        first.user.delete()
+
+        allocation = PosixIdentityAllocation.objects.get(uid=21000)
+        self.assertIsNone(allocation.person)
+
+        second = self._person("researcher2")
+        self.assertEqual(allocate_posix_identity(second), (21001, 21001))
+
+    def test_existing_bootstrap_identity_does_not_consume_managed_sequence(self):
+        bootstrap = self._person("nlisa")
+        bootstrap.posix_uid = 20999
+        bootstrap.posix_gid = 20999
+        bootstrap.save(update_fields=["posix_uid", "posix_gid"])
+
+        self.assertEqual(
+            allocate_posix_identity(bootstrap),
+            (20999, 20999),
+        )
+
+        managed = self._person("researcher1")
+        self.assertEqual(allocate_posix_identity(managed), (21000, 21000))
 
 
 class ProgrammeIdentifierTests(TestCase):
@@ -117,6 +193,10 @@ class ProgrammeApprovalTests(TestCase):
             membership.status,
             ProgrammeMembership.Status.APPROVED,
         )
+
+        self.person.refresh_from_db()
+        self.assertEqual(self.person.posix_uid, 21000)
+        self.assertEqual(self.person.posix_gid, 21000)
 
         application.refresh_from_db()
         self.assertEqual(
