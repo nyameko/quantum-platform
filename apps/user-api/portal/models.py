@@ -48,7 +48,7 @@ class PosixIdentityAllocation(models.Model):
     """Permanent ledger entry for a platform-managed UID/GID allocation."""
 
     uid = models.PositiveIntegerField(unique=True)
-    gid = models.PositiveIntegerField()
+    gid = models.PositiveIntegerField(unique=True)
     person = models.OneToOneField(
         Person,
         on_delete=models.SET_NULL,
