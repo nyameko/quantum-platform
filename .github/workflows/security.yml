@@ -22,3 +22,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=high
+      # Temporary diagnostic for PR #66: calculate (but DO NOT apply) the
+      # patched lockfile. The failing audit above remains the release gate.
+      - name: Diagnose npm audit lockfile remediation
+        if: failure()
+        run: |
+          npm audit fix --package-lock-only --ignore-scripts || true
+          echo '=== SECURITY_LOCKFILE_PATCH_BEGIN ==='
+          git diff -- package-lock.json
+          echo '=== SECURITY_LOCKFILE_PATCH_END ==='
+
