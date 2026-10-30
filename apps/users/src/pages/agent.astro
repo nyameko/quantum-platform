@@ -107,8 +107,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     <p class="note">
       Research memories remain private and require approval. Their use by Hermes
       is separately controlled by ACP deployment settings; saving a memory does not
-      guarantee it has been enabled for inference. Memory,
-      skills, richer projects and the polished Quantum Platform Guide come later.
+      guarantee it has been enabled for inference. Skills and the polished Guide
+      remain separate roadmap milestones.
     </p>
     <a class="back" href="/dashboard/">Back to dashboard</a>
   </section>
@@ -429,10 +429,10 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           : 'Memory revoked; it will not be retrieved again.';
       }
     } catch (error) {
+      await loadMemories();
       if (memoryStatus) {
         memoryStatus.textContent = error instanceof Error ? error.message : 'Memory update failed.';
       }
-      await loadMemories();
     } finally {
       buttons.forEach((button) => { button.disabled = false; });
     }
