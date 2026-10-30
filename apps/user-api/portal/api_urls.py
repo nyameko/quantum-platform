@@ -2,6 +2,10 @@ from django.urls import path
 
 from .agent_api import (
     agent_conversation,
+    agent_memories,
+    agent_memory,
+    agent_memory_approve,
+    agent_memory_revoke,
     agent_conversations,
     agent_projects,
     agent_run,
@@ -64,6 +68,10 @@ urlpatterns = [
         name="agent-turn",
     ),
     path("agent/runs/<uuid:run_id>/", agent_run, name="agent-run"),
+    path("agent/memories/", agent_memories, name="agent-memories"),
+    path("agent/memories/<uuid:memory_id>/", agent_memory, name="agent-memory"),
+    path("agent/memories/<uuid:memory_id>/approve/", agent_memory_approve, name="agent-memory-approve"),
+    path("agent/memories/<uuid:memory_id>/revoke/", agent_memory_revoke, name="agent-memory-revoke"),
     path("executions/", executions, name="executions"),
     path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
     path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),

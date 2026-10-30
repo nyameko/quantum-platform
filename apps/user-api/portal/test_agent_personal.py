@@ -101,6 +101,59 @@ class PersonalAgentApiTests(TestCase):
         self.assertIn(response.status_code, {401, 403})
         call.assert_not_called()
 
+    @patch("portal.agent_api.agent_client.call")
+    def test_memory_candidate_and_review_require_identity_and_revision(self, call):
+        conversation_id, message_id, memory_id = uuid4(), uuid4(), uuid4()
+        call.return_value = {"id": str(memory_id), "status": "candidate", "revision": 1}
+        created = self.client.post(
+            "/api/v1/agent/memories/",
+            {
+                "source_conversation_id": str(conversation_id),
+                "source_message_id": str(message_id),
+                "kind": "preference",
+                "body": "Prefer Qiskit for demos.",
+            },
+            content_type="application/json",
+            HTTP_IDEMPOTENCY_KEY=str(uuid4()),
+        )
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(call.call_args.kwargs["scope"], "agent:personal")
+        self.assertEqual(call.call_args.kwargs["json_body"]["source_message_id"], str(message_id))
+        call.reset_mock()
+        approved = self.client.post(
+            f"/api/v1/agent/memories/{memory_id}/approve/",
+            {},
+            content_type="application/json",
+            HTTP_IF_MATCH='"1"',
+        )
+        self.assertEqual(approved.status_code, 200)
+        self.assertEqual(call.call_args.kwargs["if_match"], '"1"')
+        call.reset_mock()
+        invalid = self.client.post(
+            f"/api/v1/agent/memories/{memory_id}/revoke/",
+            {},
+            content_type="application/json",
+            HTTP_IF_MATCH="invalid",
+        )
+        self.assertEqual(invalid.status_code, 400)
+        call.assert_not_called()
+        self.client.logout()
+        forbidden = self.client.get("/api/v1/agent/memories/")
+        self.assertIn(forbidden.status_code, (401, 403))
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_memory_conflict_passes_through_to_browser(self, call):
+        from .agent_client import AgentServiceError
+
+        call.side_effect = AgentServiceError("Stale memory revision", status_code=409)
+        response = self.client.post(
+            f"/api/v1/agent/memories/{uuid4()}/approve/",
+            {},
+            content_type="application/json",
+            HTTP_IF_MATCH='"1"',
+        )
+        self.assertEqual(response.status_code, 409)
+
     def test_personal_assertion_uses_stable_agent_principal(self):
         key = Ed25519PrivateKey.generate()
         with tempfile.TemporaryDirectory() as directory:
