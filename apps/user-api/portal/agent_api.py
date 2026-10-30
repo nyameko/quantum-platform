@@ -26,11 +26,7 @@ def _call(request, method, path, *, key=None, params=None, body=None):
         )
     except agent_client.AgentServiceError as exc:
         message = str(exc)
-        code = (
-            status.HTTP_404_NOT_FOUND
-            if "not found" in message.lower()
-            else status.HTTP_503_SERVICE_UNAVAILABLE
-        )
+        code = exc.status_code
         return Response({"detail": message}, status=code)
 
 
@@ -113,3 +109,61 @@ def agent_turn(request, conversation_id):
 @permission_classes([IsAuthenticated])
 def agent_run(request, run_id):
     return _call(request, "GET", f"/v1/runs/{run_id}")
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def agent_memories(request):
+    if request.method == "GET":
+        state = request.query_params.get("status")
+        if state and state not in {"candidate", "active", "revoked"}:
+            return Response({"detail": "Invalid memory status."}, status=400)
+        return _call(request, "GET", "/v1/memories", params={"status": state} if state else None)
+    try:
+        key = UUID(request.headers.get("Idempotency-Key", ""))
+        conversation_id = UUID(str(request.data["source_conversation_id"]))
+        message_id = UUID(str(request.data["source_message_id"]))
+    except (ValueError, KeyError, TypeError):
+        return Response({"detail": "Valid idempotency and source IDs are required."}, status=400)
+    body = {
+        "source_conversation_id": str(conversation_id),
+        "source_message_id": str(message_id),
+        "kind": request.data.get("kind", "preference"),
+        "body": request.data.get("body"),
+        "sensitivity": "internal",
+    }
+    return _call(request, "POST", "/v1/memories/candidates", key=key, body=body)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def agent_memory(request, memory_id):
+    return _call(request, "GET", f"/v1/memories/{memory_id}")
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_memory_approve(request, memory_id):
+    return _memory_transition(request, memory_id, "approve", {})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_memory_revoke(request, memory_id):
+    return _memory_transition(request, memory_id, "revoke", {
+        "reason": request.data.get("reason", ""),
+    })
+
+
+def _memory_transition(request, memory_id, action, body):
+    revision = request.headers.get("If-Match", "")
+    if not revision.startswith('"') or not revision.endswith('"') or not revision[1:-1].isdigit():
+        return Response({"detail": "Quoted memory revision required."}, status=400)
+    try:
+        data = agent_client.call(
+            request.user, "POST", f"/v1/memories/{memory_id}/{action}",
+            scope="agent:personal", json_body=body, if_match=revision,
+        )
+        return Response(data, status=200)
+    except agent_client.AgentServiceError as exc:
+        return Response({"detail": str(exc)}, status=exc.status_code)
