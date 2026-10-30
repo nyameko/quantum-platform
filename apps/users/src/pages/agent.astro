@@ -58,6 +58,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             rows="4"
             placeholder="Give the agent a fact or ask a question."
           ></textarea>
+          <small class="send-shortcut-hint">Ctrl+Enter (⌘+Enter on Mac) to send · Enter for a new line</small>
         </label>
         <button id="send" type="submit">Send</button>
       </form>
@@ -316,6 +317,23 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     await loadConversation();
   });
 
+  // Preserve multiline code and research prompts: Enter inserts a newline,
+  // while Ctrl+Enter (or Cmd+Enter on macOS) submits the existing form.
+  message?.addEventListener('keydown', (event) => {
+    if (
+      event.key !== 'Enter'
+      || !(event.ctrlKey || event.metaKey)
+      || event.shiftKey
+      || event.altKey
+      || event.repeat
+      || event.isComposing
+    ) return;
+
+    event.preventDefault();
+    if (!message.value.trim() || !activeConversation || send?.disabled) return;
+    turnForm?.requestSubmit();
+  });
+
   turnForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const content = message?.value.trim();
@@ -427,6 +445,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     border: 1px solid var(--border);
   }
   .conversation-panel { margin-top: 1rem; }
+  .send-shortcut-hint { color: var(--muted); font-size: .85rem; }
   .conversation-heading {
     display: flex;
     justify-content: space-between;
