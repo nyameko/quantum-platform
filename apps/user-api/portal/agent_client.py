@@ -14,7 +14,9 @@ from .models import AgentPrincipal
 
 
 class AgentServiceError(Exception):
-    pass
+    def __init__(self, message, *, status_code=503):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def assertion(user, *, scope="admin:diagnostics"):
@@ -58,6 +60,7 @@ def call(
     offset=None,
     params=None,
     json_body=None,
+    if_match=None,
 ):
     base = settings.AGENT_CONTROL_PLANE_URL
     url = urlsplit(base)
@@ -88,6 +91,8 @@ def call(
         )
     if key is not None:
         headers["Idempotency-Key"] = str(key)
+    if if_match is not None:
+        headers["If-Match"] = if_match
 
     try:
         with (
@@ -97,7 +102,21 @@ def call(
             if response.status_code == 429:
                 raise AgentServiceError("The agent service queue is temporarily full.")
             if response.status_code == 404:
-                raise AgentServiceError("The requested agent resource was not found.")
+                raise AgentServiceError(
+                    "The requested agent resource was not found.", status_code=404
+                )
+            if response.status_code in {409, 422}:
+                # Bounded, user-actionable errors for explicit memory approval.
+                raw = response.read()
+                detail = "Memory revision conflict" if response.status_code == 409 else "Invalid memory request"
+                if len(raw) <= 8192:
+                    try:
+                        candidate = json.loads(raw).get("detail")
+                        if isinstance(candidate, str) and len(candidate) <= 500:
+                            detail = candidate
+                    except (ValueError, AttributeError):
+                        pass
+                raise AgentServiceError(detail, status_code=response.status_code)
             if response.status_code not in {200, 201, 202}:
                 raise AgentServiceError("The agent service is unavailable. Please try again.")
             body = bytearray()
