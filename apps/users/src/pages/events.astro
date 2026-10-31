@@ -1,0 +1,33 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout title="Events" siteName="Quantum Platform" section="User Portal"
+  description="Verified Quantum Platform workshops, research demonstrations and community events.">
+  <section class="section container events-page">
+    <p class="eyebrow">RESEARCH COMMUNITY</p>
+    <h1>Events</h1>
+    <p class="lede">
+      Hands-on workshops, research demonstrations, training programmes
+      and events that bring the quantum and HPC community together.
+    </p>
+    <section class="events-section" aria-labelledby="upcoming-title">
+      <h2 id="upcoming-title">Upcoming events</h2>
+      <p>No upcoming Quantum Platform events have been published yet.</p>
+      <p class="muted">Confirmed sessions will include prerequisites, registration details, a time zone and contact information.</p>
+    </section>
+    <section class="events-section" aria-labelledby="past-title">
+      <h2 id="past-title">Past events and materials</h2>
+      <p>Verified event materials, recordings and reproducible demonstrations will appear here after editorial review.</p>
+      <p>Explore the <a href="https://github.com/nyameko/quantum-workflows">scientific workflows repository</a> for existing work in progress.</p>
+    </section>
+  </section>
+</SiteLayout>
+
+<style>
+  .events-page { max-width: 65rem; padding-top: 3rem; }
+  h1 { font-size: clamp(2.4rem, 5vw, 4.5rem); letter-spacing: -.04em; margin: .4rem 0; }
+  .events-section { margin-top: 1.6rem; padding: 1.3rem; border: 1px solid var(--border); border-radius: .9rem; background: var(--surface); }
+  .events-section h2 { margin-top: 0; }
+  .muted { color: var(--muted); }
+</style>

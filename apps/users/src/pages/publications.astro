@@ -1,0 +1,42 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout title="Publications" siteName="Quantum Platform" section="User Portal"
+  description="Verified research publications and scientific outputs using Quantum Platform.">
+  <section class="section container public-research-directory">
+    <p class="eyebrow">SCIENTIFIC OUTPUTS</p>
+    <h1>Publications</h1>
+    <p class="lede">
+      Discover peer-reviewed papers, preprints, theses and reproducible outputs
+      that document the use of Quantum Platform infrastructure or software.
+    </p>
+    <div class="directory-actions">
+      <a class="secondary-link" href="/how-to-cite/">How to cite Quantum Platform</a>
+      <a class="secondary-link" href="https://github.com/nyameko/quantum-workflows">
+        Scientific workflows and reproducible examples
+      </a>
+    </div>
+    <section class="directory-empty" aria-labelledby="publications-heading">
+      <h2 id="publications-heading">Verified research outputs</h2>
+      <p>
+        No publications have been independently verified for this directory yet.
+        We will add publications only after checking their identifiers, source records,
+        and evidence of actual platform use.
+      </p>
+      <p class="muted">
+        ORCID, arXiv and DOI metadata discovery is planned; an external keyword match
+        alone does not establish that a study used this platform.
+      </p>
+    </section>
+  </section>
+</SiteLayout>
+
+<style>
+  .public-research-directory { max-width: 65rem; padding-top: 3rem; }
+  h1 { font-size: clamp(2.4rem, 5vw, 4.5rem); letter-spacing: -.04em; margin: .4rem 0; }
+  .directory-actions { display: flex; gap: .8rem; flex-wrap: wrap; margin: 1.6rem 0; }
+  .secondary-link { padding: .7rem 1rem; border: 1px solid var(--border); border-radius: .6rem; color: var(--text); text-decoration: none; }
+  .directory-empty { background: var(--surface); padding: 1.4rem; border: 1px solid var(--border); border-radius: .9rem; }
+  .muted { color: var(--muted); }
+</style>
