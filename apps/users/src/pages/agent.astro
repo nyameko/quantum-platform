@@ -164,6 +164,19 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   let activeProject: string | null = null;
   let activeConversation: string | null = null;
+  // Session-local pointer only; ACP's authenticated run record remains canonical.
+  // Never persist bearer tokens or model output in browser storage.
+  const runKey = (conversationId: string) => 'qp:personal-run:' + conversationId;
+  let pollingGeneration = 0;
+  function rememberRun(conversationId: string, runId: string) {
+    window.sessionStorage.setItem(runKey(conversationId), runId);
+  }
+  function clearRememberedRun(conversationId: string, runId: string) {
+    if (window.sessionStorage.getItem(runKey(conversationId)) === runId) {
+      window.sessionStorage.removeItem(runKey(conversationId));
+    }
+  }
+
 
   function displayContent(value: unknown): string {
     if (typeof value === 'string') return value;
@@ -309,37 +322,65 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     });
     const payload = await response.json().catch(() => ({}));
 
-    if (!response.ok) return;
+    if (!response.ok) {
+      if (status) status.textContent = payload.detail ?? 'Unable to load conversation.';
+      return;
+    }
 
     if (activeTitle) activeTitle.textContent = payload.title ?? 'Conversation';
     renderMessages(payload.messages ?? []);
+    await refreshRunStatus(activeConversation);
   }
 
-  async function pollRun(runId: string) {
+  async function refreshRunStatus(conversationId: string) {
+    const runId = window.sessionStorage.getItem(runKey(conversationId));
+    if (!runId || conversationId !== activeConversation) return;
+    const response = await fetch('/api/v1/agent/runs/' + encodeURIComponent(runId) + '/', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const run = await response.json().catch(() => ({}));
+    if (conversationId !== activeConversation) return;
+    if (!response.ok) {
+      if (status) status.textContent = run.detail ?? 'Unable to read agent status.';
+      // Do not delete the pointer for transient 503 failures.
+      if (response.status === 403 || response.status === 404) {
+        clearRememberedRun(conversationId, runId);
+      }
+      return;
+    }
+    if (run.conversation_id !== conversationId) {
+      clearRememberedRun(conversationId, runId);
+      if (status) status.textContent = 'Run does not belong to this conversation.';
+      return;
+    }
+    if (run.status === 'succeeded') {
+      clearRememberedRun(conversationId, runId);
+      if (status) status.textContent = 'Response persisted.';
+      return;
+    }
+    if (run.status === 'failed') {
+      clearRememberedRun(conversationId, runId);
+      if (status) status.textContent =
+        'Agent run failed: ' + (run.failure_code ?? 'unknown error');
+      return;
+    }
+    if (status) status.textContent = run.status === 'queued'
+      ? 'Agent run queued…'
+      : 'Agent is responding…';
+  }
+
+  async function pollRun(runId: string, conversationId: string) {
+    const generation = ++pollingGeneration;
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      const path = '/api/v1/agent/runs/' + runId + '/';
-      const response = await fetch(path, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      const run = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(run.detail ?? 'Unable to read agent run.');
-      }
-
-      if (run.status === 'succeeded') return;
-
-      if (run.status === 'failed') {
-        throw new Error(
-          'Agent run failed: ' + (run.failure_code ?? 'unknown error'),
-        );
-      }
-
+      if (generation !== pollingGeneration || activeConversation !== conversationId) return;
+      await refreshRunStatus(conversationId);
+      if (window.sessionStorage.getItem(runKey(conversationId)) !== runId) return;
       await new Promise((resolve) => window.setTimeout(resolve, 1000));
     }
-
-    throw new Error('Agent run is still active. Reload to check again.');
+    if (status && conversationId === activeConversation) {
+      status.textContent = 'Agent run is still active. Use Refresh to check its status.';
+    }
   }
 
   async function loadMemories() {
@@ -587,11 +628,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       if (message) message.value = '';
       await loadConversation();
 
+      const submittedConversation = activeConversation;
+      rememberRun(submittedConversation, payload.run_id);
       if (status) status.textContent = 'Agent is responding…';
-      await pollRun(payload.run_id);
-      await loadConversation();
-
-      if (status) status.textContent = 'Response persisted.';
+      await pollRun(payload.run_id, submittedConversation);
+      if (activeConversation === submittedConversation) await loadConversation();
     } catch (error) {
       if (status) {
         status.textContent = error instanceof Error
@@ -603,7 +644,10 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     }
   });
 
-  refresh?.addEventListener('click', () => void loadConversation());
+  refresh?.addEventListener('click', async () => {
+    await loadConversation();
+    await loadMemories();
+  });
 
   if (await requireSession()) {
     await loadProjects();
