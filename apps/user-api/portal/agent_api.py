@@ -135,10 +135,22 @@ def agent_memories(request):
     return _call(request, "POST", "/v1/memories/candidates", key=key, body=body)
 
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 def agent_memory(request, memory_id):
-    return _call(request, "GET", f"/v1/memories/{memory_id}")
+    if request.method == "GET":
+        return _call(request, "GET", f"/v1/memories/{memory_id}")
+
+    body = request.data.get("body")
+    reason = request.data.get("reason")
+    if not isinstance(body, str) or not body.strip() or len(body) > 2000:
+        return Response({"detail": "Corrected memory text must be 1–2000 characters."}, status=400)
+    if reason is not None and (not isinstance(reason, str) or len(reason) > 500):
+        return Response({"detail": "Correction reason must be at most 500 characters."}, status=400)
+    return _memory_transition(
+        request, memory_id, "correct", {"body": body.strip(), "reason": reason},
+        method="PATCH",
+    )
 
 
 @api_view(["POST"])
@@ -155,13 +167,15 @@ def agent_memory_revoke(request, memory_id):
     })
 
 
-def _memory_transition(request, memory_id, action, body):
+def _memory_transition(request, memory_id, action, body, *, method="POST"):
     revision = request.headers.get("If-Match", "")
     if not revision.startswith('"') or not revision.endswith('"') or not revision[1:-1].isdigit():
         return Response({"detail": "Quoted memory revision required."}, status=400)
     try:
         data = agent_client.call(
-            request.user, "POST", f"/v1/memories/{memory_id}/{action}",
+            request.user, method,
+            f"/v1/memories/{memory_id}" if action == "correct"
+            else f"/v1/memories/{memory_id}/{action}",
             scope="agent:personal", json_body=body, if_match=revision,
         )
         return Response(data, status=200)

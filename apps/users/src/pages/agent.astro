@@ -501,6 +501,75 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           approve.addEventListener('click', () => void changeMemory(item, 'approve'));
           actions.append(approve);
         }
+        if (item.status === 'active' && item.body) {
+          const edit = document.createElement('button');
+          edit.type = 'button';
+          edit.className = 'secondary';
+          edit.textContent = 'Correct memory';
+          edit.addEventListener('click', () => {
+            if (article.querySelector('.memory-correction')) return;
+            const form = document.createElement('form');
+            form.className = 'memory-correction';
+            const label = document.createElement('label');
+            label.textContent = 'Corrected memory (requires your approval)';
+            const field = document.createElement('textarea');
+            field.rows = 3;
+            field.maxLength = 2000;
+            field.value = item.body ?? '';
+            label.append(field);
+            const formActions = document.createElement('div');
+            formActions.className = 'memory-actions';
+            const save = document.createElement('button');
+            save.type = 'submit';
+            save.textContent = 'Save correction';
+            const cancel = document.createElement('button');
+            cancel.type = 'button';
+            cancel.className = 'secondary';
+            cancel.textContent = 'Cancel';
+            cancel.addEventListener('click', () => form.remove());
+            const errorMessage = document.createElement('p');
+            errorMessage.setAttribute('role', 'status');
+            formActions.append(save, cancel);
+            form.append(label, formActions, errorMessage);
+            form.addEventListener('submit', async (event) => {
+              event.preventDefault();
+              const corrected = field.value.trim();
+              if (!corrected || corrected.length > 2000) {
+                errorMessage.textContent = 'Enter 1–2000 characters.';
+                return;
+              }
+              save.disabled = true;
+              cancel.disabled = true;
+              try {
+                const response = await csrfJsonFetch(
+                  '/api/v1/agent/memories/' + item.id + '/',
+                  {
+                    method: 'PATCH',
+                    headers: { 'If-Match': '"' + item.revision + '"' },
+                    body: JSON.stringify({ body: corrected }),
+                  },
+                );
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                  throw new Error(result.detail ?? 'Memory correction failed.');
+                }
+                await loadMemories();
+                if (memoryStatus) {
+                  memoryStatus.textContent = 'Memory corrected; previous revision retained for audit.';
+                }
+              } catch (error) {
+                errorMessage.textContent = error instanceof Error
+                  ? error.message : 'Unable to correct memory.';
+              } finally {
+                save.disabled = false;
+                cancel.disabled = false;
+              }
+            });
+            article.append(form);
+            field.focus();
+          });
+          actions.append(edit);
+        }
         const revoke = document.createElement('button');
         revoke.type = 'button';
         revoke.className = 'secondary';
@@ -807,6 +876,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .memory-item p { white-space: pre-wrap; overflow-wrap: anywhere; }
   .memory-item small { display: block; color: var(--muted); overflow-wrap: anywhere; }
   .memory-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
+  .memory-correction { margin-top: .75rem; padding: .75rem; border: 1px solid var(--border); border-radius: .6rem; }
   .remember-action { margin-top: .5rem; }
   #memory-status, .empty, #status, .note { color: var(--muted); }
   .note { font-size: .85rem; }
