@@ -1,0 +1,163 @@
+<aside id="quantum-guide-rail" class="quantum-guide-rail" aria-label="Quantum Guide" hidden>
+  <div class="rail-heading">
+    <a href="/agent/" class="rail-title" title="Open Quantum Guide">Quantum Guide</a>
+    <button type="button" id="rail-close" class="rail-close" aria-label="Close Guide navigation">×</button>
+  </div>
+  <p class="rail-subtitle">Your research assistant</p>
+  <form id="rail-prompt-form" class="rail-prompt">
+    <label for="rail-prompt">Ask Guide</label>
+    <textarea id="rail-prompt" rows="3" maxlength="4000"
+      placeholder="What would you like to explore or work on?"></textarea>
+    <button type="submit">Open in Guide</button>
+  </form>
+  <p class="rail-note">Continue your question in a canonical ACP conversation.</p>
+
+  <div class="rail-section-title">
+    <h2>Projects</h2>
+    <a href="/agent/" aria-label="Manage research projects" title="Manage research projects">+</a>
+  </div>
+  <nav id="rail-projects" aria-label="Your research projects">
+    <p class="rail-note">Loading projects…</p>
+  </nav>
+  <h2 class="rail-section-title">Recent chats</h2>
+  <nav id="rail-recents" aria-label="Recent research conversations"></nav>
+  <a class="rail-all" href="/agent/">Open full Quantum Guide</a>
+</aside>
+
+<style>
+  .quantum-guide-rail {
+    position: fixed; z-index: 18; top: 76px; left: .5rem;
+    width: 16.5rem; height: calc(100vh - 85px); overflow-y: auto;
+    padding: 1rem; box-sizing: border-box;
+    border: 1px solid var(--border); border-radius: .85rem;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .quantum-guide-rail[hidden] { display: none !important; }
+  .rail-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+  .rail-title { text-decoration: none; color: var(--text); font-weight: 800; }
+  .rail-subtitle, .rail-note { font-size: .75rem; color: var(--muted); }
+  .rail-subtitle { margin: .25rem 0 .9rem; }
+  .rail-prompt { display: grid; gap: .5rem; margin-bottom: .3rem; }
+  .rail-prompt label { font-size: .8rem; font-weight: 700; }
+  .rail-prompt textarea {
+    resize: vertical; min-height: 4rem; padding: .55rem;
+    border: 1px solid var(--border); border-radius: .55rem;
+    color: var(--text); background: var(--background); font: inherit;
+  }
+  .rail-prompt button {
+    padding: .6rem; border: 0; border-radius: .6rem;
+    background: var(--purple-strong); color: white; cursor: pointer;
+  }
+  .rail-close { display: none; border: 0; font-size: 1.2rem; background: transparent; color: var(--text); cursor: pointer; }
+  .rail-section-title { margin: 1.2rem 0 .4rem; display: flex; align-items: center; justify-content: space-between; font-size: .85rem; }
+  .rail-section-title h2 { font-size: inherit; margin: 0; }
+  .rail-section-title a { color: var(--text); font-size: 1.1rem; text-decoration: none; }
+  .rail-all { display: inline-block; margin-top: .8rem; font-size: .8rem; color: var(--muted-strong); }
+  .rail-chat {
+    display: block; width: 100%; text-align: left; padding: .4rem .5rem;
+    margin-bottom: .15rem; border: 0; border-radius: .4rem;
+    background: transparent; color: var(--text); cursor: pointer;
+    font: inherit; font-size: .78rem; overflow-wrap: anywhere;
+  }
+  .rail-chat:hover, .rail-chat:focus-visible { background: var(--background-soft); }
+  .rail-folder { margin: .5rem 0; }
+  .rail-folder summary { font-size: .82rem; cursor: pointer; font-weight: 700; overflow-wrap: anywhere; }
+  .rail-folder-children { margin-left: .8rem; border-left: 1px solid var(--border); padding-left: .25rem; }
+  :global(body.has-guide-rail > main) { margin-left: 17.7rem; }
+  :global(body.has-guide-rail > .site-footer) { margin-left: 17.7rem; }
+  @media (max-width: 900px) {
+    .quantum-guide-rail { top: 0; left: 0; width: min(85vw, 21rem); height: 100vh; border-radius: 0; z-index: 40; transform: translateX(-110%); visibility: hidden; }
+    :global(body.has-guide-rail > main), :global(body.has-guide-rail > .site-footer) { margin-left: 0; }
+    :global(body.guide-rail-mobile-open .quantum-guide-rail) { transform: translateX(0); visibility: visible; }
+    .rail-close { display: inline-block; }
+  }
+</style>
+
+<script>
+  const rail = document.querySelector<HTMLElement>('#quantum-guide-rail');
+  const projectRoot = document.querySelector<HTMLElement>('#rail-projects');
+  const recentRoot = document.querySelector<HTMLElement>('#rail-recents');
+  const promptForm = document.querySelector<HTMLFormElement>('#rail-prompt-form');
+  const prompt = document.querySelector<HTMLTextAreaElement>('#rail-prompt');
+  const close = document.querySelector<HTMLButtonElement>('#rail-close');
+  const mobileToggle = document.querySelector<HTMLButtonElement>('#portal-guide-toggle');
+
+  function chatButton(chat: { id: string; title?: string }) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'rail-chat';
+    button.textContent = chat.title || 'New chat';
+    button.title = chat.title || 'New chat';
+    button.addEventListener('click', () => {
+      window.sessionStorage.setItem('qp:last-conversation-id', chat.id);
+      window.location.assign('/agent/');
+    });
+    return button;
+  }
+
+  async function showRail() {
+    if (!rail) return;
+    try {
+      const response = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
+      if (!response.ok) return;
+      rail.hidden = false;
+      document.body.classList.add('has-guide-rail');
+      if (mobileToggle) mobileToggle.hidden = false;
+      const [projectsResponse, conversationsResponse] = await Promise.all([
+        fetch('/api/v1/agent/projects/', { credentials: 'same-origin', cache: 'no-store' }),
+        fetch('/api/v1/agent/conversations/', { credentials: 'same-origin', cache: 'no-store' }),
+      ]);
+      if (!projectsResponse.ok || !conversationsResponse.ok) {
+        if (projectRoot) projectRoot.textContent = 'Projects are temporarily unavailable.';
+        return;
+      }
+      const projectPayload = await projectsResponse.json();
+      const conversationPayload = await conversationsResponse.json();
+      const projects: Array<{id: string; title: string}> = projectPayload.items ?? [];
+      const chats: Array<{id: string; title?: string; project_id?: string | null}> = conversationPayload.items ?? [];
+      projectRoot?.replaceChildren();
+      recentRoot?.replaceChildren();
+      for (const project of projects.slice(0, 12)) {
+        const folder = document.createElement('details');
+        folder.className = 'rail-folder';
+        const heading = document.createElement('summary');
+        heading.textContent = '📁 ' + project.title;
+        const children = document.createElement('div');
+        children.className = 'rail-folder-children';
+        chats.filter(chat => chat.project_id === project.id).slice(0, 12)
+          .forEach(chat => children.append(chatButton(chat)));
+        folder.append(heading, children);
+        projectRoot?.append(folder);
+      }
+      chats.filter(chat => !chat.project_id).slice(0, 10)
+        .forEach(chat => recentRoot?.append(chatButton(chat)));
+      if (!projects.length && projectRoot) projectRoot.textContent = 'No projects yet.';
+    } catch {
+      if (rail && !rail.hidden && projectRoot) {
+        projectRoot.textContent = 'Guide conversations temporarily unavailable.';
+      }
+    }
+  }
+
+  promptForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const value = prompt?.value.trim();
+    if (!value) { prompt?.focus(); return; }
+    // Ephemeral same-origin handoff, NOT a URL query or durable memory.
+    window.sessionStorage.setItem('qp:guide-draft', value);
+    window.sessionStorage.setItem('qp:guide-new-chat', '1');
+    window.location.assign('/agent/');
+  });
+
+  mobileToggle?.addEventListener('click', () => {
+    document.body.classList.toggle('guide-rail-mobile-open');
+    mobileToggle.setAttribute('aria-expanded',
+      String(document.body.classList.contains('guide-rail-mobile-open')));
+  });
+  close?.addEventListener('click', () => {
+    document.body.classList.remove('guide-rail-mobile-open');
+    mobileToggle?.setAttribute('aria-expanded', 'false');
+  });
+  void showRail();
+</script>
