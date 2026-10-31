@@ -32,3 +32,14 @@ jobs:
 
       - name: Build ${{ matrix.app }}
         run: npm run build -w @nyameko/${{ matrix.app }}
+
+      - name: Check nginx static-page auth guard (users only)
+        if: matrix.app == 'users'
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --add-host quantum-platform-user-api.quantum-platform.svc.cluster.local:127.0.0.1 \
+            -v "$PWD/apps/users/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            nginxinc/nginx-unprivileged:1.29-alpine nginx -t
+          grep -q 'auth_request /_portal_auth_check;' apps/users/nginx.conf
+          grep -q 'proxy_pass_request_body off;' apps/users/nginx.conf
