@@ -547,31 +547,6 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
                   throw new Error(result.detail ?? 'Memory correction failed.');
                 }
                 await loadMemories();
-    try {
-      const reply = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
-      if (reply.ok) {
-        const me = await reply.json();
-        const root = document.querySelector<HTMLElement>('#programme-tree');
-        if (root) {
-          root.replaceChildren();
-          for (const m of (me.memberships ?? [])) {
-            if (m.status !== 'approved' || !m.programme?.name) continue;
-            const folder = document.createElement('details');
-            folder.className = 'project-group';
-            const label = document.createElement('summary');
-            label.textContent = '📁 ' + m.programme.name;
-            const link = document.createElement('a');
-            link.href = '/programmes/';
-            link.className = 'small-note';
-            link.textContent = 'Group discussions require approved programme workspace support.';
-            folder.append(label, link);
-            root.append(folder);
-          }
-        }
-      }
-    } catch {
-      // A failed membership lookup must never grant access to shared conversations.
-    }
                 if (memoryStatus) {
                   memoryStatus.textContent = 'Memory corrected; previous revision retained for audit.';
                 }
@@ -782,6 +757,32 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
+    try {
+      const reply = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
+      if (reply.ok) {
+        const me = await reply.json();
+        const root = document.querySelector<HTMLElement>('#programme-tree');
+        if (root) {
+          root.replaceChildren();
+          for (const m of (me.memberships ?? [])) {
+            if (m.status !== 'approved' || !m.programme?.name) continue;
+            const folder = document.createElement('details');
+            folder.className = 'project-group';
+            const label = document.createElement('summary');
+            label.textContent = '📁 ' + m.programme.name;
+            const link = document.createElement('a');
+            link.href = '/programmes/';
+            link.className = 'small-note';
+            link.textContent = 'Group discussions require approved programme workspace support.';
+            folder.append(label, link);
+            root.append(folder);
+          }
+        }
+      }
+    } catch {
+      // A failed membership lookup must never grant access to shared conversations.
+    }
+
 
     // A mini-guide question from another portal page becomes a new canonical
     // conversation with a draft, not an auto-sent query or URL/log entry.
