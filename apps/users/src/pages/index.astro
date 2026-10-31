@@ -4,178 +4,179 @@ import Button from '@nyameko/ui/Button.astro';
 import Card from '@nyameko/ui/Card.astro';
 ---
 
-<SiteLayout
-  title="User Portal"
-  siteName="Quantum Platform"
-  section="User Portal"
-  description="Research identity, programme membership and access management for the Quantum Platform."
->
-  <section class="hero container">
-    <div>
-      <p class="eyebrow">QUANTUM PLATFORM · USER PORTAL</p>
-      <h1>One front door to the platform.</h1>
-      <p class="lede">
-        Manage your research identity, security settings, programme
-        membership and access to quantum-centric computing infrastructure.
-      </p>
+<SiteLayout title="Quantum Platform" siteName="Quantum Platform" section="User Portal"
+  description="A research portal for identity, programme access, Jupyter and scheduler-backed quantum/HPC workflows.">
 
-      <div class="actions" id="auth-actions">
+  <section id="home-loading" class="section container" role="status">Opening Quantum Platform…</section>
+
+  <section id="public-home" class="hero container" hidden>
+    <div>
+      <p class="eyebrow">QUANTUM PLATFORM · RESEARCH ACCESS</p>
+      <h1>One front door to quantum-centric research.</h1>
+      <p class="lede">
+        Research identity, approved programme access, secure connections, Jupyter notebooks
+        and scheduler-backed scientific workflows.
+      </p>
+      <div class="actions">
         <Button href="/login/">Sign in</Button>
-        <Button href="/account/signup/" variant="secondary">
-          Create account
-        </Button>
+        <Button href="/account/signup/" variant="secondary">Create account</Button>
       </div>
     </div>
-
-    <div class="status">
-      <p class="eyebrow">PLATFORM STATUS</p>
-      <div class="status-row">
-        <span>Identity</span>
-        <strong>Online</strong>
-      </div>
-      <div class="status-row">
-        <span>MFA / Passkeys</span>
-        <strong>Online</strong>
-      </div>
-      <div class="status-row">
-        <span>Research workflow</span>
-        <strong>Online</strong>
-      </div>
+    <div class="public-guide">
+      <p class="eyebrow">GET ACCESS</p>
+      <h2>Start with a research account</h2>
+      <p>Create your profile, join or apply for a research programme, and then connect to the available services.</p>
+      <p class="muted">CPU, GPU and QPU access depends on approved entitlements and availability.</p>
     </div>
   </section>
 
-  <section class="section container">
-    <div class="grid grid-3">
-      <Card
-        eyebrow="Identity"
-        title="Research profile"
-        href="/profile/"
-      >
-        <p>
-          Maintain your researcher identity and institution information.
-        </p>
-      </Card>
+  <section id="authenticated-home" class="section container auth-home" hidden>
+    <div class="welcome-heading">
+      <div>
+        <p class="eyebrow">QUANTUM PLATFORM · YOUR WORKSPACE</p>
+        <h1>Research home</h1>
+        <p id="identity" class="lede">Loading your account…</p>
+      </div>
+      <div class="quick-tools" aria-label="Quick research tools">
+        <a href="/workbench/" title="Jupyter Workbench — launch or resume your notebook" aria-label="Open Jupyter Workbench">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6M7 17h10"/></svg>
+          <span>Jupyter</span>
+        </a>
+        <a href="/runs/" title="Slurm Runs — submit and inspect scheduler workloads" aria-label="Open Slurm Runs">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg>
+          <span>Slurm</span>
+        </a>
+      </div>
+    </div>
 
-      <Card
-        eyebrow="Research"
-        title="Programmes"
-        href="/programmes/"
-      >
-        <p>
-          Apply as a PI or request membership in an approved programme.
-        </p>
+    <div class="grid grid-3 home-grid">
+      <Card eyebrow="Identity" title="Research profile" href="/profile/">
+        <p id="profile-state">Loading profile state…</p>
       </Card>
-
-      <Card
-        eyebrow="Security"
-        title="Protected access"
-        href="/security/"
-      >
-        <p>
-          Manage password, MFA, recovery codes and WebAuthn credentials.
-        </p>
+      <Card eyebrow="Research" title="Programmes" href="/programmes/">
+        <p id="membership-state">Loading programme memberships…</p>
       </Card>
+      <Card eyebrow="Security" title="Account security" href="/security/">
+        <p id="security-state">Loading security state…</p>
+      </Card>
+      <Card eyebrow="Jupyter" title="Workbench" href="/workbench/">
+        <p>Launch or resume your lightweight Kubernetes research notebook.</p>
+      </Card>
+      <Card eyebrow="Slurm" title="Runs" href="/runs/">
+        <p>Submit and inspect durable scheduler-backed scientific runs.</p>
+      </Card>
+      <Card eyebrow="Resource Access" title="Access & entitlements" href="/access/">
+        <p>Review programme memberships, register public access keys, and find your next access step.</p>
+      </Card>
+    </div>
+    <div class="actions account-actions">
+      <button id="logout" type="button">Sign out</button>
+      <p id="logout-message" role="status"></p>
     </div>
   </section>
 </SiteLayout>
 
 <script>
-  import { getSession } from '../lib/auth';
+  import { getSession, logout, sessionIsAuthenticated } from '../lib/auth';
 
-  const actions = document.querySelector<HTMLDivElement>('#auth-actions');
+  const loadingHome = document.querySelector<HTMLElement>('#home-loading');
+  const publicHome = document.querySelector<HTMLElement>('#public-home');
+  const authHome = document.querySelector<HTMLElement>('#authenticated-home');
+  const identity = document.querySelector<HTMLElement>('#identity');
+  const profile = document.querySelector<HTMLElement>('#profile-state');
+  const security = document.querySelector<HTMLElement>('#security-state');
+  const memberships = document.querySelector<HTMLElement>('#membership-state');
+  const logoutButton = document.querySelector<HTMLButtonElement>('#logout');
+  const logoutMessage = document.querySelector<HTMLElement>('#logout-message');
 
-  getSession().then(({ response }) => {
-    if (!response.ok || !actions) return;
+  async function showHome() {
+    try {
+      const { response, payload } = await getSession();
+      if (!sessionIsAuthenticated(response, payload)) {
+        if (publicHome) publicHome.hidden = false;
+        return;
+      }
+      const me = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
+      if (!me.ok) {
+        if (publicHome) publicHome.hidden = false;
+        return;
+      }
+      const account = await me.json();
+      if (identity) {
+        const name = account.person?.preferred_name || account.person?.given_names
+          || account.username || account.email;
+        identity.textContent = 'Welcome back, ' + name + '.';
+      }
+      if (profile) {
+        profile.textContent = account.person
+          ? (account.person.institution || 'Institution not set')
+          : 'Complete your research profile.';
+      }
+      if (memberships) {
+        const count = account.memberships?.length ?? 0;
+        memberships.textContent = count === 1
+          ? '1 programme membership.' : count + ' programme memberships.';
+      }
+      if (security) {
+        security.textContent = account.email_verified
+          ? 'Email verified. Manage MFA and keys.'
+          : 'Email verification required.';
+      }
+      if (publicHome) publicHome.hidden = true;
+      if (authHome) authHome.hidden = false;
+    } catch {
+      if (publicHome) publicHome.hidden = false;
+    } finally {
+      if (loadingHome) loadingHome.hidden = true;
+    }
+  }
 
-    actions.innerHTML = `
-      <a class="portal-button primary" href="/dashboard/">
-        Open dashboard
-      </a>
-    `;
+  void showHome();
+  logoutButton?.addEventListener('click', async () => {
+    logoutButton.disabled = true;
+    try {
+      const result = await logout();
+      if (!result.ok) throw new Error('Unable to sign out.');
+      window.location.replace('/login/');
+    } catch (error) {
+      logoutButton.disabled = false;
+      if (logoutMessage) {
+        logoutMessage.textContent = error instanceof Error ? error.message : 'Sign out failed.';
+      }
+    }
   });
 </script>
 
 <style>
+  [hidden] { display: none !important; }
   .hero {
-    min-height: 68vh;
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
-    align-items: center;
-    gap: 4rem;
-    padding-top: 6rem;
+    min-height: 68vh; display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, .65fr);
+    align-items: center; gap: 3rem; padding-top: 5rem;
   }
-
-  h1 {
-    max-width: 900px;
-    margin: 0.8rem 0 0;
-    font-size: clamp(3rem, 7vw, 6.5rem);
-    line-height: 0.94;
-    letter-spacing: -0.06em;
+  h1 { font-size: clamp(2.5rem, 6vw, 5rem); letter-spacing: -.05em; line-height: 1.05; margin: .6rem 0; }
+  .actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; margin-top: 1.5rem; }
+  .public-guide { padding: 1.4rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); }
+  .muted { color: var(--muted); }
+  .auth-home { padding-top: 2rem; }
+  .welcome-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+  .home-grid { margin-top: 2rem; }
+  .quick-tools { display: flex; gap: .6rem; }
+  .quick-tools a {
+    display: grid; gap: .3rem; min-width: 4rem; justify-items: center;
+    border: 1px solid var(--border); border-radius: .75rem; padding: .5rem;
+    text-decoration: none; background: var(--surface); color: var(--text);
+    font-size: .72rem;
   }
-
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.7rem;
-    margin-top: 2rem;
+  .quick-tools a:hover, .quick-tools a:focus-visible { border-color: var(--purple); }
+  .quick-tools svg { width: 1.4rem; height: 1.4rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .account-actions button {
+    min-height: 2.6rem; padding: 0 .9rem; border: 1px solid var(--border);
+    border-radius: .65rem; background: var(--surface); color: var(--text); cursor: pointer;
   }
-
-  .status {
-    padding: 1.4rem;
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    background: var(--surface);
-    box-shadow: var(--shadow);
-  }
-
-  .status-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.9rem 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .status-row:last-child {
-    border-bottom: 0;
-  }
-
-  .status-row span {
-    color: var(--muted);
-  }
-
-  .status-row strong {
-    color: var(--success);
-  }
-
-  :global(.portal-button) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.7rem;
-    padding: 0.65rem 1rem;
-    border-radius: 0.7rem;
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 700;
-  }
-
-  :global(.portal-button.primary) {
-    border: 1px solid rgb(167 139 250 / 34%);
-    background: linear-gradient(
-      135deg,
-      var(--purple-strong),
-      #6d3fd4
-    );
-    color: white;
-  }
-
+  #logout-message { color: var(--red-strong); }
   @media (max-width: 800px) {
-    .hero {
-      min-height: auto;
-      grid-template-columns: 1fr;
-      gap: 2.5rem;
-      padding-top: 5rem;
-    }
+    .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 3rem; }
+    .welcome-heading { align-items: start; flex-direction: column; }
   }
 </style>

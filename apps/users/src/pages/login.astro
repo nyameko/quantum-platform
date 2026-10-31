@@ -49,7 +49,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   async function redirectAuthenticatedSession() {
     const { response, payload } = await getSession();
     if (sessionIsAuthenticated(response, payload)) {
-      window.location.replace('/dashboard/');
+      window.location.replace('/');
     }
   }
 
@@ -81,7 +81,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const payload = await readPayload(response);
 
     if (sessionIsAuthenticated(response, payload)) {
-      window.location.href = '/dashboard/';
+      window.location.href = '/';
       return;
     }
     if (hasPendingFlow(payload, 'mfa_authenticate')) {
