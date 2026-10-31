@@ -7,7 +7,9 @@ import Card from '@nyameko/ui/Card.astro';
 <SiteLayout title="Quantum Platform" siteName="Quantum Platform" section="User Portal"
   description="A research portal for identity, programme access, Jupyter and scheduler-backed quantum/HPC workflows.">
 
-  <section id="public-home" class="hero container">
+  <section id="home-loading" class="section container" role="status">Opening Quantum Platform…</section>
+
+  <section id="public-home" class="hero container" hidden>
     <div>
       <p class="eyebrow">QUANTUM PLATFORM · RESEARCH ACCESS</p>
       <h1>One front door to quantum-centric research.</h1>
@@ -77,6 +79,7 @@ import Card from '@nyameko/ui/Card.astro';
 <script>
   import { getSession, logout, sessionIsAuthenticated } from '../lib/auth';
 
+  const loadingHome = document.querySelector<HTMLElement>('#home-loading');
   const publicHome = document.querySelector<HTMLElement>('#public-home');
   const authHome = document.querySelector<HTMLElement>('#authenticated-home');
   const identity = document.querySelector<HTMLElement>('#identity');
@@ -89,9 +92,15 @@ import Card from '@nyameko/ui/Card.astro';
   async function showHome() {
     try {
       const { response, payload } = await getSession();
-      if (!sessionIsAuthenticated(response, payload)) return;
+      if (!sessionIsAuthenticated(response, payload)) {
+        if (publicHome) publicHome.hidden = false;
+        return;
+      }
       const me = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
-      if (!me.ok) return;
+      if (!me.ok) {
+        if (publicHome) publicHome.hidden = false;
+        return;
+      }
       const account = await me.json();
       if (identity) {
         const name = account.person?.preferred_name || account.person?.given_names
@@ -116,7 +125,9 @@ import Card from '@nyameko/ui/Card.astro';
       if (publicHome) publicHome.hidden = true;
       if (authHome) authHome.hidden = false;
     } catch {
-      // Anonymous users retain the public introduction; never render private data.
+      if (publicHome) publicHome.hidden = false;
+    } finally {
+      if (loadingHome) loadingHome.hidden = true;
     }
   }
 
