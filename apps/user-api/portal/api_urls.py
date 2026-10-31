@@ -8,6 +8,7 @@ from .agent_api import (
     agent_memory_revoke,
     agent_conversations,
     agent_projects,
+    agent_project,
     agent_run,
     agent_turn,
 )
@@ -56,6 +57,7 @@ from .views import (
 urlpatterns = [
     path("health/", health, name="health"),
     path("agent/projects/", agent_projects, name="agent-projects"),
+    path("agent/projects/<uuid:project_id>/", agent_project, name="agent-project"),
     path("agent/conversations/", agent_conversations, name="agent-conversations"),
     path(
         "agent/conversations/<uuid:conversation_id>/",
