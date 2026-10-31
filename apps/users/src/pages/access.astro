@@ -1,0 +1,65 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+import Card from '@nyameko/ui/Card.astro';
+---
+
+<SiteLayout title="Resource Access" siteName="Quantum Platform" section="User Portal">
+  <section class="section container access-page">
+    <p class="eyebrow">RESEARCH COMPUTE · RESOURCE ACCESS</p>
+    <h1>Access & entitlements</h1>
+    <p class="lede">
+      Find the next step to use authorized CPU, GPU and QPU resources.
+      Access to any system depends on your approved programme membership and provider entitlements.
+    </p>
+
+    <p id="access-status" role="status" aria-live="polite">Checking current programme access…</p>
+    <div class="grid grid-2 access-grid">
+      <Card eyebrow="Approval" title="Programmes & memberships" href="/programmes/">
+        <p>Request membership or submit a PI application. Approval is required for research resources.</p>
+      </Card>
+      <Card eyebrow="Connections" title="SSH & WireGuard keys" href="/account/access-keys/">
+        <p>Register public connection keys and review provisioning status. Never upload a private key.</p>
+      </Card>
+      <Card eyebrow="Interactive" title="Jupyter Workbench" href="/workbench/">
+        <p>Launch or resume a lightweight notebook when your account is entitled.</p>
+      </Card>
+      <Card eyebrow="Batch" title="Slurm runs" href="/runs/">
+        <p>Review scheduler-backed jobs and submit available validated workflows.</p>
+      </Card>
+    </div>
+    <p class="help-note">
+      Direct GPU or remote-QPU allocation controls are not yet self-service in this portal.
+      If an entitlement is unavailable, contact the relevant programme administrator.
+    </p>
+  </section>
+</SiteLayout>
+
+<script>
+  import { requireSession } from '../lib/auth';
+  const status = document.querySelector<HTMLElement>('#access-status');
+  async function loadAccess() {
+    if (!(await requireSession())) return;
+    try {
+      const response = await fetch('/api/v1/memberships/', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (!response.ok) throw new Error('Unable to inspect programme memberships.');
+      const memberships = await response.json();
+      const count = Array.isArray(memberships) ? memberships.length : 0;
+      if (status) status.textContent = count
+        ? 'You have ' + count + ' programme membership record(s). See Programmes for their approval status.'
+        : 'No programme memberships yet. Start with Programmes.';
+    } catch {
+      if (status) status.textContent = 'Membership status temporarily unavailable.';
+    }
+  }
+  void loadAccess();
+</script>
+
+<style>
+  .access-page { max-width: 72rem; }
+  h1 { font-size: clamp(2.7rem, 6vw, 4.8rem); letter-spacing: -.05em; margin: .4rem 0; }
+  .access-grid { margin-top: 2rem; }
+  #access-status, .help-note { color: var(--muted-strong); }
+  .help-note { margin-top: 1.5rem; }
+</style>

@@ -10,16 +10,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           <strong>Quantum Guide</strong>
           <span>Research assistant</span>
         </div>
-        <button id="new-chat" type="button" class="new-chat">+ New chat</button>
-
-        <nav aria-label="Getting started" class="getting-started">
-          <h2>Getting Started</h2>
-          <button type="button" data-starter="How do I create and verify my Quantum Platform account?">User account creation</button>
-          <button type="button" data-starter="Guide me through secure SSH public-key setup and WireGuard access for Quantum Platform. Identify what requires platform-specific documentation.">SSH &amp; WireGuard keys</button>
-          <button type="button" data-starter="Show me how to open and use a beginner Jupyter notebook for quantum computing.">Running a Jupyter workbook</button>
-          <button type="button" data-starter="Explain how to submit and monitor my first Slurm CPU job, including how to check platform-specific partitions.">Submitting a Slurm job</button>
-          <p class="small-note">These start a guided question; they are not yet verified tutorials.</p>
-        </nav>
+        <button id="new-chat" type="button" class="new-chat">💬 New chat</button>
 
         <div class="sidebar-section-heading">
           <h2>Projects</h2>
@@ -34,7 +25,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           </div>
         </form>
         <nav id="project-tree" aria-label="Projects and conversations"></nav>
-        <div class="sidebar-section-heading"><h2>Other conversations</h2></div>
+        <div class="sidebar-section-heading"><h2>Recent chats</h2></div>
         <nav id="unfiled-chats" aria-label="Unfiled conversations"></nav>
       </aside>
 
@@ -230,7 +221,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       fold.type = 'button';
       fold.className = 'folder-name';
       const open = !closedFolders.has(project.id);
-      fold.textContent = (open ? '▾ ' : '▸ ') + project.title;
+      fold.textContent = (open ? '▾ 📂 ' : '▸ 📁 ') + project.title;
       fold.setAttribute('aria-expanded', String(open));
       fold.title = project.title;
       const children = document.createElement('div');
@@ -687,16 +678,6 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     toggleWidth.setAttribute('aria-pressed', String(wide));
     toggleWidth.title = wide ? 'Restore reading width' : 'Expand reading area';
   });
-  document.querySelectorAll<HTMLButtonElement>('[data-starter]').forEach(button => {
-    button.addEventListener('click', async () => {
-      if (!await createConversation()) return;
-      if (message) {
-        message.value = button.dataset.starter ?? '';
-        message.focus();
-      }
-    });
-  });
-
   // Preserve multiline code and research prompts: Enter inserts a newline,
   // while Ctrl+Enter (or Cmd+Enter on macOS) submits the existing form.
   message?.addEventListener('keydown', (event) => {
@@ -774,6 +755,21 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
+
+    // A mini-guide question from another portal page becomes a new canonical
+    // conversation with a draft, not an auto-sent query or URL/log entry.
+    const handoff = window.sessionStorage.getItem('qp:guide-draft');
+    if (handoff) {
+      const needsNew = window.sessionStorage.getItem('qp:guide-new-chat') === '1';
+      if (!needsNew || await createConversation()) {
+        if (message) {
+          message.value = handoff;
+          message.focus();
+        }
+        window.sessionStorage.removeItem('qp:guide-draft');
+        window.sessionStorage.removeItem('qp:guide-new-chat');
+      }
+    }
   }
 </script>
 
@@ -808,7 +804,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .sidebar-brand { display: grid; gap: .25rem; margin-bottom: 1rem; }
   .sidebar-brand strong { font-size: 1.2rem; }
   .sidebar-brand span, .small-note { color: var(--muted); font-size: .8rem; }
-  .new-chat { width: 100%; text-align: left; margin-bottom: 1.4rem; }
+  .new-chat {
+    width: 100%; text-align: left; margin-bottom: 1.2rem;
+    background: transparent; border: 0; color: var(--text);
+    padding-left: .5rem;
+  }
+  .new-chat:hover, .new-chat:focus-visible { background: var(--background-soft); }
   .getting-started { display: grid; gap: .25rem; }
   .getting-started h2, .sidebar-section-heading h2 {
     font-size: .85rem; letter-spacing: .02em; margin: .5rem 0;
