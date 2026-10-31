@@ -105,10 +105,14 @@ def call(
                 raise AgentServiceError(
                     "The requested agent resource was not found.", status_code=404
                 )
-            if response.status_code in {409, 422}:
-                # Bounded, user-actionable errors for explicit memory approval.
+            if response.status_code in {409, 412, 422}:
+                # Bounded, user-actionable revision/conflict errors for memory and workspaces.
                 raw = response.read()
-                detail = "Memory revision conflict" if response.status_code == 409 else "Invalid memory request"
+                detail = (
+                    "Workspace has changed; refresh before editing"
+                    if response.status_code == 412
+                    else "Revision conflict" if response.status_code == 409 else "Invalid request"
+                )
                 if len(raw) <= 8192:
                     try:
                         candidate = json.loads(raw).get("detail")
