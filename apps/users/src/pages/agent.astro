@@ -4,7 +4,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
 <SiteLayout title="Personal Agent" siteName="Quantum Platform" section="User Portal">
   <section class="section container page-shell">
-    <p class="eyebrow">M4A · PERSISTENT PERSONAL AGENT</p>
+    <p class="eyebrow">PERSONAL RESEARCH ASSISTANT · M4A / M4B</p>
     <h1>Persistent conversation</h1>
     <p class="lede">
       This is the minimal M4a continuity surface. Projects and conversations are
@@ -65,9 +65,50 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       <p id="status" role="status"></p>
     </article>
 
+
+    <section class="panel memory-panel" aria-labelledby="memory-heading">
+      <div class="conversation-heading">
+        <div>
+          <p class="eyebrow">M4B · USER-APPROVED MEMORY</p>
+          <h2 id="memory-heading">Your research memories</h2>
+        </div>
+        <button id="refresh-memories" type="button" class="secondary">Reload memories</button>
+      </div>
+      <p class="note">
+        Use “Remember this” on one of your messages, review the proposed summary,
+        and approve it explicitly. Only approved memories can be used in later sessions.
+      </p>
+      <form id="memory-form">
+        <p id="memory-source" class="note" aria-live="polite">
+          Choose “Remember this” beside a message you wrote.
+        </p>
+        <label>
+          What should the assistant remember?
+          <textarea id="memory-body" rows="3" maxlength="2000"
+            placeholder="An accurate, reusable research preference or fact. Do not include secrets."></textarea>
+        </label>
+        <label>
+          Memory category
+          <select id="memory-kind">
+            <option value="preference">Research preference</option>
+            <option value="episodic">Research session note</option>
+            <option value="semantic">Research fact or concept</option>
+            <option value="project_note">Project note (private)</option>
+          </select>
+        </label>
+        <button id="propose-memory" type="submit" disabled>Propose memory for review</button>
+      </form>
+      <p id="memory-status" role="status" aria-live="polite"></p>
+      <div id="memory-list" class="memory-list">
+        <p class="empty">Loading your memory records…</p>
+      </div>
+    </section>
+
     <p class="note">
-      M4a deliberately uses polling and a single tool-free personal runtime. Memory,
-      skills, richer projects and the polished Quantum Platform Guide come later.
+      Research memories remain private and require approval. Their use by Hermes
+      is separately controlled by ACP deployment settings; saving a memory does not
+      guarantee it has been enabled for inference. Skills and the polished Guide
+      remain separate roadmap milestones.
     </p>
     <a class="back" href="/dashboard/">Back to dashboard</a>
   </section>
@@ -78,6 +119,16 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   type Project = { id: string; title: string };
   type Conversation = { id: string; project_id?: string | null; title: string };
+  type MemoryItem = {
+    id: string;
+    status: 'candidate' | 'active' | 'revoked';
+    revision: number;
+    kind: string;
+    body: string | null;
+    source_conversation_id: string;
+    source_message_id: string;
+  };
+
   type Message = {
     id: string;
     author_kind: string;
@@ -98,6 +149,18 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const send = document.querySelector<HTMLButtonElement>('#send');
   const status = document.querySelector<HTMLParagraphElement>('#status');
   const refresh = document.querySelector<HTMLButtonElement>('#refresh');
+  const memoryForm = document.querySelector<HTMLFormElement>('#memory-form');
+  const memoryBody = document.querySelector<HTMLTextAreaElement>('#memory-body');
+  const memoryKind = document.querySelector<HTMLSelectElement>('#memory-kind');
+  const memorySource = document.querySelector<HTMLElement>('#memory-source');
+  const memoryStatus = document.querySelector<HTMLElement>('#memory-status');
+  const memoryList = document.querySelector<HTMLElement>('#memory-list');
+  const proposeMemory = document.querySelector<HTMLButtonElement>('#propose-memory');
+  const refreshMemories = document.querySelector<HTMLButtonElement>('#refresh-memories');
+
+  let sourceConversationId: string | null = null;
+  let sourceMessageId: string | null = null;
+
 
   let activeProject: string | null = null;
   let activeConversation: string | null = null;
@@ -207,6 +270,23 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       body.textContent = displayContent(item.content);
 
       article.append(role, body);
+      if (item.author_kind === 'user' && activeConversation) {
+        const remember = document.createElement('button');
+        remember.type = 'button';
+        remember.className = 'secondary remember-action';
+        remember.textContent = 'Remember this';
+        remember.addEventListener('click', () => {
+          sourceConversationId = activeConversation;
+          sourceMessageId = item.id;
+          if (memoryBody) memoryBody.value = displayContent(item.content).slice(0, 2000);
+          if (memorySource) {
+            memorySource.textContent = 'Source: this message in the current conversation.';
+          }
+          if (proposeMemory) proposeMemory.disabled = false;
+          memoryBody?.focus();
+        });
+        article.append(remember);
+      }
       transcript.append(article);
     }
 
@@ -214,6 +294,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   }
 
   async function loadConversation() {
+    sourceConversationId = null;
+    sourceMessageId = null;
+    if (proposeMemory) proposeMemory.disabled = true;
+    if (memorySource) {
+      memorySource.textContent = 'Choose “Remember this” beside a message you wrote.';
+    }
     if (!activeConversation) return;
 
     const path = '/api/v1/agent/conversations/' + activeConversation + '/';
@@ -255,6 +341,139 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     throw new Error('Agent run is still active. Reload to check again.');
   }
+
+  async function loadMemories() {
+    if (!memoryList) return;
+    const response = await fetch('/api/v1/agent/memories/', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({}));
+    memoryList.replaceChildren();
+
+    if (!response.ok) {
+      if (memoryStatus) {
+        memoryStatus.textContent = response.status === 503
+          ? 'Memory controls are not available until the ACP memory service is activated.'
+          : (payload.detail ?? 'Unable to load memories.');
+      }
+      return;
+    }
+
+    if (memoryStatus) memoryStatus.textContent = '';
+    const items: MemoryItem[] = payload.items ?? [];
+    if (!items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = 'No saved memories. Choose a message above to get started.';
+      memoryList.append(empty);
+      return;
+    }
+
+    for (const item of items) {
+      const article = document.createElement('article');
+      article.className = 'memory-item';
+      const heading = document.createElement('strong');
+      heading.textContent = item.kind.replaceAll('_', ' ') + ' · ' + item.status;
+      const detail = document.createElement('p');
+      detail.textContent = item.body ?? 'Revoked — no longer available for retrieval.';
+      const source = document.createElement('small');
+      source.textContent = 'Source conversation ' + item.source_conversation_id
+        + ', message ' + item.source_message_id + ' · revision ' + item.revision;
+      article.append(heading, detail, source);
+
+      if (item.status !== 'revoked') {
+        const actions = document.createElement('div');
+        actions.className = 'memory-actions';
+        if (item.status === 'candidate') {
+          const approve = document.createElement('button');
+          approve.type = 'button';
+          approve.textContent = 'Approve memory';
+          approve.addEventListener('click', () => void changeMemory(item, 'approve'));
+          actions.append(approve);
+        }
+        const revoke = document.createElement('button');
+        revoke.type = 'button';
+        revoke.className = 'secondary';
+        revoke.textContent = 'Revoke';
+        revoke.addEventListener('click', () => void changeMemory(item, 'revoke'));
+        actions.append(revoke);
+        article.append(actions);
+      }
+      memoryList.append(article);
+    }
+  }
+
+  async function changeMemory(item: MemoryItem, action: 'approve' | 'revoke') {
+    if (!memoryList) return;
+    const buttons = memoryList.querySelectorAll<HTMLButtonElement>('button');
+    buttons.forEach((button) => { button.disabled = true; });
+    if (memoryStatus) memoryStatus.textContent = 'Updating memory…';
+    try {
+      const response = await csrfJsonFetch(
+        '/api/v1/agent/memories/' + item.id + '/' + action + '/',
+        {
+          method: 'POST',
+          headers: { 'If-Match': '"' + item.revision + '"' },
+          body: JSON.stringify({}),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail ?? 'Unable to update memory.');
+      }
+      await loadMemories();
+      if (memoryStatus) {
+        memoryStatus.textContent = action === 'approve'
+          ? 'Memory approved for future retrieval.'
+          : 'Memory revoked; it will not be retrieved again.';
+      }
+    } catch (error) {
+      await loadMemories();
+      if (memoryStatus) {
+        memoryStatus.textContent = error instanceof Error ? error.message : 'Memory update failed.';
+      }
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; });
+    }
+  }
+
+  memoryForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const body = memoryBody?.value.trim();
+    if (!sourceConversationId || !sourceMessageId || !body || !proposeMemory) {
+      if (memoryStatus) memoryStatus.textContent = 'Choose a source message and enter a memory.';
+      return;
+    }
+    proposeMemory.disabled = true;
+    if (memoryStatus) memoryStatus.textContent = 'Saving proposal…';
+    try {
+      const response = await csrfJsonFetch('/api/v1/agent/memories/', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({
+          source_conversation_id: sourceConversationId,
+          source_message_id: sourceMessageId,
+          kind: memoryKind?.value ?? 'preference',
+          body,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail ?? 'Memory proposal failed.');
+      await loadMemories();
+      if (memoryStatus) {
+        memoryStatus.textContent = 'Proposal saved. Review it below and select Approve memory.';
+      }
+    } catch (error) {
+      if (memoryStatus) {
+        memoryStatus.textContent = error instanceof Error ? error.message : 'Memory proposal failed.';
+      }
+    } finally {
+      proposeMemory.disabled = false;
+    }
+  });
+
+  refreshMemories?.addEventListener('click', () => void loadMemories());
 
   projects?.addEventListener('change', async () => {
     activeProject = projects.value || null;
@@ -388,6 +607,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   if (await requireSession()) {
     await loadProjects();
+    await loadMemories();
   }
 </script>
 
@@ -445,6 +665,16 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     border: 1px solid var(--border);
   }
   .conversation-panel { margin-top: 1rem; }
+  .memory-panel { margin-top: 1rem; }
+  .memory-panel select { min-height: 0; margin-top: 0; }
+  .memory-list { display: grid; gap: .65rem; margin-top: 1rem; }
+  .memory-item { border: 1px solid var(--border); border-radius: .7rem; padding: 1rem; }
+  .memory-item p { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .memory-item small { display: block; color: var(--muted); overflow-wrap: anywhere; }
+  .memory-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
+  .remember-action { margin-top: .5rem; }
+  #memory-status { color: var(--muted); }
+
   .send-shortcut-hint { color: var(--muted); font-size: .85rem; }
   .conversation-heading {
     display: flex;
