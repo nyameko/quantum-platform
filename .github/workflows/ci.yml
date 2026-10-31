@@ -43,3 +43,7 @@ jobs:
             nginxinc/nginx-unprivileged:1.29-alpine nginx -t
           grep -q 'auth_request /_portal_auth_check;' apps/users/nginx.conf
           grep -q 'proxy_pass_request_body off;' apps/users/nginx.conf
+
+      - name: Exercise Nginx pre-render security boundary (users only)
+        if: matrix.app == 'users'
+        run: bash apps/users/tests/test_pre_render_auth.sh
