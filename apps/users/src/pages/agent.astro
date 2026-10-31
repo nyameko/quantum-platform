@@ -467,8 +467,10 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       return;
     }
 
-    if (memoryStatus) memoryStatus.textContent = '';
     const items: MemoryItem[] = payload.items ?? [];
+    if (memoryStatus) {
+      memoryStatus.textContent = 'Memory list refreshed · ' + items.length + ' record(s).';
+    }
     if (!items.length) {
       const empty = document.createElement('p');
       empty.className = 'empty';
@@ -649,6 +651,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     if (!content || !send) return;
     if (!activeConversation && !await createConversation()) return;
+    const submittedConversation = activeConversation;
+    if (!submittedConversation) return;
 
     send.disabled = true;
     if (status) status.textContent = 'Agent run queued…';
@@ -658,7 +662,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     try {
       const path = '/api/v1/agent/conversations/'
-        + activeConversation
+        + submittedConversation
         + '/turns/';
       const response = await csrfJsonFetch(path, {
         method: 'POST',
@@ -678,7 +682,6 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       if (message) message.value = '';
       await loadConversation();
 
-      const submittedConversation = activeConversation;
       rememberRun(submittedConversation, payload.run_id);
       if (status) status.textContent = 'Agent is responding…';
       await pollRun(payload.run_id, submittedConversation);
