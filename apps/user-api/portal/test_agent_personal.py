@@ -154,6 +154,74 @@ class PersonalAgentApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 409)
 
+    @patch("portal.agent_api.agent_client.call")
+    def test_memory_correction_reuses_signed_scope_and_revision(self, call):
+        memory_id = uuid4()
+        call.return_value = {"id": str(memory_id), "status": "active", "revision": 3}
+        response = self.client.patch(
+            f"/api/v1/agent/memories/{memory_id}/",
+            {"body": "Prefer PennyLane for introductory demonstrations."},
+            content_type="application/json",
+            HTTP_IF_MATCH='"2"',
+        )
+        self.assertEqual(response.status_code, 200)
+        call.assert_called_once_with(
+            self.user, "PATCH", f"/v1/memories/{memory_id}",
+            scope="agent:personal",
+            json_body={
+                "body": "Prefer PennyLane for introductory demonstrations.",
+                "reason": None,
+            },
+            if_match='"2"',
+        )
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_memory_correction_denies_missing_revision_and_blank_body(self, call):
+        memory_id = uuid4()
+        url = f"/api/v1/agent/memories/{memory_id}/"
+        no_revision = self.client.patch(
+            url, {"body": "Valid content"},
+            content_type="application/json",
+        )
+        self.assertEqual(no_revision.status_code, 400)
+        empty = self.client.patch(
+            url, {"body": "   "}, content_type="application/json",
+            HTTP_IF_MATCH='"2"',
+        )
+        self.assertEqual(empty.status_code, 400)
+        oversized = self.client.patch(
+            url, {"body": "x" * 2001}, content_type="application/json",
+            HTTP_IF_MATCH='"2"',
+        )
+        self.assertEqual(oversized.status_code, 400)
+        call.assert_not_called()
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_memory_correction_propagates_conflict_without_mutation(self, call):
+        from .agent_client import AgentServiceError
+
+        memory_id = uuid4()
+        call.side_effect = AgentServiceError("Memory revision or idempotency conflict", status_code=409)
+        response = self.client.patch(
+            f"/api/v1/agent/memories/{memory_id}/",
+            {"body": "Updated content"},
+            content_type="application/json",
+            HTTP_IF_MATCH='"1"',
+        )
+        self.assertEqual(response.status_code, 409)
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_anonymous_user_cannot_correct_memory(self, call):
+        self.client.logout()
+        response = self.client.patch(
+            f"/api/v1/agent/memories/{uuid4()}/",
+            {"body": "Updated content"},
+            content_type="application/json",
+            HTTP_IF_MATCH='"1"',
+        )
+        self.assertIn(response.status_code, (401, 403))
+        call.assert_not_called()
+
     def test_personal_assertion_uses_stable_agent_principal(self):
         key = Ed25519PrivateKey.generate()
         with tempfile.TemporaryDirectory() as directory:
