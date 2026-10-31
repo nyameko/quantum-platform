@@ -1,0 +1,55 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout title="How to Cite" siteName="Quantum Platform" section="User Portal"
+  description="Guidance for acknowledging Quantum Platform software and computational resources in research.">
+  <section class="section container citation-page">
+    <p class="eyebrow">SCIENTIFIC REPRODUCIBILITY</p>
+    <h1>How to cite and acknowledge Quantum Platform</h1>
+    <p class="lede">
+      Please make it clear which facility, software, datasets, workflows and
+      providers supported your work. Include versioned artefacts and resource
+      identifiers where available.
+    </p>
+
+    <section>
+      <h2>Document what you used</h2>
+      <p>In the Methods or Computational Resources section, record the platform components, software versions, experiment or workflow identifiers, dates, CPU/GPU/QPU backends and relevant programme or allocation numbers.</p>
+      <p>Link directly to the specific version of the software or scientific workflow where its repository and commit are publicly available.</p>
+      <a href="https://github.com/nyameko/quantum-platform">Quantum Platform source</a>
+      <span aria-hidden="true"> · </span>
+      <a href="https://github.com/nyameko/quantum-workflows">Quantum Workflows source</a>
+    </section>
+
+    <section>
+      <h2>Citation and acknowledgement</h2>
+      <p>The official facility citation, acknowledgement template, funding credits and machine-readable citation metadata are being prepared. Please do not invent a DOI, funding number or citation version.</p>
+      <p>Until an official citation is published, accurately acknowledge the actual systems and software used and cite any relevant public repository release or reference paper.</p>
+    </section>
+
+    <section>
+      <h2>Scientific collaboration and authorship</h2>
+      <p>
+        Collaborations and substantive scientific contributions may merit co-authorship
+        by mutual agreement and according to the venue's authorship criteria.
+        Merely accessing a shared facility, providing routine support or receiving
+        resources does not automatically require authorship for any specific person.
+        Recognize other contributions in the acknowledgements.
+      </p>
+      <p>For guidance, see the
+        <a href="https://www.icmje.org/recommendations/browse/roles-and-responsibilities/defining-the-role-of-authors-and-contributors.html">ICMJE authorship and contributor criteria</a>.
+      </p>
+    </section>
+
+    <p><a href="/publications/">Return to publications</a></p>
+  </section>
+</SiteLayout>
+
+<style>
+  .citation-page { max-width: 65rem; padding-top: 3rem; }
+  h1 { font-size: clamp(2.1rem, 5vw, 3.8rem); letter-spacing: -.04em; margin: .4rem 0; }
+  .citation-page section { margin-top: 1.7rem; }
+  .citation-page section:not(:last-child) { border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+  .citation-page a { overflow-wrap: anywhere; }
+</style>

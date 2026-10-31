@@ -19,6 +19,8 @@
   <nav id="rail-projects" aria-label="Your research projects">
     <p class="rail-note">Loading projects…</p>
   </nav>
+  <h2 class="rail-section-title">Programmes</h2>
+  <nav id="rail-programmes" aria-label="Approved research programmes"></nav>
   <h2 class="rail-section-title">Recent chats</h2>
   <nav id="rail-recents" aria-label="Recent research conversations"></nav>
   <a class="rail-all" href="/agent/">Open full Quantum Guide</a>
@@ -78,6 +80,7 @@
   const rail = document.querySelector<HTMLElement>('#quantum-guide-rail');
   const projectRoot = document.querySelector<HTMLElement>('#rail-projects');
   const recentRoot = document.querySelector<HTMLElement>('#rail-recents');
+  const programmeRoot = document.querySelector<HTMLElement>('#rail-programmes');
   const promptForm = document.querySelector<HTMLFormElement>('#rail-prompt-form');
   const prompt = document.querySelector<HTMLTextAreaElement>('#rail-prompt');
   const close = document.querySelector<HTMLButtonElement>('#rail-close');
@@ -101,6 +104,21 @@
     try {
       const response = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
       if (!response.ok) return;
+      const me = await response.json();
+      programmeRoot?.replaceChildren();
+      for (const membership of (me.memberships ?? [])) {
+        if (membership.status !== 'approved' || !membership.programme?.name) continue;
+        const folder = document.createElement('details');
+        folder.className = 'rail-folder';
+        const label = document.createElement('summary');
+        label.textContent = '📁 ' + membership.programme.name;
+        const link = document.createElement('a');
+        link.href = '/programmes/';
+        link.className = 'rail-note';
+        link.textContent = 'Shared chats pending PI-governed workspaces';
+        folder.append(label, link);
+        programmeRoot?.append(folder);
+      }
       rail.hidden = false;
       document.body.classList.add('has-guide-rail');
       if (mobileToggle) mobileToggle.hidden = false;
