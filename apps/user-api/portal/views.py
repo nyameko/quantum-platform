@@ -11,6 +11,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from .identity import allocate_posix_identity
 from .models import (
     AuditEvent,
     Person,
@@ -703,6 +704,10 @@ def approve_membership(request, membership_id):
         membership.save(
             update_fields=["status", "approved_at"]
         )
+        # The authoritative login identity is allocated transactionally on
+        # approval, not guessed from an operator's Linux username. This does
+        # NOT create a POSIX account until the approved reconciler acts.
+        uid, gid = allocate_posix_identity(membership.person)
 
         _audit(
             request.user,
@@ -711,6 +716,9 @@ def approve_membership(request, membership_id):
             metadata={
                 "programme_id": membership.programme_id,
                 "person_id": membership.person_id,
+                "posix_uid": uid,
+                "posix_gid": gid,
+                "provisioning": "pending_reconciliation",
             },
         )
 

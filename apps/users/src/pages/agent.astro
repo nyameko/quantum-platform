@@ -1304,3 +1304,58 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     .composer-footer { flex-wrap: wrap; }
   }
 </style>
+<!-- Workspace entries are created in TypeScript; scoped Astro CSS cannot
+     match those nodes unless the selectors are global. -->
+<style is:global>
+  #assistant-sidebar .project-header,
+  #assistant-sidebar .chat-row {
+    display:flex; flex-flow:row nowrap; align-items:center;
+    gap:.25rem; width:100%; min-width:0; box-sizing:border-box;
+  }
+  #assistant-sidebar .project-header > .folder-name,
+  #assistant-sidebar .chat-row > .sidebar-chat {
+    flex:1 1 auto; width:0; min-width:0; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color:var(--text); text-align:left; cursor:pointer;
+  }
+  #assistant-sidebar .project-group { min-width:0; width:100%; }
+  #assistant-sidebar .project-children { margin-left:.65rem; }
+  #assistant-sidebar .workspace-menu-wrap {
+    display:inline-flex; align-items:center; justify-content:flex-end;
+    flex:0 0 auto; margin-left:auto;
+  }
+  #assistant-sidebar button.workspace-menu {
+    display:grid; place-items:center; padding:0;
+    width:2rem; height:2rem; min-width:2rem;
+    flex:0 0 2rem; font:inherit; font-size:1.1rem;
+    border:1px solid transparent; border-radius:.45rem;
+    background:transparent; color:var(--text); cursor:pointer;
+  }
+  #assistant-sidebar button.workspace-menu:hover,
+  #assistant-sidebar button.workspace-menu:focus-visible {
+    background:var(--background-soft); border-color:var(--border);
+  }
+  .workspace-menu-actions:popover-open {
+    position:fixed !important; inset:auto; margin:0 !important;
+    z-index:1000; width:13rem; max-width:calc(100vw - 16px);
+    max-height:65vh; padding:.4rem; box-sizing:border-box;
+    display:flex !important; flex-direction:column !important;
+    align-items:stretch !important; gap:.15rem !important;
+    border:1px solid var(--border); border-radius:.7rem;
+    color:var(--text); background:var(--surface);
+    box-shadow:0 12px 36px rgb(0 0 0 / 38%); overflow-y:auto;
+  }
+  .workspace-menu-actions:popover-open > button {
+    display:block !important; flex:0 0 auto; width:100%;
+    min-height:2rem; box-sizing:border-box; border:0; border-radius:.4rem;
+    background:transparent; color:var(--text);
+    padding:.5rem .6rem; font:inherit; font-size:.8rem;
+    text-align:left; white-space:normal; cursor:pointer;
+  }
+  .workspace-menu-actions:popover-open > button:hover:not(:disabled) {
+    background:var(--background-soft);
+  }
+  .workspace-menu-actions:popover-open > button:disabled {
+    opacity:.5; cursor:not-allowed;
+  }
+</style>

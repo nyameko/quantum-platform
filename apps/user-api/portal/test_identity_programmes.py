@@ -209,3 +209,45 @@ class ProgrammeApprovalTests(TestCase):
             user=self.admin
         )
         self.assertEqual(principal.user, self.admin)
+
+    def test_pi_approval_allocates_member_uid_without_faking_os_provisioning(self):
+        programme = ResearchProgramme.objects.create(
+            name="CPU research access",
+            acronym="cpu-research",
+            description="Research",
+            institution="CSIR",
+            pi=self.person,
+            status=ResearchProgramme.Status.ACTIVE,
+        )
+        member_user = User.objects.create_user(
+            "student1", "student@example.invalid", "x",
+        )
+        member = Person.objects.create(
+            user=member_user,
+            given_names="Student",
+            family_name="One",
+            institution="CSIR",
+        )
+        membership = ProgrammeMembership.objects.create(
+            programme=programme,
+            person=member,
+            role=ProgrammeMembership.Role.RESEARCHER,
+            status=ProgrammeMembership.Status.PENDING,
+        )
+        self.assertIsNone(member.posix_uid)
+        self.client.force_login(self.user)
+        response = self.client.post(
+            f"/api/v1/memberships/{membership.pk}/approve/",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        member.refresh_from_db()
+        self.assertEqual((member.posix_uid, member.posix_gid), (21000, 21000))
+        self.assertIsNone(member.posix_provisioned_at)
+        self.assertEqual(
+            PosixIdentityAllocation.objects.filter(person=member).count(), 1
+        )
+        second = self.client.post(
+            f"/api/v1/memberships/{membership.pk}/approve/",
+        )
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(PosixIdentityAllocation.objects.count(), 1)

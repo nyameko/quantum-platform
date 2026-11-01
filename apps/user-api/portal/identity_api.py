@@ -13,6 +13,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from allauth.account.models import EmailAddress
+from allauth.mfa.models import Authenticator
 
 from .constants import (
     INSTITUTION_LABELS,
@@ -138,12 +139,35 @@ def me(request):
         verified=True,
     ).exists()
 
+    # Report observed account factors, not entitlement or actual node provisioning.
+    mfa_configured = Authenticator.objects.filter(
+        user=request.user,
+    ).exclude(type="recovery_codes").exists()
+    ssh_registered = bool(
+        person and person.ssh_keys.filter(active=True).exists()
+    )
+    wg_registered = bool(
+        person and person.wireguard_keys.filter(active=True).exists()
+    )
+    wg_provisioned = bool(
+        person and person.wireguard_keys.filter(
+            active=True, provisioned_at__isnull=False,
+        ).exists()
+    )
+
     return Response(
         {
             "id": request.user.pk,
             "email": request.user.email,
             "username": request.user.username,
             "email_verified": email_verified,
+            "mfa_configured": mfa_configured,
+            "ssh_key_registered": ssh_registered,
+            "wireguard_key_registered": wg_registered,
+            "wireguard_key_provisioned": wg_provisioned,
+            "posix_provisioned": bool(
+                person and person.posix_provisioned_at is not None
+            ),
             "is_staff": request.user.is_staff,
             "is_superuser": request.user.is_superuser,
             "person": _person_payload(person),

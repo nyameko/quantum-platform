@@ -172,6 +172,82 @@
   }
 </style>
 
+<!-- Generated chat/folder/menu nodes have no Astro-scoped attributes.
+     These selectors must be global or popovers inherit browser horizontal layout. -->
+<style is:global>
+  #quantum-guide-rail .rail-chat-row,
+  #quantum-guide-rail .rail-folder-row {
+    display:flex; flex-flow:row nowrap; align-items:center;
+    gap:.25rem; min-width:0; width:100%; box-sizing:border-box;
+  }
+  #quantum-guide-rail .rail-chat-row > .rail-chat,
+  #quantum-guide-rail .rail-folder-row > .rail-folder {
+    flex:1 1 auto; min-width:0; max-width:100%; width:0;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  #quantum-guide-rail .rail-chat-row > .rail-chat {
+    text-align:left; white-space:nowrap; background:transparent;
+    color:var(--text); border:0; border-radius:.4rem;
+    display:flex; align-items:center; padding:.45rem .3rem;
+    font:inherit; font-size:.79rem; cursor:pointer;
+  }
+  #quantum-guide-rail .rail-chat-row > .rail-chat::before {
+    content:''; display:inline-block; flex:0 0 1rem; height:1rem;
+    margin-right:.4rem; background:currentColor; opacity:.55;
+    mask:url('/assets/guide/chat.svg') center / contain no-repeat;
+    -webkit-mask:url('/assets/guide/chat.svg') center / contain no-repeat;
+  }
+  #quantum-guide-rail .rail-folder > summary {
+    display:flex; align-items:center; gap:.35rem;
+    min-width:0; max-width:100%; overflow:hidden;
+    white-space:nowrap; text-overflow:ellipsis;
+    font-size:.82rem; font-weight:700; cursor:pointer;
+    list-style:none;
+  }
+  #quantum-guide-rail .rail-folder > summary::before {
+    content:''; display:inline-block; flex:0 0 1rem; height:1rem;
+    background:currentColor; opacity:.55;
+    mask:url('/assets/guide/folder.svg') center / contain no-repeat;
+    -webkit-mask:url('/assets/guide/folder.svg') center / contain no-repeat;
+  }
+  #quantum-guide-rail .rail-actions-wrap {
+    display:inline-flex; flex:0 0 auto; margin-left:auto;
+    align-items:center; justify-content:flex-end;
+  }
+  #quantum-guide-rail button.rail-actions {
+    width:2rem; min-width:2rem; height:2rem; padding:0;
+    display:grid; place-items:center; flex:0 0 2rem;
+    border:1px solid transparent; border-radius:.45rem;
+    color:var(--text); background:transparent; cursor:pointer;
+    font:inherit; font-size:1.05rem;
+  }
+  #quantum-guide-rail button.rail-actions:hover,
+  #quantum-guide-rail button.rail-actions:focus-visible {
+    background:var(--background-soft); border-color:var(--border);
+  }
+  .rail-action-list:popover-open {
+    position:fixed !important; inset:auto; margin:0 !important;
+    z-index:1000; display:flex !important; flex-direction:column !important;
+    align-items:stretch !important; gap:.15rem !important; box-sizing:border-box;
+    width:13.5rem; max-width:calc(100vw - 16px);
+    max-height:min(65vh,25rem); overflow-y:auto;
+    padding:.35rem; border:1px solid var(--border); border-radius:.7rem;
+    color:var(--text); background:var(--surface);
+    box-shadow:0 12px 36px rgb(0 0 0 / 40%);
+  }
+  .rail-action-list:popover-open > button,
+  .rail-action-list:popover-open > a {
+    display:block !important; flex:0 0 auto; box-sizing:border-box;
+    width:100%; min-height:2rem; border:0; border-radius:.4rem;
+    padding:.55rem .65rem; text-align:left; white-space:normal;
+    background:transparent; color:var(--text); font:inherit;
+    font-size:.78rem; text-decoration:none; cursor:pointer;
+  }
+  .rail-action-list:popover-open > button:hover:not(:disabled),
+  .rail-action-list:popover-open > a:hover { background:var(--background-soft); }
+  .rail-action-list:popover-open > button:disabled { opacity:.5; cursor:not-allowed; }
+</style>
+
 <script>
   const rail = document.querySelector<HTMLElement>('#quantum-guide-rail');
   const projectRoot = document.querySelector<HTMLElement>('#rail-projects');
