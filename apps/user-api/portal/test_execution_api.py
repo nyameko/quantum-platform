@@ -170,6 +170,20 @@ class ExecutionApiTests(TestCase):
         self.assertNotIn("unknown gateway operation", response.content.decode())
 
     @patch("portal.execution_api._gateway")
+    def test_history_reports_safe_reason_without_ssh_output(self, gateway):
+        from portal.execution_api import SlurmGatewayHistoryError
+
+        gateway.side_effect = SlurmGatewayHistoryError(
+            "history_command_not_installed"
+        )
+        response = self.client.get("/api/v1/executions/slurm-history/")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json()["reason"], "history_command_not_installed",
+        )
+        self.assertNotIn("PRIVATE KEY", response.content.decode())
+
+    @patch("portal.execution_api._gateway")
     def test_history_ignores_malformed_or_step_records(self, gateway):
         gateway.return_value = (
             "22.batch|step|cpu-small|COMPLETED|0:0|00:00:01|"
