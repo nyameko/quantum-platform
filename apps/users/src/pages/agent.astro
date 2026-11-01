@@ -4,13 +4,13 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
 <SiteLayout title="Personal Agent" siteName="Quantum Platform" section="User Portal">
   <section class="section container page-shell">
-    <div class="assistant-shell" id="assistant-shell">
+    <div class="assistant-shell nav-collapsed" id="assistant-shell">
       <aside class="assistant-sidebar" id="assistant-sidebar" aria-label="Research assistant navigation">
         <div class="sidebar-brand">
-          <strong>Quantum Guide</strong>
+          <strong>Workspace management</strong>
           <span>Research assistant</span>
         </div>
-        <button id="new-chat" type="button" class="new-chat">💬 New chat</button>
+        <button id="new-chat" type="button" class="new-chat">New chat</button>
 
         <div class="sidebar-section-heading">
           <h2>Projects</h2>
@@ -42,7 +42,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             <h1 id="active-title">Choose a conversation</h1>
           </div>
           <div class="heading-actions">
-            <button id="toggle-sidebar" type="button" class="secondary icon-control" aria-label="Toggle navigation sidebar" aria-expanded="true" title="Toggle navigation">☰</button>
+            <button id="toggle-sidebar" type="button" class="secondary" aria-label="Show workspace management" aria-expanded="false" title="Manage projects and conversations">Workspaces</button>
             <button id="toggle-width" type="button" class="secondary icon-control" aria-pressed="false" aria-label="Expand reading area" title="Expand reading area">⤢</button>
             <button id="refresh" type="button" class="secondary" title="Refresh conversation and memories">Refresh</button>
           </div>
@@ -382,7 +382,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       fold.type = 'button';
       fold.className = 'folder-name';
       const open = !closedFolders.has(project.id);
-      fold.textContent = (open ? '▾ 📂 ' : '▸ 📁 ')
+      fold.textContent = (open ? '▾ ' : '▸ ')
         + (project.archived_at ? 'Archived · ' : '') + project.title;
       fold.setAttribute('aria-expanded', String(open));
       fold.title = project.title;
@@ -415,7 +415,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       group.append(header, children);
       projectTree.append(group);
     }
-    const other = availableConversations.filter(c => !c.project_id && isVisibleConversation(c));
+    const other = availableConversations.filter(c => isVisibleConversation(c)).slice(0, 15);
     other.forEach(chat => appendChat(unfiledChats, chat));
     if (!other.length) {
       const empty = document.createElement('small');
@@ -855,6 +855,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   toggleSidebar?.addEventListener('click', () => {
     const collapsed = shell?.classList.toggle('nav-collapsed') ?? false;
     toggleSidebar.setAttribute('aria-expanded', String(!collapsed));
+    toggleSidebar.setAttribute('aria-label',
+      collapsed ? 'Show workspace management' : 'Hide workspace management');
   });
   toggleWidth?.addEventListener('click', () => {
     const wide = shell?.classList.toggle('reading-wide') ?? false;
@@ -950,7 +952,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             const folder = document.createElement('details');
             folder.className = 'project-group';
             const label = document.createElement('summary');
-            label.textContent = '📁 ' + m.programme.name;
+            label.textContent = m.programme.name;
             const link = document.createElement('a');
             link.href = '/programmes/';
             link.className = 'small-note';
@@ -1032,6 +1034,14 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background: var(--background);
   }
   .sidebar-chat.selected { background: var(--background); font-weight: 700; }
+  .folder-name::before { content:''; display:inline-block; width:1rem; height:1rem; margin-right:.4rem;
+    vertical-align:middle; background:currentColor; opacity:.55;
+    mask:url('/assets/guide/folder.svg') center / contain no-repeat;
+    -webkit-mask:url('/assets/guide/folder.svg') center / contain no-repeat; }
+  .sidebar-chat::before { content:''; display:inline-block; width:1rem; height:1rem; margin-right:.4rem;
+    vertical-align:middle; background:currentColor; opacity:.55;
+    mask:url('/assets/guide/chat.svg') center / contain no-repeat;
+    -webkit-mask:url('/assets/guide/chat.svg') center / contain no-repeat; }
   .archive-filter { display: flex; align-items: center; gap: .4rem; font-size: .75rem; margin: .6rem 0; }
   .archive-filter input, .workspace-archive-check input { width: auto; }
   .chat-row { display: flex; gap: .15rem; align-items: center; }
