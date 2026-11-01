@@ -123,6 +123,24 @@
   .rail-folder { margin: .5rem 0; }
   .rail-folder summary { font-size: .82rem; cursor: pointer; font-weight: 700; overflow-wrap: anywhere; }
   .rail-folder-children { margin-left: .8rem; border-left: 1px solid var(--border); padding-left: .25rem; }
+  .rail-chat-row, .rail-folder-heading { display:flex; align-items:center; min-width:0; gap:.2rem; }
+  .rail-chat-row > .rail-chat, .rail-folder-heading > summary { flex:1; min-width:0; }
+  .rail-actions { position:relative; flex:0 0 auto; }
+  .rail-actions summary { display:grid; place-items:center; list-style:none; width:1.75rem; min-height:1.9rem;
+    border:1px solid var(--border); border-radius:.4rem; font-size:1rem; cursor:pointer; }
+  .rail-actions summary::-webkit-details-marker { display:none; }
+  .rail-action-list { position:absolute; z-index:24; right:0; top:100%; width:12rem;
+    border:1px solid var(--border); border-radius:.5rem; padding:.35rem;
+    background:var(--surface-elevated); box-shadow:0 10px 24px rgb(0 0 0 / 22%); display:grid; gap:.15rem; }
+  .rail-action-list button, .rail-action-list a {
+    display:block; width:100%; box-sizing:border-box; padding:.5rem; text-align:left;
+    border:0; border-radius:.35rem; color:var(--text); background:transparent; font:inherit;
+    font-size:.75rem; text-decoration:none; cursor:pointer;
+  }
+  .rail-action-list button:hover:not(:disabled), .rail-action-list a:hover {
+    background:var(--background-soft);
+  }
+  .rail-action-list button:disabled { opacity:.5; cursor:not-allowed; }
   :global(body.has-guide-rail > main) { margin-left: 17.7rem; }
   :global(body.guide-rail-collapsed .quantum-guide-rail) { display:none !important; }
   :global(body.guide-rail-collapsed > main),
@@ -276,7 +294,62 @@
       'Still processing. Open full Guide to check the conversation.';
   }
 
+  function railMenu(kind: 'project' | 'conversation' | 'programme', id: string, title: string) {
+    const menu = document.createElement('details');
+    menu.className = 'rail-actions';
+    const summary = document.createElement('summary');
+    summary.textContent = '⋯';
+    summary.title = 'Actions for ' + title;
+    summary.setAttribute('aria-label', summary.title);
+    const actions = document.createElement('div');
+    actions.className = 'rail-action-list';
+    const manage = document.createElement('button');
+    manage.type = 'button';
+    manage.textContent = kind === 'programme' ? 'View access / settings'
+      : kind === 'project' ? 'Rename / archive' : 'Rename / move / archive';
+    manage.addEventListener('click', () => {
+      if (kind === 'programme') window.location.assign('/programmes/');
+      else {
+        window.sessionStorage.setItem('qp:workspace-edit', kind + ':' + id);
+        window.location.assign('/agent/');
+      }
+    });
+    actions.append(manage);
+    if (kind === 'project') {
+      const create = document.createElement('button');
+      create.type = 'button';
+      create.textContent = 'New chat in project';
+      create.addEventListener('click', () => {
+        window.sessionStorage.setItem('qp:workspace-new-chat', id);
+        window.location.assign('/agent/');
+      });
+      actions.append(create);
+    }
+    if (kind !== 'programme') {
+      const pin = document.createElement('button');
+      pin.type = 'button'; pin.disabled = true;
+      pin.textContent = 'Pin · unavailable';
+      pin.title = 'Requires reviewed ACP canonical pin support';
+      actions.append(pin);
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.disabled = true;
+      remove.textContent = 'Delete · unavailable';
+      remove.title = 'Requires ACP retention, deletion and memory-source policy';
+      actions.append(remove);
+    } else {
+      const shared = document.createElement('button');
+      shared.type = 'button'; shared.disabled = true;
+      shared.textContent = 'New shared chat · unavailable';
+      shared.title = 'Requires PI-governed ACP programme rooms';
+      actions.append(shared);
+    }
+    menu.append(summary, actions);
+    return menu;
+  }
+
   function chatButton(chat: { id: string; title?: string }) {
+    const row = document.createElement('div');
+    row.className = 'rail-chat-row';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'rail-chat';
@@ -290,7 +363,8 @@
       });
       if (openConversation) openConversation.href = '/agent/';
     });
-    return button;
+    row.append(button, railMenu('conversation', chat.id, chat.title || 'New chat'));
+    return row;
   }
 
   async function showRail() {
@@ -310,7 +384,11 @@
         link.href = '/programmes/';
         link.className = 'rail-note';
         link.textContent = 'Shared chats pending PI-governed workspaces';
-        folder.append(label, link);
+        const heading = document.createElement('div');
+        heading.className = 'rail-folder-heading';
+        heading.append(label, railMenu('programme',
+          String(membership.programme.id ?? ''), membership.programme.name));
+        folder.append(heading, link);
         programmeRoot?.append(folder);
       }
       rail.hidden = false;
@@ -351,7 +429,10 @@
         children.className = 'rail-folder-children';
         chats.filter(chat => chat.project_id === project.id).slice(0, 12)
           .forEach(chat => children.append(chatButton(chat)));
-        folder.append(heading, children);
+        const head = document.createElement('div');
+        head.className = 'rail-folder-heading';
+        head.append(heading, railMenu('project', project.id, project.title));
+        folder.append(head, children);
         projectRoot?.append(folder);
       }
       // Recent means recently updated conversations, including those filed under projects.
