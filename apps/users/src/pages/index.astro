@@ -40,22 +40,26 @@ import Card from '@nyameko/ui/Card.astro';
     </div>
 
     <div class="grid grid-3 home-grid">
-      <Card icon="/assets/guide/identity.svg" eyebrow="Identity" title="Research profile" href="/profile/">
+      <Card icon="/assets/guide/identity.svg" description="Create and maintain your research profile, institution and verified research identity." eyebrow="Identity" title="Research profile" href="/profile/">
         <p id="profile-state">Loading profile state…</p>
       </Card>
-      <Card icon="/assets/guide/research.svg" eyebrow="Research" title="Programmes" href="/programmes/">
+      <Card icon="/assets/guide/research.svg" description="Join a research programme, apply as PI and review approved memberships." eyebrow="Research" title="Programmes" href="/programmes/">
         <p id="membership-state">Loading programme memberships…</p>
       </Card>
-      <Card icon="/assets/guide/security.svg" eyebrow="Security" title="Account security" href="/security/">
-        <p id="security-state">Loading security state…</p>
+      <Card icon="/assets/guide/security.svg" description="Verify email, enable multi-factor authentication, and register public SSH and WireGuard keys." eyebrow="Security" title="Account security" href="/security/">
+        <ul id="security-state" class="home-security-status" aria-label="Your account security status">
+          <li><span id="home-email-icon" class="factor-icon" aria-hidden="true">·</span> Email verified</li>
+          <li><span id="home-mfa-icon" class="factor-icon" aria-hidden="true">·</span> MFA configured</li>
+          <li><span id="home-keys-icon" class="factor-icon" aria-hidden="true">·</span> SSH &amp; WireGuard keys registered</li>
+        </ul>
       </Card>
-      <Card icon="/assets/guide/jupyter-brand.svg" brandIcon eyebrow="Jupyter" title="Workbench" href="/workbench/">
+      <Card icon="/assets/guide/jupyter-brand.svg" brandIcon description="Launch a managed Jupyter research environment to run existing scientific Python SDKs." eyebrow="Jupyter" title="Workbench" href="/workbench/">
         <p>Launch or resume your lightweight Kubernetes research notebook.</p>
       </Card>
-      <Card icon="/assets/guide/slurm-brand.svg" brandIcon eyebrow="Slurm" title="Runs" href="/runs/">
+      <Card icon="/assets/guide/slurm-brand.svg" brandIcon description="Submit and inspect scheduled CPU research jobs and, when approved, GPU jobs through Slurm." eyebrow="Slurm" title="Runs" href="/runs/">
         <p>Submit and inspect durable scheduler-backed scientific runs.</p>
       </Card>
-      <Card icon="/assets/guide/access.svg" eyebrow="Resource Access" title="Access & entitlements" href="/access/">
+      <Card icon="/assets/guide/access.svg" description="Check entitlement and allocation status for A100, H200, external HPC and remote QPUs." eyebrow="Resource Access" title="Access & entitlements" href="/access/">
         <p>Check CPU/GPU/QPU provider access and request resources as verification becomes available.</p>
       </Card>
     </div>
@@ -70,7 +74,15 @@ import Card from '@nyameko/ui/Card.astro';
   const authHome = document.querySelector<HTMLElement>('#authenticated-home');
   const identity = document.querySelector<HTMLElement>('#identity');
   const profile = document.querySelector<HTMLElement>('#profile-state');
-  const security = document.querySelector<HTMLElement>('#security-state');
+  function statusIcon(id: string, ok: boolean) {
+    const icon = document.getElementById(id);
+    if (!icon) return;
+    icon.textContent = ok ? '✓' : '✕';
+    icon.classList.toggle('verified', ok);
+    icon.classList.toggle('missing', !ok);
+    icon.parentElement?.setAttribute('aria-label',
+      (ok ? 'Configured: ' : 'Needs setup: ') + (icon.parentElement?.textContent?.replace(/[✓✕·]/g, '').trim() ?? ''));
+  }
   const memberships = document.querySelector<HTMLElement>('#membership-state');
 
   async function showHome() {
@@ -101,11 +113,10 @@ import Card from '@nyameko/ui/Card.astro';
         memberships.textContent = count === 1
           ? '1 programme membership.' : count + ' programme memberships.';
       }
-      if (security) {
-        security.textContent = account.email_verified
-          ? 'Email verified. Manage MFA and keys.'
-          : 'Email verification required.';
-      }
+      statusIcon('home-email-icon', account.email_verified === true);
+      statusIcon('home-mfa-icon', account.mfa_configured === true);
+      statusIcon('home-keys-icon',
+        account.ssh_key_registered === true && account.wireguard_key_registered === true);
       if (publicHome) publicHome.hidden = true;
       if (authHome) authHome.hidden = false;
     } catch {
@@ -130,6 +141,11 @@ import Card from '@nyameko/ui/Card.astro';
   .public-guide { padding: 1.4rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); }
   .muted { color: var(--muted); }
   .auth-home { padding-top: 2rem; }
+  .home-security-status { display:grid; list-style:none; margin:0; padding:0; gap:.42rem; }
+  .home-security-status li { display:flex; align-items:center; gap:.48rem; font-size:.84rem; }
+  .factor-icon { display:inline-grid; place-items:center; width:1.2rem; height:1.2rem; font-weight:800; }
+  .factor-icon.verified { color:#32b879; }
+  .factor-icon.missing { color:#ed6570; }
   .welcome-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
   .home-grid { margin-top: 2rem; }
   @media (max-width: 800px) {
