@@ -189,6 +189,7 @@ def reconcile_approved_application(application: PIApplication, actor=None):
         programme,
         application.applicant,
     )
+    uid, gid = allocate_posix_identity(application.applicant)
 
     AuditEvent.objects.create(
         actor=actor,
@@ -198,6 +199,8 @@ def reconcile_approved_application(application: PIApplication, actor=None):
         metadata={
             "programme_id": programme.pk,
             "programme_acronym": programme.acronym,
+            "posix_uid": uid,
+            "posix_gid": gid,
         },
     )
     return programme, membership
