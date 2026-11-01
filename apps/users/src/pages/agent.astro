@@ -964,6 +964,21 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
+    // A sidebar menu on another portal page can navigate to the canonical
+    // workspace editor without transferring credentials or workspace content.
+    const editRequest = window.sessionStorage.getItem('qp:workspace-edit');
+    window.sessionStorage.removeItem('qp:workspace-edit');
+    if (editRequest) {
+      const [kind, id] = editRequest.split(':');
+      if (
+        (kind === 'project' && availableProjects.some(p => p.id === id))
+        || (kind === 'conversation' && availableConversations.some(c => c.id === id))
+      ) {
+        shell?.classList.remove('nav-collapsed');
+        toggleSidebar?.setAttribute('aria-expanded', 'true');
+        void openWorkspaceEditor(kind as WorkspaceKind, id);
+      }
+    }
     try {
       const reply = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
       if (reply.ok) {
