@@ -197,9 +197,18 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         credentials: 'same-origin', cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(
-        payload.detail ?? 'Slurm history is unavailable.'
-      );
+      if (!response.ok) {
+        const reasons: Record<string, string> = {
+          history_command_not_installed: 'The login-node gateway has not been upgraded to support history queries.',
+          research_identity_not_entitled: 'The research identity does not have the required gateway execution group.',
+          ssh_gateway_unreachable_or_unauthorized: 'The portal cannot reach or authenticate to the Slurm SSH gateway.',
+          scheduler_accounting_command_failed: 'Slurm accounting failed at the gateway; an operator must inspect the service log.',
+          scheduler_gateway_unavailable: 'The scheduler gateway is not reachable or is not yet configured.',
+        };
+        const detail = reasons[payload.reason] ??
+          payload.detail ?? 'Slurm history is unavailable.';
+        throw new Error(detail);
+      }
       renderSlurmHistory(payload.items ?? [], platformIds);
       if (slurmStatus) slurmStatus.textContent =
         'Showing scheduler jobs for your authenticated research account only.';
