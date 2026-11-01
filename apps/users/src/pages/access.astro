@@ -1,35 +1,50 @@
 ---
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
-import Card from '@nyameko/ui/Card.astro';
 ---
 
 <SiteLayout title="Resource Access" siteName="Quantum Platform" section="User Portal">
   <section class="section container access-page">
-    <p class="eyebrow">RESEARCH COMPUTE · RESOURCE ACCESS</p>
-    <h1>Access & entitlements</h1>
+    <p class="eyebrow">RESEARCH COMPUTE · ENTITLEMENTS</p>
+    <h1>Compute resource access</h1>
     <p class="lede">
-      Find the next step to use authorized CPU, GPU and QPU resources.
-      Access to any system depends on your approved programme membership and provider entitlements.
+      See which specialized resources the platform can verify for you.
+      Jupyter, Slurm runs, keys and programme approvals have their own dedicated pages.
     </p>
 
-    <p id="access-status" role="status" aria-live="polite">Checking current programme access…</p>
-    <div class="grid grid-2 access-grid">
-      <Card eyebrow="Approval" title="Programmes & memberships" href="/programmes/">
-        <p>Request membership or submit a PI application. Approval is required for research resources.</p>
-      </Card>
-      <Card eyebrow="Connections" title="SSH & WireGuard keys" href="/account/access-keys/">
-        <p>Register public connection keys and review provisioning status. Never upload a private key.</p>
-      </Card>
-      <Card eyebrow="Interactive" title="Jupyter Workbench" href="/workbench/">
-        <p>Launch or resume a lightweight notebook when your account is entitled.</p>
-      </Card>
-      <Card eyebrow="Batch" title="Slurm runs" href="/runs/">
-        <p>Review scheduler-backed jobs and submit available validated workflows.</p>
-      </Card>
+    <p id="access-status" role="status" aria-live="polite">
+      Checking approved programme membership…
+    </p>
+
+    <div class="access-grid" aria-label="Compute access verification">
+      <article class="access-item">
+        <p class="eyebrow">GPU · CHPC</p>
+        <h2>A100 compute</h2>
+        <p>GPU resources managed by the relevant research programme and HPC scheduler.</p>
+        <p class="unknown">Entitlement verification not yet connected</p>
+      </article>
+      <article class="access-item">
+        <p class="eyebrow">GPU · CHPC</p>
+        <h2>H200 compute</h2>
+        <p>Dedicated research/inference allocations; eligibility and scheduling are managed externally.</p>
+        <p class="unknown">Entitlement verification not yet connected</p>
+      </article>
+      <article class="access-item">
+        <p class="eyebrow">EXTERNAL · HPC</p>
+        <h2>Oak Ridge systems</h2>
+        <p>Future external HPC account and allocation checks, when a verified provider integration is available.</p>
+        <p class="unknown">No provider entitlement check connected</p>
+      </article>
+      <article class="access-item">
+        <p class="eyebrow">QUANTUM · REMOTE</p>
+        <h2>Quantum processors</h2>
+        <p>Future QPU account, provider credentials, research quotas and authorised backends.</p>
+        <p class="unknown">No QPU entitlement check connected</p>
+      </article>
     </div>
     <p class="help-note">
-      Direct GPU or remote-QPU allocation controls are not yet self-service in this portal.
-      If an entitlement is unavailable, contact the relevant programme administrator.
+      These entries are a resource catalogue, <strong>not</strong> proof of access.
+      An approved programme alone does not grant a specific GPU, Oak Ridge, or QPU allocation.
+      No provider credentials or private keys are requested here.
     </p>
   </section>
 </SiteLayout>
@@ -45,21 +60,28 @@ import Card from '@nyameko/ui/Card.astro';
       });
       if (!response.ok) throw new Error('Unable to inspect programme memberships.');
       const memberships = await response.json();
-      const count = Array.isArray(memberships) ? memberships.length : 0;
-      if (status) status.textContent = count
-        ? 'You have ' + count + ' programme membership record(s). See Programmes for their approval status.'
-        : 'No programme memberships yet. Start with Programmes.';
+      const approved = Array.isArray(memberships)
+        ? memberships.filter(item => item.status === 'approved').length : 0;
+      if (status) status.textContent = approved
+        ? `${approved} approved programme membership(s). Resource-specific verification is not yet available.`
+        : 'No approved programme membership found. Resource-specific checks are not yet connected.';
     } catch {
-      if (status) status.textContent = 'Membership status temporarily unavailable.';
+      if (status) status.textContent = 'Programme membership status unavailable; resource-specific checks not connected.';
     }
   }
   void loadAccess();
 </script>
 
 <style>
-  .access-page { max-width: 72rem; }
-  h1 { font-size: clamp(2.7rem, 6vw, 4.8rem); letter-spacing: -.05em; margin: .4rem 0; }
-  .access-grid { margin-top: 2rem; }
-  #access-status, .help-note { color: var(--muted-strong); }
-  .help-note { margin-top: 1.5rem; }
+  .access-page { max-width:72rem; }
+  h1 { font-size:clamp(2.7rem,6vw,4.8rem); letter-spacing:-.05em; margin:.4rem 0; }
+  .access-grid { margin-top:2rem; display:grid; gap:1rem; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .access-item { padding:1.4rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
+  .access-item h2 { margin:.4rem 0 .7rem; font-size:1.3rem; }
+  .access-item p { color:var(--muted-strong); }
+  .access-item .unknown { margin-top:1.4rem; font-size:.82rem; font-weight:650; color:var(--text);
+    border-top:1px solid var(--border); padding-top:.75rem; }
+  #access-status, .help-note { color:var(--muted-strong); }
+  .help-note { margin-top:1.5rem; }
+  @media(max-width:700px){ .access-grid { grid-template-columns:1fr; } }
 </style>
