@@ -966,6 +966,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     await loadMemories();
     // A sidebar menu on another portal page can navigate to the canonical
     // workspace editor without transferring credentials or workspace content.
+    const projectNewChat = window.sessionStorage.getItem('qp:workspace-new-chat');
+    window.sessionStorage.removeItem('qp:workspace-new-chat');
+    if (projectNewChat) {
+      const project = availableProjects.find(p => p.id === projectNewChat && !p.archived_at);
+      if (project) void createConversation(project.id);
+    }
     const editRequest = window.sessionStorage.getItem('qp:workspace-edit');
     window.sessionStorage.removeItem('qp:workspace-edit');
     if (editRequest) {
