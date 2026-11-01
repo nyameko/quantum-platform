@@ -45,6 +45,17 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       <div id="run-list"></div>
     </section>
 
+    <section class="runs" aria-label="Slurm scheduler history">
+      <div class="section-heading">
+        <div>
+          <h2>Slurm scheduler history</h2>
+          <p class="help">Your last seven days of jobs, including direct submissions from login nodes. Jobs already listed above are not repeated.</p>
+        </div>
+      </div>
+      <p id="slurm-history-status" role="status" aria-live="polite"></p>
+      <div id="slurm-history-list" aria-live="polite"></div>
+    </section>
+
     <a class="back" href="/dashboard/">Back to dashboard</a>
   </section>
 </SiteLayout>
@@ -67,6 +78,44 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const submitBellMessage = document.querySelector<HTMLParagraphElement>('#submit-bell-message');
   const refresh = document.querySelector<HTMLButtonElement>('#refresh');
   const list = document.querySelector<HTMLDivElement>('#run-list');
+  const slurmList = document.querySelector<HTMLDivElement>('#slurm-history-list');
+  const slurmStatus = document.querySelector<HTMLElement>('#slurm-history-status');
+
+  type SlurmJob = {
+    job_id: string; job_name: string; partition: string; state: string;
+    exit_code: string; elapsed: string; submitted_at: string; nodes: string;
+  };
+
+  function renderSlurmHistory(jobs: SlurmJob[], platformIds: Set<string>) {
+    if (!slurmList) return;
+    slurmList.replaceChildren();
+    const fromCli = jobs.filter(job => !platformIds.has(job.job_id));
+    if (!fromCli.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No additional Slurm CLI jobs in the last seven days.';
+      slurmList.append(empty);
+      return;
+    }
+    for (const job of fromCli) {
+      const item = document.createElement('article');
+      item.className = 'run';
+      const heading = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = job.job_name || 'Slurm job';
+      const state = document.createElement('span');
+      state.className = 'state';
+      state.textContent = job.state;
+      heading.append(title, state);
+      const details = document.createElement('code');
+      details.textContent = 'Slurm ' + job.job_id + ' · '
+        + job.partition + ' · ' + job.elapsed + ' · ' + job.nodes;
+      const when = document.createElement('small');
+      when.textContent = 'Submitted: ' + job.submitted_at
+        + ' · Exit code: ' + job.exit_code + ' · Source: Slurm CLI';
+      item.append(heading, details, when);
+      slurmList.append(item);
+    }
+  }
 
   function render(runs: Run[]) {
     if (!list) return;
@@ -125,11 +174,40 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   }
 
   async function load() {
-    const response = await fetch('/api/v1/executions/', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
-    if (response.ok) render(await response.json());
+    let platformIds = new Set<string>();
+    try {
+      const response = await fetch('/api/v1/executions/', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (response.ok) {
+        const runs: Run[] = await response.json();
+        render(runs);
+        platformIds = new Set(
+          runs.map(item => item.scheduler_job_id).filter(
+            (id): id is string => Boolean(id),
+          ),
+        );
+      }
+    } catch {
+      // The scheduler history below is independently useful.
+    }
+    if (slurmStatus) slurmStatus.textContent = 'Loading Slurm accounting…';
+    try {
+      const response = await fetch('/api/v1/executions/slurm-history/', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(
+        payload.detail ?? 'Slurm history is unavailable.'
+      );
+      renderSlurmHistory(payload.items ?? [], platformIds);
+      if (slurmStatus) slurmStatus.textContent =
+        'Showing scheduler jobs for your authenticated research account only.';
+    } catch (error) {
+      if (slurmStatus) slurmStatus.textContent = error instanceof Error
+        ? error.message : 'Scheduler history unavailable.';
+      slurmList?.replaceChildren();
+    }
   }
 
   async function submitOffering(
@@ -185,7 +263,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .submit-panel { margin-top:2rem; padding:1.5rem; display:grid; gap:1rem; }
   .runs { margin-top:2.5rem; }
   .section-heading, .run > div { display:flex; justify-content:space-between; gap:1rem; align-items:center; }
-  #run-list { display:grid; gap:.8rem; margin-top:1rem; }
+  #run-list, #slurm-history-list { display:grid; gap:.8rem; margin-top:1rem; }
+  .help, #slurm-history-status, .run small { color:var(--muted-strong); }
   .run { display:grid; gap:.6rem; padding:1rem; }
   .run code { overflow-wrap:anywhere; color:var(--muted-strong); }
   .state { padding:.2rem .5rem; border:1px solid var(--border); border-radius:999px; font-size:.8rem; }
