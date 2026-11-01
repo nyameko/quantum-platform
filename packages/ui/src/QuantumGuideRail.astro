@@ -134,13 +134,14 @@
   .rail-folder summary { font-size: .82rem; cursor: pointer; font-weight: 700; overflow-wrap: anywhere; }
   .rail-folder-children { margin-left: .8rem; border-left: 1px solid var(--border); padding-left: .25rem; }
   .rail-chat-row, .rail-folder-row { display:flex; align-items:center; min-width:0; gap:.2rem; width:100%; }
-  .rail-chat-row > .rail-actions, .rail-folder-row > .rail-actions { margin-left:auto; }
+  .rail-chat-row > .rail-actions-wrap, .rail-folder-row > .rail-actions-wrap { margin-left:auto; }
   .rail-folder-row > .rail-folder { overflow:hidden; }
   .rail-folder > summary { max-width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .rail-folder > summary::before { flex-shrink:0; }
   .rail-chat-row > .rail-chat, .rail-folder-row > .rail-folder { flex:1; min-width:0; }
 
-  .rail-actions { margin-left:auto; flex:0 0 auto; border:1px solid transparent; border-radius:.45rem;
+  .rail-actions-wrap { display:inline-flex; flex:0 0 auto; }
+  .rail-actions { flex:0 0 auto; border:1px solid transparent; border-radius:.45rem;
     background:transparent; color:var(--text); cursor:pointer; min-width:1.95rem; height:1.95rem;
     display:grid; place-items:center; font-size:1rem; font-family:inherit; }
   .rail-actions:hover, .rail-actions:focus-visible { background:var(--background-soft); border-color:var(--border); }
@@ -384,8 +385,10 @@
       shared.title = 'Requires PI-governed ACP programme rooms';
       actions.append(shared);
     }
-    button.append(actions);
-    return button;
+    const wrapper = document.createElement('span');
+    wrapper.className = 'rail-actions-wrap';
+    wrapper.append(button, actions);
+    return wrapper;
   }
 
   function chatButton(chat: { id: string; title?: string }) {
