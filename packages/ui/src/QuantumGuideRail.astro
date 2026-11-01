@@ -123,8 +123,9 @@
   .rail-folder { margin: .5rem 0; }
   .rail-folder summary { font-size: .82rem; cursor: pointer; font-weight: 700; overflow-wrap: anywhere; }
   .rail-folder-children { margin-left: .8rem; border-left: 1px solid var(--border); padding-left: .25rem; }
-  .rail-chat-row, .rail-folder-heading { display:flex; align-items:center; min-width:0; gap:.2rem; }
-  .rail-chat-row > .rail-chat, .rail-folder-heading > summary { flex:1; min-width:0; }
+  .rail-chat-row, .rail-folder-row { display:flex; align-items:start; min-width:0; gap:.2rem; }
+  .rail-chat-row > .rail-chat, .rail-folder-row > .rail-folder { flex:1; min-width:0; }
+  .rail-folder-row > .rail-actions { margin-top:.55rem; }
   .rail-actions { position:relative; flex:0 0 auto; }
   .rail-actions summary { display:grid; place-items:center; list-style:none; width:1.75rem; min-height:1.9rem;
     border:1px solid var(--border); border-radius:.4rem; font-size:1rem; cursor:pointer; }
@@ -193,7 +194,11 @@
       for (const node of Array.from(root.children)) {
         const match = node.textContent?.toLocaleLowerCase().includes(term) ?? false;
         (node as HTMLElement).hidden = Boolean(term) && !match;
-        if (term && match && node instanceof HTMLDetailsElement) node.open = true;
+        if (term && match) {
+          if (node instanceof HTMLDetailsElement) node.open = true;
+          node.querySelectorAll<HTMLDetailsElement>('details.rail-folder')
+            .forEach(folder => { folder.open = true; });
+        }
       }
     }
   }
@@ -384,12 +389,12 @@
         link.href = '/programmes/';
         link.className = 'rail-note';
         link.textContent = 'Shared chats pending PI-governed workspaces';
-        const heading = document.createElement('div');
-        heading.className = 'rail-folder-heading';
-        heading.append(label, railMenu('programme',
+        folder.append(label, link);
+        const wrapper = document.createElement('div');
+        wrapper.className = 'rail-folder-row';
+        wrapper.append(folder, railMenu('programme',
           String(membership.programme.id ?? ''), membership.programme.name));
-        folder.append(heading, link);
-        programmeRoot?.append(folder);
+        programmeRoot?.append(wrapper);
       }
       rail.hidden = false;
       document.body.classList.add('has-guide-rail');
@@ -429,11 +434,11 @@
         children.className = 'rail-folder-children';
         chats.filter(chat => chat.project_id === project.id).slice(0, 12)
           .forEach(chat => children.append(chatButton(chat)));
-        const head = document.createElement('div');
-        head.className = 'rail-folder-heading';
-        head.append(heading, railMenu('project', project.id, project.title));
-        folder.append(head, children);
-        projectRoot?.append(folder);
+        folder.append(heading, children);
+        const wrapper = document.createElement('div');
+        wrapper.className = 'rail-folder-row';
+        wrapper.append(folder, railMenu('project', project.id, project.title));
+        projectRoot?.append(wrapper);
       }
       // Recent means recently updated conversations, including those filed under projects.
       chats.filter(chat => !('archived_at' in chat && chat.archived_at)).slice(0, 12)
