@@ -31,6 +31,48 @@ def _call(request, method, path, *, key=None, params=None, body=None):
         return Response({"detail": message}, status=code)
 
 
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def agent_profile(request):
+    """Thin signed proxy to ACP-owned portable, user-editable profile preferences."""
+    if request.method == "GET":
+        return _call(request, "GET", "/v1/profile")
+
+    if not isinstance(request.data, dict):
+        return Response({"detail": "Profile must be a JSON object."}, status=400)
+    fields = {"display_name", "instructions", "model_route"}
+    if set(request.data) - fields:
+        return Response({"detail": "Unsupported profile field."}, status=400)
+    name = request.data.get("display_name")
+    notes = request.data.get("instructions", "")
+    route = request.data.get("model_route", "general")
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100:
+        return Response({"detail": "Profile name must be 1–100 characters."}, status=400)
+    if not isinstance(notes, str) or len(notes) > 2000:
+        return Response({"detail": "Profile notes must be at most 2000 characters."}, status=400)
+    if route not in {"general", "reasoning", "coding"}:
+        return Response({"detail": "Unsupported logical model preference."}, status=400)
+    version = request.headers.get("If-Match", "")
+    if (
+        not version.startswith('"') or not version.endswith('"')
+        or not version[1:-1].isdigit()
+    ):
+        return Response({"detail": "Quoted current profile revision required."}, status=400)
+    try:
+        payload = agent_client.call(
+            request.user, "PUT", "/v1/profile", scope="agent:personal",
+            json_body={
+                "display_name": name.strip(),
+                "instructions": notes,
+                "model_route": route,
+            },
+            if_match=version,
+        )
+        return Response(payload, status=200)
+    except agent_client.AgentServiceError as exc:
+        return Response({"detail": str(exc)}, status=exc.status_code)
+
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def agent_projects(request):
