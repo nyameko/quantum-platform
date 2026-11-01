@@ -62,6 +62,34 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         </form>
         <p id="status" role="status" aria-live="polite"></p>
 
+    <details class="panel memory-panel" id="profile-details">
+      <summary>Assistant preferences <span class="memory-summary-hint">Portable ACP profile</span></summary>
+      <p class="note">
+        Your research preferences are saved in ACP, not Hermes files.
+        They guide response style, but cannot grant tools or provider access.
+      </p>
+      <form id="assistant-profile-form">
+        <label for="assistant-profile-name">Profile name
+          <input id="assistant-profile-name" maxlength="100" required value="Research assistant" />
+        </label>
+        <label for="assistant-profile-notes">Research preferences
+          <textarea id="assistant-profile-notes" maxlength="2000" rows="3"
+            placeholder="Preferred explanation style, research priorities and notation. No secrets."></textarea>
+        </label>
+        <label for="assistant-profile-route">Preferred model category
+          <select id="assistant-profile-route">
+            <option value="general">General</option>
+            <option value="reasoning">Reasoning</option>
+            <option value="coding">Coding</option>
+          </select>
+        </label>
+        <p class="note">Model selection is a preference only; actual routing depends on permitted LiteLLM configuration.</p>
+        <button type="submit" id="assistant-profile-save" disabled>Save ACP profile</button>
+        <p id="assistant-profile-status" role="status" aria-live="polite">
+          Checking whether the profile service is available…
+        </p>
+      </form>
+    </details>
     <details class="panel memory-panel" id="memory-details">
       <summary>Research memories <span class="memory-summary-hint">Review approved preferences and notes</span></summary>
       <div class="memory-content">
@@ -193,6 +221,72 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const send = document.querySelector<HTMLButtonElement>('#send');
   const status = document.querySelector<HTMLParagraphElement>('#status');
   const refresh = document.querySelector<HTMLButtonElement>('#refresh');
+  const profileForm = document.querySelector<HTMLFormElement>('#assistant-profile-form');
+  const profileName = document.querySelector<HTMLInputElement>('#assistant-profile-name');
+  const profileNotes = document.querySelector<HTMLTextAreaElement>('#assistant-profile-notes');
+  const profileRoute = document.querySelector<HTMLSelectElement>('#assistant-profile-route');
+  const profileSave = document.querySelector<HTMLButtonElement>('#assistant-profile-save');
+  const profileStatus = document.querySelector<HTMLElement>('#assistant-profile-status');
+  let profileRevision = 0;
+
+  async function loadPersonalProfile() {
+    try {
+      const response = await fetch('/api/v1/agent/profile/', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(
+        response.status === 503 ? 'Profile service is not deployed yet.'
+          : 'Assistant preferences are unavailable.'
+      );
+      const data = await response.json();
+      const profile = data.profile;
+      profileRevision = profile?.revision ?? 0;
+      if (profileName) profileName.value = profile?.display_name ?? 'Research assistant';
+      if (profileNotes) profileNotes.value = profile?.instructions ?? '';
+      if (profileRoute) profileRoute.value = profile?.model_route ?? 'general';
+      if (profileStatus) profileStatus.textContent = profile
+        ? 'Preferences loaded from ACP revision ' + profileRevision + '.'
+        : 'No saved ACP profile yet. Create one below.';
+      if (profileSave) profileSave.disabled = false;
+    } catch (error) {
+      if (profileSave) profileSave.disabled = true;
+      if (profileStatus) profileStatus.textContent =
+        error instanceof Error ? error.message : 'Profile service unavailable.';
+    }
+  }
+
+  profileForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!profileName || !profileNotes || !profileRoute || !profileSave) return;
+    profileSave.disabled = true;
+    if (profileStatus) profileStatus.textContent = 'Saving your preferences…';
+    void (async () => {
+      try {
+        const response = await csrfJsonFetch('/api/v1/agent/profile/', {
+          method: 'PUT',
+          headers: { 'If-Match': '"' + profileRevision + '"' },
+          body: JSON.stringify({
+            display_name: profileName.value.trim(),
+            instructions: profileNotes.value,
+            model_route: profileRoute.value,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(response.status === 412
+          ? 'Preferences changed elsewhere. Reload before saving.'
+          : (data.detail ?? 'Profile save failed.'));
+        profileRevision = data.revision;
+        if (profileStatus) profileStatus.textContent =
+          'Saved to ACP. Revision ' + profileRevision + '.';
+      } catch (error) {
+        if (profileStatus) profileStatus.textContent =
+          error instanceof Error ? error.message : 'Profile save failed.';
+      } finally {
+        profileSave.disabled = false;
+      }
+    })();
+  });
+
   const memoryForm = document.querySelector<HTMLFormElement>('#memory-form');
   const memoryBody = document.querySelector<HTMLTextAreaElement>('#memory-body');
   const memoryKind = document.querySelector<HTMLSelectElement>('#memory-kind');
@@ -348,20 +442,36 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   }
 
   function workspaceMenu(kind: WorkspaceKind, item: Workspace) {
-    const menu = document.createElement('details');
-    menu.className = 'workspace-menu';
-    const summary = document.createElement('summary');
-    summary.textContent = '⋯';
-    summary.title = 'Actions for ' + item.title;
-    summary.setAttribute('aria-label', summary.title);
+    const menuButton = document.createElement('button');
+    menuButton.type = 'button';
+    menuButton.className = 'workspace-menu';
+    menuButton.textContent = '⋯';
+    menuButton.title = 'Actions for ' + item.title;
+    menuButton.setAttribute('aria-label', menuButton.title);
+    menuButton.setAttribute('aria-haspopup', 'menu');
+    menuButton.setAttribute('aria-expanded', 'false');
     const actions = document.createElement('div');
     actions.className = 'workspace-menu-actions';
+    actions.setAttribute('role', 'menu');
+    actions.setAttribute('popover', 'auto');
+    actions.addEventListener('toggle', () => {
+      menuButton.setAttribute('aria-expanded', String(actions.matches(':popover-open')));
+    });
+    menuButton.addEventListener('click', () => {
+      if (actions.matches(':popover-open')) { actions.hidePopover(); return; }
+      actions.showPopover();
+      const rect = menuButton.getBoundingClientRect();
+      const width = 208;
+      actions.style.left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)) + 'px';
+      actions.style.top = (window.innerHeight - rect.bottom > actions.offsetHeight + 8
+        ? rect.bottom + 4 : Math.max(8, rect.top - actions.offsetHeight - 4)) + 'px';
+    });
 
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.textContent = kind === 'project' ? 'Rename / archive' : 'Rename / move / archive';
     edit.addEventListener('click', () => {
-      menu.open = false;
+      actions.hidePopover();
       void openWorkspaceEditor(kind, item.id);
     });
     actions.append(edit);
@@ -371,7 +481,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       create.type = 'button';
       create.textContent = 'New chat in project';
       create.addEventListener('click', () => {
-        menu.open = false;
+        actions.hidePopover();
         void createConversation(item.id);
       });
       actions.append(create);
@@ -389,8 +499,10 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     remove.title = 'Permanent deletion requires reviewed ACP retention and memory-source policy';
     actions.append(remove);
 
-    menu.append(summary, actions);
-    return menu;
+    const wrapper = document.createElement('span');
+    wrapper.className = 'workspace-menu-wrap';
+    wrapper.append(menuButton, actions);
+    return wrapper;
   }
 
   function appendChat(parent: HTMLElement, chat: Conversation) {
@@ -964,6 +1076,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
+    await loadPersonalProfile();
     // A sidebar menu on another portal page can navigate to the canonical
     // workspace editor without transferring credentials or workspace content.
     const projectNewChat = window.sessionStorage.getItem('qp:workspace-new-chat');
@@ -1086,16 +1199,18 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background: var(--background);
   }
   .sidebar-chat.selected { background: var(--background); font-weight: 700; }
-  .workspace-menu { position:relative; flex:0 0 auto; }
-  .workspace-menu summary { display:grid; place-items:center; list-style:none; cursor:pointer;
-    min-width:2.3rem; min-height:2.3rem; border:1px solid var(--border);
-    border-radius:.55rem; background:var(--surface); color:var(--text); }
-  .workspace-menu summary::-webkit-details-marker { display:none; }
-  .workspace-menu-actions { position:absolute; z-index:12; right:0; top:100%;
-    min-width:12rem; padding:.35rem; display:grid; gap:.2rem;
-    border:1px solid var(--border); border-radius:.6rem;
-    background:var(--surface-elevated); box-shadow:0 9px 24px rgb(0 0 0 / 20%); }
-  .workspace-menu-actions button { width:100%; min-height:2.1rem; text-align:left;
+  .workspace-menu-wrap { display:inline-flex; margin-left:auto; flex-shrink:0; }
+  .workspace-menu { display:grid; place-items:center; flex-shrink:0; min-width:2.3rem; height:2.3rem;
+    border:1px solid transparent; border-radius:.55rem; background:transparent; color:var(--text); cursor:pointer; }
+  .workspace-menu:hover, .workspace-menu:focus-visible { border-color:var(--border); background:var(--background-soft); }
+  .workspace-menu-actions:popover-open {
+    position:fixed; inset:unset; z-index:1000;
+    min-width:13rem; max-height:min(65vh,25rem); overflow-y:auto;
+    padding:.35rem; display:grid; gap:.2rem; border:1px solid var(--border);
+    border-radius:.6rem; color:var(--text); background:var(--surface);
+    box-shadow:0 10px 30px rgb(0 0 0 / 35%);
+  }
+  .workspace-menu-actions button { display:block; width:100%; min-height:2.1rem; text-align:left;
     background:transparent; color:var(--text); font-weight:500; font-size:.8rem; }
   .workspace-menu-actions button:hover:not(:disabled) { background:var(--background); }
   .workspace-menu-actions button:disabled { opacity:.55; cursor:not-allowed; }
@@ -1118,7 +1233,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .sidebar-section-heading { margin-top: 1rem; }
   .sidebar-section-heading h2 { margin: 0; }
   .project-header { padding-top: .3rem; }
-  .project-header .folder-name { flex: 1; }
+  .project-header .folder-name { flex: 1; min-width:0; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; }
   .project-children { padding-left: .65rem; border-left: 1px solid var(--border); }
   .project-children[hidden], #project-form[hidden] { display: none; }
   .icon-control { min-width: 2.4rem; width: 2.4rem; padding: 0; text-align: center; }

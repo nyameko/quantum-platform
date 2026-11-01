@@ -150,9 +150,9 @@ def _bell_aer_script(record):
     log_path = f"{home_path}/.quantum-platform/slurm-%j.out"
 
     return f"""#!/usr/bin/env bash
-#SBATCH --job-name=qw-bell-aer
+#SBATCH --job-name=jhub-bell-aer
 #SBATCH --partition=cpu-small
-#SBATCH --time=00:20:00
+#SBATCH --time=02:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2

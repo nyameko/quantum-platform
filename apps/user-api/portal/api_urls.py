@@ -9,6 +9,7 @@ from .agent_api import (
     agent_conversations,
     agent_projects,
     agent_project,
+    agent_profile,
     agent_programme_conversations,
     agent_programme_conversation,
     agent_programme_message,
@@ -60,6 +61,7 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path("agent/profile/", agent_profile, name="agent-profile"),
     path("agent/projects/", agent_projects, name="agent-projects"),
     path("agent/programmes/<int:programme_id>/conversations/",
          agent_programme_conversations, name="agent-programme-conversations"),
