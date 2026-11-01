@@ -62,6 +62,34 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         </form>
         <p id="status" role="status" aria-live="polite"></p>
 
+    <details class="panel memory-panel" id="profile-details">
+      <summary>Assistant preferences <span class="memory-summary-hint">Portable ACP profile</span></summary>
+      <p class="note">
+        Your research preferences are saved in ACP, not Hermes files.
+        They guide response style, but cannot grant tools or provider access.
+      </p>
+      <form id="assistant-profile-form">
+        <label for="assistant-profile-name">Profile name
+          <input id="assistant-profile-name" maxlength="100" required value="Research assistant" />
+        </label>
+        <label for="assistant-profile-notes">Research preferences
+          <textarea id="assistant-profile-notes" maxlength="2000" rows="3"
+            placeholder="Preferred explanation style, research priorities and notation. No secrets."></textarea>
+        </label>
+        <label for="assistant-profile-route">Preferred model category
+          <select id="assistant-profile-route">
+            <option value="general">General</option>
+            <option value="reasoning">Reasoning</option>
+            <option value="coding">Coding</option>
+          </select>
+        </label>
+        <p class="note">Model selection is a preference only; actual routing depends on permitted LiteLLM configuration.</p>
+        <button type="submit" id="assistant-profile-save" disabled>Save ACP profile</button>
+        <p id="assistant-profile-status" role="status" aria-live="polite">
+          Checking whether the profile service is available…
+        </p>
+      </form>
+    </details>
     <details class="panel memory-panel" id="memory-details">
       <summary>Research memories <span class="memory-summary-hint">Review approved preferences and notes</span></summary>
       <div class="memory-content">
@@ -193,6 +221,72 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const send = document.querySelector<HTMLButtonElement>('#send');
   const status = document.querySelector<HTMLParagraphElement>('#status');
   const refresh = document.querySelector<HTMLButtonElement>('#refresh');
+  const profileForm = document.querySelector<HTMLFormElement>('#assistant-profile-form');
+  const profileName = document.querySelector<HTMLInputElement>('#assistant-profile-name');
+  const profileNotes = document.querySelector<HTMLTextAreaElement>('#assistant-profile-notes');
+  const profileRoute = document.querySelector<HTMLSelectElement>('#assistant-profile-route');
+  const profileSave = document.querySelector<HTMLButtonElement>('#assistant-profile-save');
+  const profileStatus = document.querySelector<HTMLElement>('#assistant-profile-status');
+  let profileRevision = 0;
+
+  async function loadPersonalProfile() {
+    try {
+      const response = await fetch('/api/v1/agent/profile/', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(
+        response.status === 503 ? 'Profile service is not deployed yet.'
+          : 'Assistant preferences are unavailable.'
+      );
+      const data = await response.json();
+      const profile = data.profile;
+      profileRevision = profile?.revision ?? 0;
+      if (profileName) profileName.value = profile?.display_name ?? 'Research assistant';
+      if (profileNotes) profileNotes.value = profile?.instructions ?? '';
+      if (profileRoute) profileRoute.value = profile?.model_route ?? 'general';
+      if (profileStatus) profileStatus.textContent = profile
+        ? 'Preferences loaded from ACP revision ' + profileRevision + '.'
+        : 'No saved ACP profile yet. Create one below.';
+      if (profileSave) profileSave.disabled = false;
+    } catch (error) {
+      if (profileSave) profileSave.disabled = true;
+      if (profileStatus) profileStatus.textContent =
+        error instanceof Error ? error.message : 'Profile service unavailable.';
+    }
+  }
+
+  profileForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!profileName || !profileNotes || !profileRoute || !profileSave) return;
+    profileSave.disabled = true;
+    if (profileStatus) profileStatus.textContent = 'Saving your preferences…';
+    void (async () => {
+      try {
+        const response = await csrfJsonFetch('/api/v1/agent/profile/', {
+          method: 'PUT',
+          headers: { 'If-Match': '"' + profileRevision + '"' },
+          body: JSON.stringify({
+            display_name: profileName.value.trim(),
+            instructions: profileNotes.value,
+            model_route: profileRoute.value,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(response.status === 412
+          ? 'Preferences changed elsewhere. Reload before saving.'
+          : (data.detail ?? 'Profile save failed.'));
+        profileRevision = data.revision;
+        if (profileStatus) profileStatus.textContent =
+          'Saved to ACP. Revision ' + profileRevision + '.';
+      } catch (error) {
+        if (profileStatus) profileStatus.textContent =
+          error instanceof Error ? error.message : 'Profile save failed.';
+      } finally {
+        profileSave.disabled = false;
+      }
+    })();
+  });
+
   const memoryForm = document.querySelector<HTMLFormElement>('#memory-form');
   const memoryBody = document.querySelector<HTMLTextAreaElement>('#memory-body');
   const memoryKind = document.querySelector<HTMLSelectElement>('#memory-kind');
@@ -964,6 +1058,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
+    await loadPersonalProfile();
     // A sidebar menu on another portal page can navigate to the canonical
     // workspace editor without transferring credentials or workspace content.
     const projectNewChat = window.sessionStorage.getItem('qp:workspace-new-chat');
