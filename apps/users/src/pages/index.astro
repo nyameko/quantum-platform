@@ -37,47 +37,33 @@ import Card from '@nyameko/ui/Card.astro';
         <h1>Research home</h1>
         <p id="identity" class="lede">Loading your account…</p>
       </div>
-      <div class="quick-tools" aria-label="Quick research tools">
-        <a href="/workbench/" title="Jupyter Workbench — launch or resume your notebook" aria-label="Open Jupyter Workbench">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6M7 17h10"/></svg>
-          <span>Jupyter</span>
-        </a>
-        <a href="/runs/" title="Slurm Runs — submit and inspect scheduler workloads" aria-label="Open Slurm Runs">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg>
-          <span>Slurm</span>
-        </a>
-      </div>
     </div>
 
     <div class="grid grid-3 home-grid">
-      <Card eyebrow="Identity" title="Research profile" href="/profile/">
+      <Card icon="/assets/guide/identity.svg" eyebrow="Identity" title="Research profile" href="/profile/">
         <p id="profile-state">Loading profile state…</p>
       </Card>
-      <Card eyebrow="Research" title="Programmes" href="/programmes/">
+      <Card icon="/assets/guide/research.svg" eyebrow="Research" title="Programmes" href="/programmes/">
         <p id="membership-state">Loading programme memberships…</p>
       </Card>
-      <Card eyebrow="Security" title="Account security" href="/security/">
+      <Card icon="/assets/guide/security.svg" eyebrow="Security" title="Account security" href="/security/">
         <p id="security-state">Loading security state…</p>
       </Card>
-      <Card eyebrow="Jupyter" title="Workbench" href="/workbench/">
+      <Card icon="/assets/guide/jupyter.svg" eyebrow="Jupyter" title="Workbench" href="/workbench/">
         <p>Launch or resume your lightweight Kubernetes research notebook.</p>
       </Card>
-      <Card eyebrow="Slurm" title="Runs" href="/runs/">
+      <Card icon="/assets/guide/slurm.svg" eyebrow="Slurm" title="Runs" href="/runs/">
         <p>Submit and inspect durable scheduler-backed scientific runs.</p>
       </Card>
-      <Card eyebrow="Resource Access" title="Access & entitlements" href="/access/">
+      <Card icon="/assets/guide/access.svg" eyebrow="Resource Access" title="Access & entitlements" href="/access/">
         <p>Review programme memberships, register public access keys, and find your next access step.</p>
       </Card>
-    </div>
-    <div class="actions account-actions">
-      <button id="logout" type="button">Sign out</button>
-      <p id="logout-message" role="status"></p>
     </div>
   </section>
 </SiteLayout>
 
 <script>
-  import { getSession, logout, sessionIsAuthenticated } from '../lib/auth';
+  import { getSession, sessionIsAuthenticated } from '../lib/auth';
 
   const loadingHome = document.querySelector<HTMLElement>('#home-loading');
   const publicHome = document.querySelector<HTMLElement>('#public-home');
@@ -86,8 +72,6 @@ import Card from '@nyameko/ui/Card.astro';
   const profile = document.querySelector<HTMLElement>('#profile-state');
   const security = document.querySelector<HTMLElement>('#security-state');
   const memberships = document.querySelector<HTMLElement>('#membership-state');
-  const logoutButton = document.querySelector<HTMLButtonElement>('#logout');
-  const logoutMessage = document.querySelector<HTMLElement>('#logout-message');
 
   async function showHome() {
     try {
@@ -132,19 +116,6 @@ import Card from '@nyameko/ui/Card.astro';
   }
 
   void showHome();
-  logoutButton?.addEventListener('click', async () => {
-    logoutButton.disabled = true;
-    try {
-      const result = await logout();
-      if (!result.ok) throw new Error('Unable to sign out.');
-      window.location.replace('/login/');
-    } catch (error) {
-      logoutButton.disabled = false;
-      if (logoutMessage) {
-        logoutMessage.textContent = error instanceof Error ? error.message : 'Sign out failed.';
-      }
-    }
-  });
 </script>
 
 <style>
@@ -161,20 +132,6 @@ import Card from '@nyameko/ui/Card.astro';
   .auth-home { padding-top: 2rem; }
   .welcome-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
   .home-grid { margin-top: 2rem; }
-  .quick-tools { display: flex; gap: .6rem; }
-  .quick-tools a {
-    display: grid; gap: .3rem; min-width: 4rem; justify-items: center;
-    border: 1px solid var(--border); border-radius: .75rem; padding: .5rem;
-    text-decoration: none; background: var(--surface); color: var(--text);
-    font-size: .72rem;
-  }
-  .quick-tools a:hover, .quick-tools a:focus-visible { border-color: var(--purple); }
-  .quick-tools svg { width: 1.4rem; height: 1.4rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
-  .account-actions button {
-    min-height: 2.6rem; padding: 0 .9rem; border: 1px solid var(--border);
-    border-radius: .65rem; background: var(--surface); color: var(--text); cursor: pointer;
-  }
-  #logout-message { color: var(--red-strong); }
   @media (max-width: 800px) {
     .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 3rem; }
     .welcome-heading { align-items: start; flex-direction: column; }

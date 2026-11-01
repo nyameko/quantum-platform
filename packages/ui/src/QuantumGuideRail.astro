@@ -1,9 +1,22 @@
 <aside id="quantum-guide-rail" class="quantum-guide-rail" aria-label="Quantum Guide" hidden>
   <div class="rail-heading">
     <a href="/agent/" class="rail-title" title="Open Quantum Guide">Quantum Guide</a>
-    <button type="button" id="rail-close" class="rail-close" aria-label="Close Guide navigation">×</button>
+    <div class="rail-heading-actions">
+      <button type="button" id="rail-search-toggle" class="rail-tool rail-search-symbol"
+        title="Search projects and chats" aria-label="Search projects and chats"
+        aria-expanded="false"><span class="rail-symbol search"></span></button>
+      <button type="button" id="rail-collapse" class="rail-tool"
+        title="Collapse Quantum Guide" aria-label="Collapse Quantum Guide">
+        <span class="rail-symbol panel"></span>
+      </button>
+      <button type="button" id="rail-close" class="rail-close" aria-label="Close Guide navigation">×</button>
+    </div>
   </div>
   <p class="rail-subtitle">Your research assistant</p>
+  <label id="rail-search-field" class="rail-search-field" hidden>
+    <span class="sr-only">Find projects, programmes, conversations</span>
+    <input id="rail-search" type="search" placeholder="Search your workspace…" autocomplete="off" />
+  </label>
   <form id="rail-prompt-form" class="rail-prompt">
     <label for="rail-prompt">Ask Guide</label>
     <textarea id="rail-prompt" rows="3" maxlength="4000"
@@ -30,7 +43,7 @@
   <h2 class="rail-section-title">Programmes</h2>
   <nav id="rail-programmes" aria-label="Approved research programmes"></nav>
   <h2 class="rail-section-title">Recent chats</h2>
-  <nav id="rail-recents" aria-label="Recent research conversations"></nav>
+  <nav id="rail-recents" class="rail-vertical-list" aria-label="Recent research conversations"></nav>
   <a class="rail-all" href="/agent/">Open full Quantum Guide</a>
 </aside>
 
@@ -45,6 +58,24 @@
   }
   .quantum-guide-rail[hidden] { display: none !important; }
   .rail-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+  .rail-heading-actions { display:flex; align-items:center; gap:.2rem; }
+  .rail-tool { width:2rem; height:2rem; display:grid; place-items:center; cursor:pointer;
+    background:transparent; border:1px solid transparent; border-radius:.5rem; color:var(--text); }
+  .rail-tool:hover, .rail-tool:focus-visible { border-color:var(--border); background:var(--background-soft); }
+  .rail-symbol { display:inline-block; width:1.15rem; height:1.15rem; background:currentColor;
+    opacity:.65; mask-position:center; mask-size:contain; mask-repeat:no-repeat;
+    -webkit-mask-position:center; -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; }
+  .rail-symbol.search { mask-image:url('/assets/guide/search.svg');
+    -webkit-mask-image:url('/assets/guide/search.svg'); }
+  .rail-symbol.panel { mask-image:url('/assets/guide/panel.svg');
+    -webkit-mask-image:url('/assets/guide/panel.svg'); }
+  .rail-search-field { display:block; margin:.6rem 0; }
+  .rail-search-field[hidden] { display:none; }
+  .rail-search-field input { box-sizing:border-box; width:100%; padding:.6rem;
+    border:1px solid var(--border); border-radius:.6rem; background:var(--background); color:var(--text); }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+  .rail-vertical-list, .quantum-guide-rail nav { display:grid; grid-template-columns:minmax(0,1fr);
+    align-content:start; gap:.1rem; }
   .rail-title { text-decoration: none; color: var(--text); font-weight: 800; }
   .rail-subtitle, .rail-note { font-size: .75rem; color: var(--muted); }
   .rail-subtitle { margin: .25rem 0 .9rem; }
@@ -76,16 +107,26 @@
   .rail-section-title a { color: var(--text); font-size: 1.1rem; text-decoration: none; }
   .rail-all { display: inline-block; margin-top: .8rem; font-size: .8rem; color: var(--muted-strong); }
   .rail-chat {
-    display: block; width: 100%; text-align: left; padding: .4rem .5rem;
+    display: flex; align-items:center; gap:.5rem; width: 100%; text-align: left; padding: .4rem .5rem;
     margin-bottom: .15rem; border: 0; border-radius: .4rem;
     background: transparent; color: var(--text); cursor: pointer;
     font: inherit; font-size: .78rem; overflow-wrap: anywhere;
   }
+  .rail-chat::before { content:''; flex:0 0 1rem; height:1rem; background:currentColor; opacity:.5;
+    mask:url('/assets/guide/chat.svg') center / contain no-repeat;
+    -webkit-mask:url('/assets/guide/chat.svg') center / contain no-repeat; }
   .rail-chat:hover, .rail-chat:focus-visible { background: var(--background-soft); }
+  .rail-folder summary { display:flex; align-items:center; gap:.5rem; list-style:none; }
+  .rail-folder summary::before { content:''; flex:0 0 1rem; height:1rem;
+    background:currentColor; opacity:.5; mask:url('/assets/guide/folder.svg') center / contain no-repeat;
+    -webkit-mask:url('/assets/guide/folder.svg') center / contain no-repeat; }
   .rail-folder { margin: .5rem 0; }
   .rail-folder summary { font-size: .82rem; cursor: pointer; font-weight: 700; overflow-wrap: anywhere; }
   .rail-folder-children { margin-left: .8rem; border-left: 1px solid var(--border); padding-left: .25rem; }
   :global(body.has-guide-rail > main) { margin-left: 17.7rem; }
+  :global(body.guide-rail-collapsed .quantum-guide-rail) { display:none !important; }
+  :global(body.guide-rail-collapsed > main),
+  :global(body.guide-rail-collapsed > .site-footer) { margin-left:0 !important; }
   :global(body.has-guide-rail > .site-footer) { margin-left: 17.7rem; }
   @media (max-width: 900px) {
     .quantum-guide-rail { top: 0; left: 0; width: min(85vw, 21rem); height: 100vh; border-radius: 0; z-index: 40; transform: translateX(-110%); visibility: hidden; }
@@ -104,6 +145,10 @@
   const prompt = document.querySelector<HTMLTextAreaElement>('#rail-prompt');
   const close = document.querySelector<HTMLButtonElement>('#rail-close');
   const mobileToggle = document.querySelector<HTMLButtonElement>('#portal-guide-toggle');
+  const collapse = document.querySelector<HTMLButtonElement>('#rail-collapse');
+  const searchToggle = document.querySelector<HTMLButtonElement>('#rail-search-toggle');
+  const searchField = document.querySelector<HTMLElement>('#rail-search-field');
+  const searchInput = document.querySelector<HTMLInputElement>('#rail-search');
   const sendButton = document.querySelector<HTMLButtonElement>('#rail-send');
   const newChat = document.querySelector<HTMLButtonElement>('#rail-new-chat');
   const chatStatus = document.querySelector<HTMLElement>('#rail-chat-status');
@@ -114,6 +159,26 @@
   type GuideConversation = { id: string; title?: string; messages?: GuideMessage[] };
   let railConversationId: string | null = null;
   let sending = false;
+
+  function setDesktopCollapsed(collapsed: boolean) {
+    document.body.classList.toggle('guide-rail-collapsed', collapsed);
+    window.sessionStorage.setItem('qp:guide-collapsed', String(collapsed));
+    mobileToggle?.setAttribute('aria-expanded', String(!collapsed));
+    if (mobileToggle) {
+      mobileToggle.title = collapsed ? 'Expand Quantum Guide' : 'Collapse Quantum Guide';
+    }
+  }
+  function filterRail() {
+    const term = searchInput?.value.trim().toLocaleLowerCase() ?? '';
+    for (const root of [projectRoot, programmeRoot, recentRoot]) {
+      if (!root) continue;
+      for (const node of Array.from(root.children)) {
+        const match = node.textContent?.toLocaleLowerCase().includes(term) ?? false;
+        (node as HTMLElement).hidden = Boolean(term) && !match;
+        if (term && match && node instanceof HTMLDetailsElement) node.open = true;
+      }
+    }
+  }
 
   function messageText(content: unknown): string {
     if (typeof content === 'string') return content;
@@ -219,7 +284,11 @@
     button.title = chat.title || 'New chat';
     button.addEventListener('click', () => {
       window.sessionStorage.setItem('qp:last-conversation-id', chat.id);
-      window.location.assign('/agent/');
+      railConversationId = chat.id;
+      void refreshInlineConversation().catch(() => {
+        if (chatStatus) chatStatus.textContent = 'Open full Guide to review this chat.';
+      });
+      if (openConversation) openConversation.href = '/agent/';
     });
     return button;
   }
@@ -236,7 +305,7 @@
         const folder = document.createElement('details');
         folder.className = 'rail-folder';
         const label = document.createElement('summary');
-        label.textContent = '📁 ' + membership.programme.name;
+        label.textContent = membership.programme.name;
         const link = document.createElement('a');
         link.href = '/programmes/';
         link.className = 'rail-note';
@@ -247,6 +316,9 @@
       rail.hidden = false;
       document.body.classList.add('has-guide-rail');
       if (mobileToggle) mobileToggle.hidden = false;
+      if (window.matchMedia('(min-width: 901px)').matches) {
+        setDesktopCollapsed(window.sessionStorage.getItem('qp:guide-collapsed') === 'true');
+      }
       const [projectsResponse, conversationsResponse] = await Promise.all([
         fetch('/api/v1/agent/projects/', { credentials: 'same-origin', cache: 'no-store' }),
         fetch('/api/v1/agent/conversations/', { credentials: 'same-origin', cache: 'no-store' }),
@@ -274,7 +346,7 @@
         const folder = document.createElement('details');
         folder.className = 'rail-folder';
         const heading = document.createElement('summary');
-        heading.textContent = '📁 ' + project.title;
+        heading.textContent = project.title;
         const children = document.createElement('div');
         children.className = 'rail-folder-children';
         chats.filter(chat => chat.project_id === project.id).slice(0, 12)
@@ -282,9 +354,11 @@
         folder.append(heading, children);
         projectRoot?.append(folder);
       }
-      chats.filter(chat => !chat.project_id).slice(0, 10)
+      // Recent means recently updated conversations, including those filed under projects.
+      chats.filter(chat => !('archived_at' in chat && chat.archived_at)).slice(0, 12)
         .forEach(chat => recentRoot?.append(chatButton(chat)));
       if (!projects.length && projectRoot) projectRoot.textContent = 'No projects yet.';
+      filterRail();
     } catch {
       if (rail && !rail.hidden && projectRoot) {
         projectRoot.textContent = 'Guide conversations temporarily unavailable.';
@@ -340,11 +414,25 @@
     })();
   });
 
-  mobileToggle?.addEventListener('click', () => {
-    document.body.classList.toggle('guide-rail-mobile-open');
-    mobileToggle.setAttribute('aria-expanded',
-      String(document.body.classList.contains('guide-rail-mobile-open')));
+  searchToggle?.addEventListener('click', () => {
+    const show = Boolean(searchField?.hidden);
+    if (searchField) searchField.hidden = !show;
+    searchToggle.setAttribute('aria-expanded', String(show));
+    if (show) searchInput?.focus();
+    else if (searchInput) { searchInput.value = ''; filterRail(); }
   });
+  searchInput?.addEventListener('input', filterRail);
+
+  const toggleGuide = () => {
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      const opened = document.body.classList.toggle('guide-rail-mobile-open');
+      mobileToggle?.setAttribute('aria-expanded', String(opened));
+    } else {
+      setDesktopCollapsed(!document.body.classList.contains('guide-rail-collapsed'));
+    }
+  };
+  mobileToggle?.addEventListener('click', toggleGuide);
+  collapse?.addEventListener('click', toggleGuide);
   close?.addEventListener('click', () => {
     document.body.classList.remove('guide-rail-mobile-open');
     mobileToggle?.setAttribute('aria-expanded', 'false');
