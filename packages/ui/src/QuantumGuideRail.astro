@@ -8,9 +8,17 @@
     <label for="rail-prompt">Ask Guide</label>
     <textarea id="rail-prompt" rows="3" maxlength="4000"
       placeholder="What would you like to explore or work on?"></textarea>
-    <button type="submit">Open in Guide</button>
+    <div class="rail-prompt-actions">
+      <button id="rail-send" type="submit">Send</button>
+      <button id="rail-new-chat" type="button" class="rail-secondary">New chat</button>
+    </div>
   </form>
-  <p class="rail-note">Continue your question in a canonical ACP conversation.</p>
+  <p id="rail-chat-status" class="rail-note" role="status" aria-live="polite">
+    Messages are stored in your ACP conversation, not in this browser panel.
+  </p>
+  <div id="rail-inline-transcript" class="rail-inline-transcript" role="log"
+    aria-live="polite" aria-label="Quantum Guide conversation"></div>
+  <a id="rail-open-conversation" class="rail-all" href="/agent/">Open in full Guide</a>
 
   <div class="rail-section-title">
     <h2>Projects</h2>
@@ -51,6 +59,17 @@
     padding: .6rem; border: 0; border-radius: .6rem;
     background: var(--purple-strong); color: white; cursor: pointer;
   }
+  .rail-prompt-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .rail-prompt .rail-secondary { background: var(--background); color: var(--text); border: 1px solid var(--border); }
+  .rail-prompt button:disabled { opacity: .6; cursor: wait; }
+  .rail-inline-transcript { max-height: min(33vh, 22rem); overflow-y: auto; display: grid;
+    gap: .35rem; margin-top: .55rem; font-size: .8rem; }
+  .rail-inline-message { padding: .55rem; border-radius: .5rem; overflow-wrap: anywhere;
+    white-space: pre-wrap; background: var(--background); }
+  .rail-inline-message.assistant { border: 1px solid var(--border); }
+  .rail-inline-message.user { border: 1px solid var(--purple-strong); }
+  .rail-inline-message strong { display: block; font-size: .72rem; margin-bottom: .2rem; }
+  .rail-inline-transcript:empty { display: none; }
   .rail-close { display: none; border: 0; font-size: 1.2rem; background: transparent; color: var(--text); cursor: pointer; }
   .rail-section-title { margin: 1.2rem 0 .4rem; display: flex; align-items: center; justify-content: space-between; font-size: .85rem; }
   .rail-section-title h2 { font-size: inherit; margin: 0; }
@@ -85,6 +104,112 @@
   const prompt = document.querySelector<HTMLTextAreaElement>('#rail-prompt');
   const close = document.querySelector<HTMLButtonElement>('#rail-close');
   const mobileToggle = document.querySelector<HTMLButtonElement>('#portal-guide-toggle');
+  const sendButton = document.querySelector<HTMLButtonElement>('#rail-send');
+  const newChat = document.querySelector<HTMLButtonElement>('#rail-new-chat');
+  const chatStatus = document.querySelector<HTMLElement>('#rail-chat-status');
+  const inlineTranscript = document.querySelector<HTMLElement>('#rail-inline-transcript');
+  const openConversation = document.querySelector<HTMLAnchorElement>('#rail-open-conversation');
+
+  type GuideMessage = { author_kind: string; content: unknown };
+  type GuideConversation = { id: string; title?: string; messages?: GuideMessage[] };
+  let railConversationId: string | null = null;
+  let sending = false;
+
+  function messageText(content: unknown): string {
+    if (typeof content === 'string') return content;
+    if (content && typeof content === 'object' && 'text' in content
+      && typeof (content as { text?: unknown }).text === 'string') {
+      return (content as { text: string }).text;
+    }
+    return JSON.stringify(content);
+  }
+
+  function cookie(name: string): string | null {
+    const part = document.cookie.split('; ').find(item => item.startsWith(name + '='));
+    return part ? decodeURIComponent(part.slice(name.length + 1)) : null;
+  }
+
+  async function postJson(path: string, payload: Record<string, unknown>, headers?: Record<string, string>) {
+    const csrf = await fetch('/api/v1/csrf/', {
+      credentials: 'same-origin', cache: 'no-store',
+    });
+    if (!csrf.ok) throw new Error('Could not establish secure session.');
+    const token = cookie('csrftoken');
+    if (!token) throw new Error('CSRF token unavailable. Sign in again.');
+    return fetch(path, {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token, ...headers },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  function renderInlineMessages(messages: GuideMessage[]) {
+    inlineTranscript?.replaceChildren();
+    for (const message of messages.slice(-8)) {
+      const item = document.createElement('div');
+      item.className = 'rail-inline-message '
+        + (message.author_kind === 'user' ? 'user' : 'assistant');
+      const heading = document.createElement('strong');
+      heading.textContent = message.author_kind === 'user' ? 'You' : 'Guide';
+      const content = document.createElement('span');
+      content.textContent = messageText(message.content);
+      item.append(heading, content);
+      inlineTranscript?.append(item);
+    }
+    inlineTranscript?.scrollTo({ top: inlineTranscript.scrollHeight, behavior: 'auto' });
+  }
+
+  async function refreshInlineConversation(): Promise<GuideConversation | null> {
+    if (!railConversationId) return null;
+    const response = await fetch('/api/v1/agent/conversations/'
+      + encodeURIComponent(railConversationId) + '/', {
+      credentials: 'same-origin', cache: 'no-store',
+    });
+    if (!response.ok) {
+      if (response.status === 403 || response.status === 404) railConversationId = null;
+      throw new Error('Could not load this conversation. Open full Guide to review it.');
+    }
+    const conversation: GuideConversation = await response.json();
+    renderInlineMessages(conversation.messages ?? []);
+    if (openConversation) openConversation.href = '/agent/';
+    return conversation;
+  }
+
+  async function ensureInlineConversation(): Promise<string> {
+    if (railConversationId) return railConversationId;
+    const response = await postJson('/api/v1/agent/conversations/', { title: 'New chat' });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.id) throw new Error(body.detail ?? 'Could not create conversation.');
+    railConversationId = body.id;
+    window.sessionStorage.setItem('qp:last-conversation-id', body.id);
+    return body.id;
+  }
+
+  async function pollInlineRun(conversationId: string, runId: string) {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      if (railConversationId !== conversationId) return;
+      const response = await fetch('/api/v1/agent/runs/' + encodeURIComponent(runId) + '/', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (!response.ok) throw new Error('Could not refresh Guide run. Open full Guide to resume.');
+      const result = await response.json();
+      if (result.conversation_id !== conversationId) throw new Error('Run identity mismatch.');
+      if (result.status === 'succeeded') {
+        await refreshInlineConversation();
+        if (chatStatus) chatStatus.textContent = 'Reply saved to the conversation.';
+        return;
+      }
+      if (result.status === 'failed') {
+        await refreshInlineConversation();
+        throw new Error('Guide response failed: ' + (result.failure_code ?? 'unknown error'));
+      }
+      if (chatStatus) chatStatus.textContent =
+        result.status === 'queued' ? 'Guide queued…' : 'Guide is responding…';
+      await new Promise(resolve => window.setTimeout(resolve, 1000));
+    }
+    if (chatStatus) chatStatus.textContent =
+      'Still processing. Open full Guide to check the conversation.';
+  }
 
   function chatButton(chat: { id: string; title?: string }) {
     const button = document.createElement('button');
@@ -134,6 +259,15 @@
       const conversationPayload = await conversationsResponse.json();
       const projects: Array<{id: string; title: string}> = projectPayload.items ?? [];
       const chats: Array<{id: string; title?: string; project_id?: string | null}> = conversationPayload.items ?? [];
+      if (railConversationId === null && !sending) {
+        const last = window.sessionStorage.getItem('qp:last-conversation-id');
+        if (last && chats.some(chat => chat.id === last)) {
+          railConversationId = last;
+          void refreshInlineConversation().catch(() => {
+            if (chatStatus) chatStatus.textContent = 'Open full Guide to resume the last chat.';
+          });
+        }
+      }
       projectRoot?.replaceChildren();
       recentRoot?.replaceChildren();
       for (const project of projects.slice(0, 12)) {
@@ -158,14 +292,52 @@
     }
   }
 
+  newChat?.addEventListener('click', () => {
+    if (sending) return;
+    railConversationId = null;
+    inlineTranscript?.replaceChildren();
+    if (chatStatus) chatStatus.textContent = 'New conversation ready. Type your question.';
+    prompt?.focus();
+  });
+
   promptForm?.addEventListener('submit', (event) => {
     event.preventDefault();
+    if (sending) return;
     const value = prompt?.value.trim();
     if (!value) { prompt?.focus(); return; }
-    // Ephemeral same-origin handoff, NOT a URL query or durable memory.
-    window.sessionStorage.setItem('qp:guide-draft', value);
-    window.sessionStorage.setItem('qp:guide-new-chat', '1');
-    window.location.assign('/agent/');
+    void (async () => {
+      sending = true;
+      if (sendButton) sendButton.disabled = true;
+      if (newChat) newChat.disabled = true;
+      try {
+        const conversationId = await ensureInlineConversation();
+        const response = await postJson(
+          '/api/v1/agent/conversations/' + encodeURIComponent(conversationId) + '/turns/',
+          {
+            content: { text: value },
+            source_channel: 'web',
+            client_message_id: crypto.randomUUID(),
+          },
+          { 'Idempotency-Key': crypto.randomUUID() },
+        );
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body.run_id) {
+          throw new Error(body.detail ?? 'Could not submit Guide message.');
+        }
+        if (prompt) prompt.value = '';
+        if (chatStatus) chatStatus.textContent = 'Guide is responding…';
+        await refreshInlineConversation();
+        await pollInlineRun(conversationId, body.run_id);
+        void showRail();
+      } catch (error) {
+        if (chatStatus) chatStatus.textContent = error instanceof Error
+          ? error.message : 'Guide request failed.';
+      } finally {
+        sending = false;
+        if (sendButton) sendButton.disabled = false;
+        if (newChat) newChat.disabled = false;
+      }
+    })();
   });
 
   mobileToggle?.addEventListener('click', () => {
