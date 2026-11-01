@@ -24,6 +24,10 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             <button id="cancel-project" type="button" class="secondary">Cancel</button>
           </div>
         </form>
+        <label class="archive-filter">
+          <input id="show-archived" type="checkbox" />
+          Show archived projects and conversations
+        </label>
         <nav id="project-tree" aria-label="Projects and conversations"></nav>
         <div class="sidebar-section-heading"><h2>Programmes</h2></div>
         <nav id="programme-tree" aria-label="Approved research programmes"></nav>
@@ -108,13 +112,40 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       </main>
     </div>
   </section>
+  <dialog id="workspace-editor" class="workspace-editor" aria-labelledby="workspace-editor-title">
+    <form id="workspace-editor-form">
+      <h2 id="workspace-editor-title">Edit research workspace</h2>
+      <label for="workspace-editor-name">Title
+        <input id="workspace-editor-name" required maxlength="200" autocomplete="off" />
+      </label>
+      <label id="workspace-editor-location-label" for="workspace-editor-location">Project
+        <select id="workspace-editor-location"></select>
+      </label>
+      <label class="workspace-archive-check">
+        <input id="workspace-editor-archived" type="checkbox" />
+        Archive (retain conversations, memories and research history)
+      </label>
+      <p id="workspace-editor-error" role="alert" aria-live="polite"></p>
+      <div class="compact-actions">
+        <button id="workspace-editor-save" type="submit">Save changes</button>
+        <button id="workspace-editor-cancel" type="button" class="secondary">Cancel</button>
+      </div>
+    </form>
+  </dialog>
 </SiteLayout>
 
 <script>
   import { csrfJsonFetch, requireSession } from '../lib/auth';
 
-  type Project = { id: string; title: string };
-  type Conversation = { id: string; project_id?: string | null; title: string };
+  type Project = {
+    id: string; title: string; updated_at: string; archived_at?: string | null;
+  };
+  type Conversation = {
+    id: string; project_id?: string | null; title: string;
+    updated_at: string; archived_at?: string | null;
+  };
+  type Workspace = Project | Conversation;
+  type WorkspaceKind = 'project' | 'conversation';
   type MemoryItem = {
     id: string;
     status: 'candidate' | 'active' | 'revoked';
@@ -140,6 +171,18 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const cancelProject = document.querySelector<HTMLButtonElement>('#cancel-project');
   const projectForm = document.querySelector<HTMLFormElement>('#project-form');
   const projectTitle = document.querySelector<HTMLInputElement>('#project-title');
+  const showArchived = document.querySelector<HTMLInputElement>('#show-archived');
+  const workspaceEditor = document.querySelector<HTMLDialogElement>('#workspace-editor');
+  const workspaceEditorForm = document.querySelector<HTMLFormElement>('#workspace-editor-form');
+  const workspaceEditorHeading = document.querySelector<HTMLElement>('#workspace-editor-title');
+  const workspaceName = document.querySelector<HTMLInputElement>('#workspace-editor-name');
+  const workspaceLocationLabel =
+    document.querySelector<HTMLElement>('#workspace-editor-location-label');
+  const workspaceLocation = document.querySelector<HTMLSelectElement>('#workspace-editor-location');
+  const workspaceArchived = document.querySelector<HTMLInputElement>('#workspace-editor-archived');
+  const workspaceEditorError = document.querySelector<HTMLElement>('#workspace-editor-error');
+  const workspaceSave = document.querySelector<HTMLButtonElement>('#workspace-editor-save');
+  const workspaceCancel = document.querySelector<HTMLButtonElement>('#workspace-editor-cancel');
   const toggleSidebar = document.querySelector<HTMLButtonElement>('#toggle-sidebar');
   const toggleWidth = document.querySelector<HTMLButtonElement>('#toggle-width');
   const memoryDetails = document.querySelector<HTMLDetailsElement>('#memory-details');
@@ -198,15 +241,131 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   let availableConversations: Conversation[] = [];
   const closedFolders = new Set<string>();
 
+  let editingWorkspace: {
+    kind: WorkspaceKind; id: string; updatedAt: string;
+    title: string; projectId: string | null; archived: boolean;
+  } | null = null;
+
+  // The backend owns access control, version checks and all content. UI edits metadata only.
+  async function openWorkspaceEditor(kind: WorkspaceKind, id: string) {
+    if (workspaceEditorError) workspaceEditorError.textContent = '';
+    const collection = kind === 'project' ? 'projects' : 'conversations';
+    try {
+      const response = await fetch(`/api/v1/agent/${collection}/${id}/`, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      const item: Workspace & { detail?: string } = await response.json();
+      if (!response.ok) throw new Error(item.detail ?? 'Unable to load workspace.');
+      if (!item.updated_at) throw new Error('Workspace version is missing; editing is unavailable.');
+
+      editingWorkspace = {
+        kind, id, updatedAt: item.updated_at, title: item.title,
+        projectId: 'project_id' in item ? (item.project_id ?? null) : null,
+        archived: Boolean(item.archived_at),
+      };
+      if (workspaceEditorHeading) {
+        workspaceEditorHeading.textContent =
+          kind === 'project' ? 'Edit personal project' : 'Edit conversation';
+      }
+      if (workspaceName) workspaceName.value = item.title;
+      if (workspaceArchived) workspaceArchived.checked = Boolean(item.archived_at);
+      if (workspaceLocation && workspaceLocationLabel) {
+        workspaceLocationLabel.hidden = kind === 'project';
+        workspaceLocation.replaceChildren();
+        if (kind === 'conversation') {
+          const unfiled = new Option('Unfiled conversation', '');
+          workspaceLocation.add(unfiled);
+          for (const project of availableProjects) {
+            if (!project.archived_at || project.id === editingWorkspace.projectId) {
+              workspaceLocation.add(new Option(project.title, project.id));
+            }
+          }
+          workspaceLocation.value = editingWorkspace.projectId ?? '';
+        }
+      }
+      workspaceEditor?.showModal();
+      workspaceName?.focus();
+    } catch (error) {
+      if (status) status.textContent =
+        error instanceof Error ? error.message : 'Unable to edit workspace.';
+    }
+  }
+
+  async function saveWorkspaceChanges(event: SubmitEvent) {
+    event.preventDefault();
+    const original = editingWorkspace;
+    if (!original || !workspaceName || !workspaceArchived || !workspaceSave) return;
+    const title = workspaceName.value.trim();
+    if (!title || title.length > 200) {
+      if (workspaceEditorError) workspaceEditorError.textContent =
+        'Enter a title between 1 and 200 characters.';
+      return;
+    }
+    const updates: Record<string, string | boolean | null> = {};
+    if (title !== original.title) updates.title = title;
+    if (workspaceArchived.checked !== original.archived) {
+      updates.archived = workspaceArchived.checked;
+    }
+    if (original.kind === 'conversation' && workspaceLocation) {
+      const target = workspaceLocation.value || null;
+      if (target !== original.projectId) updates.project_id = target;
+    }
+    if (!Object.keys(updates).length) {
+      workspaceEditor?.close();
+      return;
+    }
+    workspaceSave.disabled = true;
+    if (workspaceEditorError) workspaceEditorError.textContent = '';
+    try {
+      const collection = original.kind === 'project' ? 'projects' : 'conversations';
+      const response = await csrfJsonFetch(`/api/v1/agent/${collection}/${original.id}/`, {
+        method: 'PATCH',
+        headers: { 'If-Match': '"' + original.updatedAt + '"' },
+        body: JSON.stringify(updates),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(response.status === 412
+          ? 'This workspace changed elsewhere. Close and reopen to refresh before saving.'
+          : (payload.detail ?? 'Unable to save workspace.'));
+      }
+      workspaceEditor?.close();
+      editingWorkspace = null;
+      if (status) status.textContent = 'Workspace updated.';
+      await loadSidebar();
+    } catch (error) {
+      if (workspaceEditorError) workspaceEditorError.textContent =
+        error instanceof Error ? error.message : 'Unable to save workspace.';
+    } finally {
+      workspaceSave.disabled = false;
+    }
+  }
+
+  function isVisibleConversation(chat: Conversation): boolean {
+    if (showArchived?.checked) return true;
+    if (chat.archived_at) return false;
+    return !availableProjects.some(p => p.id === chat.project_id && p.archived_at);
+  }
+
   function appendChat(parent: HTMLElement, chat: Conversation) {
+    const row = document.createElement('div');
+    row.className = 'chat-row';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'sidebar-chat' + (chat.id === activeConversation ? ' selected' : '');
-    button.textContent = chat.title || 'New chat';
+    button.textContent = (chat.archived_at ? 'Archived · ' : '') + (chat.title || 'New chat');
     button.title = chat.title || 'New chat';
     if (chat.id === activeConversation) button.setAttribute('aria-current', 'page');
     button.addEventListener('click', () => void selectConversation(chat));
-    parent.append(button);
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'icon-control secondary workspace-action';
+    edit.textContent = '⋯';
+    edit.title = 'Rename, move or archive ' + chat.title;
+    edit.setAttribute('aria-label', edit.title);
+    edit.addEventListener('click', () => void openWorkspaceEditor('conversation', chat.id));
+    row.append(button, edit);
+    parent.append(row);
   }
 
   function renderSidebar() {
@@ -214,7 +373,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     projectTree.replaceChildren();
     unfiledChats.replaceChildren();
 
-    for (const project of availableProjects) {
+    for (const project of availableProjects.filter(p => showArchived?.checked || !p.archived_at)) {
       const group = document.createElement('div');
       group.className = 'project-group';
       const header = document.createElement('div');
@@ -223,7 +382,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       fold.type = 'button';
       fold.className = 'folder-name';
       const open = !closedFolders.has(project.id);
-      fold.textContent = (open ? '▾ 📂 ' : '▸ 📁 ') + project.title;
+      fold.textContent = (open ? '▾ 📂 ' : '▸ 📁 ')
+        + (project.archived_at ? 'Archived · ' : '') + project.title;
       fold.setAttribute('aria-expanded', String(open));
       fold.title = project.title;
       const children = document.createElement('div');
@@ -240,14 +400,22 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       add.textContent = '+';
       add.title = 'New chat in ' + project.title;
       add.setAttribute('aria-label', add.title);
+      add.disabled = Boolean(project.archived_at);
       add.addEventListener('click', () => void createConversation(project.id));
-      header.append(fold, add);
-      availableConversations.filter(c => c.project_id === project.id)
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'icon-control secondary workspace-action';
+      edit.textContent = '⋯';
+      edit.title = 'Rename or archive ' + project.title;
+      edit.setAttribute('aria-label', edit.title);
+      edit.addEventListener('click', () => void openWorkspaceEditor('project', project.id));
+      header.append(fold, add, edit);
+      availableConversations.filter(c => c.project_id === project.id && isVisibleConversation(c))
         .forEach(chat => appendChat(children, chat));
       group.append(header, children);
       projectTree.append(group);
     }
-    const other = availableConversations.filter(c => !c.project_id);
+    const other = availableConversations.filter(c => !c.project_id && isVisibleConversation(c));
     other.forEach(chat => appendChat(unfiledChats, chat));
     if (!other.length) {
       const empty = document.createElement('small');
@@ -272,10 +440,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     availableConversations = conversationData.items ?? [];
     const requested = preferredId ?? activeConversation
       ?? window.sessionStorage.getItem('qp:last-conversation-id');
-    const selected = availableConversations.find(c => c.id === requested)
-      ?? availableConversations[0];
+    const selected = availableConversations.find(c => c.id === requested && isVisibleConversation(c))
+      ?? availableConversations.find(c => isVisibleConversation(c));
     activeConversation = selected?.id ?? null;
     activeProject = selected?.project_id ?? null;
+    if (activeConversation) window.sessionStorage.setItem('qp:last-conversation-id', activeConversation);
+    else window.sessionStorage.removeItem('qp:last-conversation-id');
     renderSidebar();
     await loadConversation();
   }
@@ -370,6 +540,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     }
     if (!activeConversation) {
       if (activeTitle) activeTitle.textContent = 'New research conversation';
+      if (send) send.disabled = false;
       renderMessages([]);
       return;
     }
@@ -386,7 +557,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       return;
     }
 
-    if (activeTitle) activeTitle.textContent = payload.title ?? 'Conversation';
+    if (activeTitle) activeTitle.textContent =
+      (payload.archived_at ? 'Archived · ' : '') + (payload.title ?? 'Conversation');
+    if (send) send.disabled = Boolean(payload.archived_at);
+    if (payload.archived_at && status) {
+      status.textContent = 'This conversation is archived and read-only. Use ⋯ to restore it.';
+    }
     renderMessages(payload.messages ?? []);
     await refreshRunStatus(activeConversation);
   }
@@ -653,6 +829,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   cancelProject?.addEventListener('click', () => {
     if (projectForm) projectForm.hidden = true;
   });
+  workspaceEditorForm?.addEventListener('submit', (event) => void saveWorkspaceChanges(event));
+  workspaceCancel?.addEventListener('click', () => workspaceEditor?.close());
+  workspaceEditor?.addEventListener('close', () => { editingWorkspace = null; });
+  showArchived?.addEventListener('change', () => void loadSidebar());
+
   projectForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const title = projectTitle?.value.trim();
@@ -851,6 +1032,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background: var(--background);
   }
   .sidebar-chat.selected { background: var(--background); font-weight: 700; }
+  .archive-filter { display: flex; align-items: center; gap: .4rem; font-size: .75rem; margin: .6rem 0; }
+  .archive-filter input, .workspace-archive-check input { width: auto; }
+  .chat-row { display: flex; gap: .15rem; align-items: center; }
+  .chat-row .sidebar-chat { flex: 1; min-width: 0; }
+  .workspace-action { font-size: 1.15rem; min-height: 2.1rem; }
   .sidebar-section-heading, .project-header, .compact-actions, .heading-actions {
     display: flex; align-items: center; justify-content: space-between; gap: .4rem;
   }
@@ -864,6 +1050,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .assistant-main { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; }
   h1 { margin: .3rem 0 0; font-size: clamp(1.15rem, 2vw, 1.6rem); letter-spacing: -.02em; }
   .panel { padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); }
+  .workspace-editor { width: min(90vw, 30rem); padding: 1.5rem; border: 1px solid var(--border);
+    border-radius: 1rem; background: var(--surface); color: var(--text); }
+  .workspace-editor::backdrop { background: rgba(0, 0, 0, .5); }
+  .workspace-archive-check { display: flex; flex-direction: row; align-items: flex-start; gap: .6rem; }
+  .workspace-editor [hidden] { display: none; }
+  #workspace-editor-error { color: var(--muted-strong); min-height: 1.1rem; }
   form { display: grid; gap: .7rem; }
   label { display: grid; gap: .35rem; color: var(--muted-strong); }
   input, textarea, select {
