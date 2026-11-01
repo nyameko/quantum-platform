@@ -23,6 +23,7 @@ from .execution_api import (
     execution_detail,
     executions,
     submit_cpu_smoke,
+    submit_bell_aer,
 )
 from .internal_wireguard_api import (
     acknowledge_wireguard_peers,
@@ -76,6 +77,7 @@ urlpatterns = [
     path("agent/memories/<uuid:memory_id>/revoke/", agent_memory_revoke, name="agent-memory-revoke"),
     path("executions/", executions, name="executions"),
     path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
+    path("executions/bell-aer/", submit_bell_aer, name="execution-bell-aer"),
     path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),
     path("executions/<uuid:execution_id>/cancel/", cancel_execution, name="execution-cancel"),
     path(
