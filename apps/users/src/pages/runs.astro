@@ -34,7 +34,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         </p>
       </div>
       <button id="submit-bell" type="button">Run Bell experiment on CPU</button>
-      <p id="submit-bell-message" role="status"></p>
+      <p id="submit-bell-message" role="status" aria-live="polite"></p>
     </article>
 
     <section class="runs">
@@ -152,7 +152,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         if (message) message.textContent = `Submitted as Slurm job ${payload.scheduler_job_id}.`;
         await load();
       } else if (message) {
-        message.textContent = payload.detail ?? payload.error_message ?? 'Submission failed.';
+        const explanation = payload.error_message ?? payload.detail;
+        message.textContent = explanation
+          ? 'Slurm did not accept the job: ' + explanation
+          : 'Submission failed. Check recent runs for the recorded error and retry after the gateway is corrected.';
+        await load();
       }
     } catch {
       if (message) message.textContent = 'Could not reach the execution service.';

@@ -77,7 +77,8 @@ class ExecutionApiTests(TestCase):
         self.assertEqual(record.scheduler_job_id, "12346")
 
         script = gateway.call_args.kwargs["stdin"]
-        self.assertIn("#SBATCH --job-name=qw-bell-aer", script)
+        self.assertIn("#SBATCH --job-name=jhub-bell-aer", script)
+        self.assertIn("#SBATCH --time=02:00:00", script)
         self.assertIn("#SBATCH --partition=cpu-small", script)
         self.assertIn("#SBATCH --chdir=/home/research/nlisa", script)
         self.assertIn("/usr/bin/apptainer exec", script)

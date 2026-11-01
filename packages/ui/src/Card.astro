@@ -5,21 +5,22 @@ interface Props {
   href?: string;
   class?: string;
   icon?: string;
+  brandIcon?: boolean;
 }
 
-const { eyebrow, title, href, icon, class: className = '' } = Astro.props;
+const { eyebrow, title, href, icon, brandIcon = false, class: className = '' } = Astro.props;
 ---
 
 {href ? (
   <a class={`card ${className}`} href={href}>
-    {icon && <span class="card-visual" aria-hidden="true" style={`--card-icon:url("${icon}")`} />}
+    {icon && (brandIcon ? <img class="card-brand-visual" src={icon} alt="" aria-hidden="true" /> : <span class="card-visual" aria-hidden="true" style={`--card-icon:url("${icon}")`} />)}
     {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
     {title && <h3>{title}</h3>}
     <div class="card-body"><slot /></div>
   </a>
 ) : (
   <article class={`card ${className}`}>
-    {icon && <span class="card-visual" aria-hidden="true" style={`--card-icon:url("${icon}")`} />}
+    {icon && (brandIcon ? <img class="card-brand-visual" src={icon} alt="" aria-hidden="true" /> : <span class="card-visual" aria-hidden="true" style={`--card-icon:url("${icon}")`} />)}
     {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
     {title && <h3>{title}</h3>}
     <div class="card-body"><slot /></div>
@@ -55,6 +56,10 @@ const { eyebrow, title, href, icon, class: className = '' } = Astro.props;
     -webkit-mask-image: var(--card-icon);
     -webkit-mask-size: contain; -webkit-mask-position: center;
     -webkit-mask-repeat: no-repeat;
+  }
+  .card-brand-visual {
+    display:block; width:3.2rem; height:3.2rem; margin:0 0 1.15rem;
+    object-fit:contain;
   }
   .card-eyebrow {
     margin: 0 0 0.65rem;
