@@ -19,20 +19,30 @@ class AgentServiceError(Exception):
         self.status_code = status_code
 
 
-def assertion(user, *, scope="admin:diagnostics"):
+def assertion(
+    user, *, scope="admin:diagnostics",
+    programme_id=None, programme_role=None,
+):
     if not user.is_active:
         raise AgentServiceError("An active Quantum Platform account is required.")
     if scope == "admin:diagnostics" and not user.is_staff:
         raise AgentServiceError("Administrator access is required.")
-    if scope not in {"admin:diagnostics", "agent:personal"}:
+    if scope not in {"admin:diagnostics", "agent:personal", "agent:programme"}:
         raise AgentServiceError("Unsupported agent service scope.")
+    if scope == "agent:programme":
+        if (
+            type(programme_id) is not int or programme_id <= 0
+            or programme_role not in {"pi", "admin", "researcher"}
+        ):
+            raise AgentServiceError("Programme membership assertion is not authorized.")
+    elif programme_id is not None or programme_role is not None:
+        raise AgentServiceError("Unexpected programme authority.")
 
     principal, _ = AgentPrincipal.objects.get_or_create(user=user)
     now = int(time.time())
     try:
         key = Path(settings.AGENT_CONTROL_PLANE_SIGNING_KEY_FILE).read_text()
-        return jwt.encode(
-            {
+        claims = {
                 "iss": "quantum-platform",
                 "aud": "agent-control-plane",
                 "sub": f"urn:quantum-platform:user:{principal.pk}",
@@ -40,12 +50,13 @@ def assertion(user, *, scope="admin:diagnostics"):
                 "scope": scope,
                 "iat": now,
                 "nbf": now,
-                "exp": now + 60,
+                "exp": now + (10 if scope == "agent:programme" else 60),
                 "jti": str(uuid4()),
-            },
-            key,
-            algorithm="EdDSA",
-        )
+            }
+        if scope == "agent:programme":
+            claims["programme_id"] = programme_id
+            claims["programme_role"] = programme_role
+        return jwt.encode(claims, key, algorithm="EdDSA")
     except (OSError, ValueError, jwt.PyJWTError):
         raise AgentServiceError("The agent service signing key is not configured.") from None
 
@@ -61,6 +72,8 @@ def call(
     params=None,
     json_body=None,
     if_match=None,
+    programme_id=None,
+    programme_role=None,
 ):
     base = settings.AGENT_CONTROL_PLANE_URL
     url = urlsplit(base)
@@ -75,7 +88,7 @@ def call(
         raise AgentServiceError("The agent service has not been enabled.")
 
     headers = {
-        "Authorization": f"Bearer {assertion(user, scope=scope)}",
+        "Authorization": f"Bearer {assertion(user, scope=scope, programme_id=programme_id, programme_role=programme_role)}",
         "Accept": "application/json",
     }
     query = dict(params or {})

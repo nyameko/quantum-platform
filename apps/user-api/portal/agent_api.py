@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from . import agent_client
+from .models import ProgrammeMembership, ResearchProgramme
 
 
 def _call(request, method, path, *, key=None, params=None, body=None):
@@ -230,3 +231,97 @@ def _memory_transition(request, memory_id, action, body, *, method="POST"):
         return Response(data, status=200)
     except agent_client.AgentServiceError as exc:
         return Response({"detail": str(exc)}, status=exc.status_code)
+
+
+def _current_programme_membership(user, programme_id):
+    """Quantum Platform's live programme DB is authoritative on EVERY request."""
+    if not user.is_active:
+        return None
+    membership = (
+        ProgrammeMembership.objects
+        .select_related("programme")
+        .filter(
+            person__user=user,
+            programme_id=programme_id,
+            status=ProgrammeMembership.Status.APPROVED,
+            programme__status=ResearchProgramme.Status.ACTIVE,
+        )
+        .first()
+    )
+    if membership is None:
+        return None
+    # Never mint PI authority for an inconsistent membership row.
+    if (
+        membership.role == ProgrammeMembership.Role.PI
+        and membership.programme.pi_id != membership.person_id
+    ):
+        return None
+    return membership
+
+
+def _programme_proxy(request, programme_id, method, path, *, body=None, create_only=False):
+    membership = _current_programme_membership(request.user, programme_id)
+    if membership is None:
+        return Response({"detail": "Programme not found."}, status=404)
+    if create_only and membership.role not in {
+        ProgrammeMembership.Role.PI, ProgrammeMembership.Role.ADMIN,
+    }:
+        return Response({"detail": "PI or programme admin approval is required."}, status=403)
+    try:
+        result = agent_client.call(
+            request.user, method, path,
+            scope="agent:programme",
+            programme_id=programme_id,
+            programme_role=membership.role,
+            json_body=body,
+        )
+        return Response(result, status=201 if method == "POST" else 200)
+    except agent_client.AgentServiceError as exc:
+        return Response({"detail": str(exc)}, status=exc.status_code)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def agent_programme_conversations(request, programme_id):
+    path = f"/v1/programmes/{programme_id}/conversations"
+    if request.method == "GET":
+        return _programme_proxy(request, programme_id, "GET", path)
+    title = request.data.get("title") if isinstance(request.data, dict) else None
+    if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
+        return Response({"detail": "Conversation title must be 1–200 characters."}, status=400)
+    return _programme_proxy(
+        request, programme_id, "POST", path,
+        body={"title": title.strip()}, create_only=True,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def agent_programme_conversation(request, programme_id, conversation_id):
+    return _programme_proxy(
+        request, programme_id, "GET",
+        f"/v1/programmes/{programme_id}/conversations/{conversation_id}",
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_programme_message(request, programme_id, conversation_id):
+    content = request.data.get("content") if isinstance(request.data, dict) else None
+    if content in (None, "", [], {}):
+        return Response({"detail": "Message content is required."}, status=400)
+    client_message_id = request.data.get("client_message_id")
+    if client_message_id is not None:
+        try:
+            client_message_id = str(UUID(str(client_message_id)))
+        except (ValueError, TypeError):
+            return Response({"detail": "Valid client message ID required."}, status=400)
+    return _programme_proxy(
+        request, programme_id, "POST",
+        f"/v1/programmes/{programme_id}/conversations/{conversation_id}/messages",
+        body={
+            "content": content,
+            "source_channel": "web",
+            "client_message_id": client_message_id or str(uuid4()),
+        },
+    )
