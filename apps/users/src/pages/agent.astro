@@ -735,6 +735,17 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      if (response.status === 404) {
+        // A stale browser pointer should not make the rest of Guide unusable.
+        activeConversation = null;
+        activeProject = null;
+        window.sessionStorage.removeItem('qp:last-conversation-id');
+        if (activeTitle) activeTitle.textContent = 'Choose a conversation';
+        renderMessages([]);
+        if (status) status.textContent =
+          'That conversation is no longer available. Select another chat or create one.';
+        return;
+      }
       if (status) status.textContent = payload.detail ?? 'Unable to load conversation.';
       return;
     }
@@ -815,7 +826,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     if (!response.ok) {
       if (memoryStatus) {
-        memoryStatus.textContent = response.status === 503
+        memoryStatus.textContent = [404, 503].includes(response.status)
           ? 'Memory controls are not available until the ACP memory service is activated.'
           : (payload.detail ?? 'Unable to load memories.');
       }
