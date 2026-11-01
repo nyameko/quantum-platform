@@ -126,3 +126,62 @@ class ExecutionApiTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()["state"], "completed")
         self.assertEqual(response.json()["scheduler_node"], "slurm-cpu-01")
+
+    @patch("portal.execution_api._gateway")
+    def test_history_is_scoped_to_authenticated_owner_not_browser_query(self, gateway):
+        gateway.return_value = (
+            "12345|hello-cpu|cpu-small|COMPLETED|0:0|00:00:02|"
+            "2026-11-01T22:00:00|2026-11-01T22:00:01|"
+            "2026-11-01T22:00:03|slurm-cpu-01\n"
+        )
+        response = self.client.get(
+            "/api/v1/executions/slurm-history/?username=another-user"
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        gateway.assert_called_once_with("history", "nlisa")
+        jobs = response.json()["items"]
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]["job_id"], "12345")
+        self.assertEqual(jobs[0]["job_name"], "hello-cpu")
+        self.assertEqual(jobs[0]["state"], "COMPLETED")
+
+    @patch("portal.execution_api._gateway")
+    def test_history_rejects_missing_membership(self, gateway):
+        ProgrammeMembership.objects.filter(person=self.person).update(
+            status=ProgrammeMembership.Status.SUSPENDED
+        )
+        response = self.client.get("/api/v1/executions/slurm-history/")
+        self.assertEqual(response.status_code, 403)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_history_rejects_missing_posix_identity(self, gateway):
+        self.person.posix_uid = None
+        self.person.save(update_fields=["posix_uid"])
+        response = self.client.get("/api/v1/executions/slurm-history/")
+        self.assertEqual(response.status_code, 409)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_history_gracefully_reports_uninstalled_gateway(self, gateway):
+        gateway.side_effect = RuntimeError("unknown gateway operation")
+        response = self.client.get("/api/v1/executions/slurm-history/")
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn("unknown gateway operation", response.content.decode())
+
+    @patch("portal.execution_api._gateway")
+    def test_history_ignores_malformed_or_step_records(self, gateway):
+        gateway.return_value = (
+            "22.batch|step|cpu-small|COMPLETED|0:0|00:00:01|"
+            "2026-11-01T22:00:00|2026-11-01T22:00:01|"
+            "2026-11-01T22:00:02|slurm-cpu-01\n"
+            "unexpected|format\n"
+        )
+        response = self.client.get("/api/v1/executions/slurm-history/")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["items"], [])
+
+    def test_history_requires_login(self):
+        self.client.logout()
+        response = self.client.get("/api/v1/executions/slurm-history/")
+        self.assertIn(response.status_code, {401, 403})

@@ -26,6 +26,7 @@ from .execution_api import (
     cancel_execution,
     execution_detail,
     executions,
+    slurm_history,
     submit_cpu_smoke,
     submit_bell_aer,
 )
@@ -87,6 +88,7 @@ urlpatterns = [
     path("agent/memories/<uuid:memory_id>/approve/", agent_memory_approve, name="agent-memory-approve"),
     path("agent/memories/<uuid:memory_id>/revoke/", agent_memory_revoke, name="agent-memory-revoke"),
     path("executions/", executions, name="executions"),
+    path("executions/slurm-history/", slurm_history, name="slurm-history"),
     path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
     path("executions/bell-aer/", submit_bell_aer, name="execution-bell-aer"),
     path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),
