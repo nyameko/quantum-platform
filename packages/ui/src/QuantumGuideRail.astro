@@ -236,7 +236,10 @@
     return part ? decodeURIComponent(part.slice(name.length + 1)) : null;
   }
 
-  async function postJson(path: string, payload: Record<string, unknown>, headers?: Record<string, string>) {
+  async function postJson(
+    path: string, payload: Record<string, unknown>,
+    headers?: Record<string, string>, method: 'POST' | 'PATCH' = 'POST',
+  ) {
     const csrf = await fetch('/api/v1/csrf/', {
       credentials: 'same-origin', cache: 'no-store',
     });
@@ -244,7 +247,7 @@
     const token = cookie('csrftoken');
     if (!token) throw new Error('CSRF token unavailable. Sign in again.');
     return fetch(path, {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      method, credentials: 'same-origin', cache: 'no-store',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token, ...headers },
       body: JSON.stringify(payload),
     });
@@ -357,6 +360,42 @@
       }
     });
     actions.append(manage);
+    if (kind !== 'programme') {
+      const archive = document.createElement('button');
+      archive.type = 'button';
+      archive.textContent = 'Archive · remove from sidebar';
+      archive.title = 'Retains conversation and memory records; restore in full Guide';
+      archive.addEventListener('click', () => {
+        actions.hidePopover();
+        void (async () => {
+          const collection = kind === 'project' ? 'projects' : 'conversations';
+          const path = '/api/v1/agent/' + collection + '/' + encodeURIComponent(id) + '/';
+          try {
+            const current = await fetch(path, {
+              credentials: 'same-origin', cache: 'no-store',
+            });
+            if (!current.ok) throw new Error('Could not load the latest workspace version.');
+            const item = await current.json();
+            if (!item.updated_at) throw new Error('Workspace version unavailable.');
+            const response = await postJson(
+              path, { archived: true },
+              { 'If-Match': '"' + item.updated_at + '"' }, 'PATCH',
+            );
+            if (!response.ok) {
+              const failure = await response.json().catch(() => ({}));
+              throw new Error(failure.detail ?? 'Archive failed.');
+            }
+            if (chatStatus) chatStatus.textContent =
+              'Archived. Use Show archived in full Guide to restore it.';
+            await showRail();
+          } catch (error) {
+            if (chatStatus) chatStatus.textContent = error instanceof Error
+              ? error.message : 'Archive failed.';
+          }
+        })();
+      });
+      actions.append(archive);
+    }
     if (kind === 'project') {
       const create = document.createElement('button');
       create.type = 'button';
@@ -451,8 +490,8 @@
       }
       const projectPayload = await projectsResponse.json();
       const conversationPayload = await conversationsResponse.json();
-      const projects: Array<{id: string; title: string}> = projectPayload.items ?? [];
-      const chats: Array<{id: string; title?: string; project_id?: string | null}> = conversationPayload.items ?? [];
+      const projects: Array<{id: string; title: string; archived_at?: string | null}> = projectPayload.items ?? [];
+      const chats: Array<{id: string; title?: string; project_id?: string | null; archived_at?: string | null}> = conversationPayload.items ?? [];
       if (railConversationId === null && !sending) {
         const last = window.sessionStorage.getItem('qp:last-conversation-id');
         if (last && chats.some(chat => chat.id === last)) {
@@ -464,14 +503,14 @@
       }
       projectRoot?.replaceChildren();
       recentRoot?.replaceChildren();
-      for (const project of projects.slice(0, 12)) {
+      for (const project of projects.filter(p => !p.archived_at).slice(0, 12)) {
         const folder = document.createElement('details');
         folder.className = 'rail-folder';
         const heading = document.createElement('summary');
         heading.textContent = project.title;
         const children = document.createElement('div');
         children.className = 'rail-folder-children';
-        chats.filter(chat => chat.project_id === project.id).slice(0, 12)
+        chats.filter(chat => chat.project_id === project.id && !chat.archived_at).slice(0, 12)
           .forEach(chat => children.append(chatButton(chat)));
         folder.append(heading, children);
         const wrapper = document.createElement('div');
@@ -480,7 +519,8 @@
         projectRoot?.append(wrapper);
       }
       // Recent means recently updated conversations, including those filed under projects.
-      chats.filter(chat => !('archived_at' in chat && chat.archived_at)).slice(0, 12)
+      chats.filter(chat => !chat.archived_at
+        && !projects.some(p => p.id === chat.project_id && p.archived_at)).slice(0, 12)
         .forEach(chat => recentRoot?.append(chatButton(chat)));
       if (!projects.length && projectRoot) projectRoot.textContent = 'No projects yet.';
       filterRail();
