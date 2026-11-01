@@ -235,7 +235,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         credentials: 'same-origin', cache: 'no-store',
       });
       if (!response.ok) throw new Error(
-        response.status === 503 ? 'Profile service is not deployed yet.'
+        [404, 503].includes(response.status) ? 'Profile service is not deployed yet.'
           : 'Assistant preferences are unavailable.'
       );
       const data = await response.json();
@@ -341,7 +341,9 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   } | null = null;
 
   // The backend owns access control, version checks and all content. UI edits metadata only.
-  async function openWorkspaceEditor(kind: WorkspaceKind, id: string) {
+  async function openWorkspaceEditor(
+    kind: WorkspaceKind, id: string, focusField: 'name' | 'location' = 'name',
+  ) {
     if (workspaceEditorError) workspaceEditorError.textContent = '';
     const collection = kind === 'project' ? 'projects' : 'conversations';
     try {
@@ -378,7 +380,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         }
       }
       workspaceEditor?.showModal();
-      workspaceName?.focus();
+      if (focusField === 'location' && kind === 'conversation') workspaceLocation?.focus();
+      else workspaceName?.focus();
     } catch (error) {
       if (status) status.textContent =
         error instanceof Error ? error.message : 'Unable to edit workspace.';
@@ -441,68 +444,110 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     return !availableProjects.some(p => p.id === chat.project_id && p.archived_at);
   }
 
+  const workspacePopovers = new Set<HTMLElement>();
+  function clearWorkspacePopovers() {
+    for (const popup of workspacePopovers) {
+      if (popup.matches(':popover-open')) popup.hidePopover();
+      popup.remove();
+    }
+    workspacePopovers.clear();
+  }
+
   function workspaceMenu(kind: WorkspaceKind, item: Workspace) {
-    const menuButton = document.createElement('button');
-    menuButton.type = 'button';
-    menuButton.className = 'workspace-menu';
-    menuButton.textContent = '⋯';
-    menuButton.title = 'Actions for ' + item.title;
-    menuButton.setAttribute('aria-label', menuButton.title);
-    menuButton.setAttribute('aria-haspopup', 'menu');
-    menuButton.setAttribute('aria-expanded', 'false');
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'workspace-menu';
+    trigger.textContent = '⋯';
+    trigger.setAttribute('aria-label', 'Actions for ' + item.title);
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+
     const actions = document.createElement('div');
     actions.className = 'workspace-menu-actions';
     actions.setAttribute('role', 'menu');
     actions.setAttribute('popover', 'auto');
-    actions.addEventListener('toggle', () => {
-      menuButton.setAttribute('aria-expanded', String(actions.matches(':popover-open')));
-    });
-    menuButton.addEventListener('click', () => {
+    document.body.append(actions);
+    workspacePopovers.add(actions);
+    actions.addEventListener('toggle', () => trigger.setAttribute(
+      'aria-expanded', String(actions.matches(':popover-open'))));
+    trigger.addEventListener('click', () => {
       if (actions.matches(':popover-open')) { actions.hidePopover(); return; }
       actions.showPopover();
-      const rect = menuButton.getBoundingClientRect();
-      const width = 208;
-      actions.style.left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)) + 'px';
-      actions.style.top = (window.innerHeight - rect.bottom > actions.offsetHeight + 8
-        ? rect.bottom + 4 : Math.max(8, rect.top - actions.offsetHeight - 4)) + 'px';
-    });
-
-    const edit = document.createElement('button');
-    edit.type = 'button';
-    edit.textContent = kind === 'project' ? 'Rename / archive' : 'Rename / move / archive';
-    edit.addEventListener('click', () => {
-      actions.hidePopover();
-      void openWorkspaceEditor(kind, item.id);
-    });
-    actions.append(edit);
-
-    if (kind === 'project' && !item.archived_at) {
-      const create = document.createElement('button');
-      create.type = 'button';
-      create.textContent = 'New chat in project';
-      create.addEventListener('click', () => {
-        actions.hidePopover();
-        void createConversation(item.id);
+      const rect = trigger.getBoundingClientRect();
+      const width = Math.min(208, window.innerWidth - 16);
+      const height = actions.getBoundingClientRect().height;
+      Object.assign(actions.style, {
+        position: 'fixed', inset: 'auto', margin: '0',
+        left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)) + 'px',
+        top: (window.innerHeight - rect.bottom >= height + 8
+          ? rect.bottom + 5 : Math.max(8, rect.top - height - 5)) + 'px',
+        right: 'auto', bottom: 'auto', width: width + 'px',
       });
-      actions.append(create);
-    }
-    if (kind === 'conversation') {
-      const pin = document.createElement('button');
-      pin.type = 'button'; pin.disabled = true;
-      pin.textContent = 'Pin · unavailable';
-      pin.title = 'Requires ACP canonical pin support';
-      actions.append(pin);
-    }
-    const remove = document.createElement('button');
-    remove.type = 'button'; remove.disabled = true;
-    remove.textContent = 'Delete · unavailable';
-    remove.title = 'Permanent deletion requires reviewed ACP retention and memory-source policy';
-    actions.append(remove);
+      actions.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    });
 
-    const wrapper = document.createElement('span');
-    wrapper.className = 'workspace-menu-wrap';
-    wrapper.append(menuButton, actions);
-    return wrapper;
+    const option = (label: string, fn?: () => void, disabledReason?: string) => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = label;
+      if (disabledReason) {
+        button.disabled = true;
+        button.title = disabledReason;
+      }
+      if (fn) button.addEventListener('click', () => { actions.hidePopover(); fn(); });
+      actions.append(button);
+    };
+    const mutate = (changes: Record<string, unknown>) => {
+      void (async () => {
+        try {
+          const collection = kind === 'project' ? 'projects' : 'conversations';
+          const endpoint = '/api/v1/agent/' + collection + '/' + item.id + '/';
+          const detail = await fetch(endpoint, {
+            credentials: 'same-origin', cache: 'no-store',
+          });
+          const current = await detail.json().catch(() => ({}));
+          if (!detail.ok || !current.updated_at) {
+            throw new Error(current.detail ?? 'Workspace no longer available.');
+          }
+          const reply = await csrfJsonFetch(endpoint, {
+            method: 'PATCH',
+            headers: { 'If-Match': '"' + current.updated_at + '"' },
+            body: JSON.stringify(changes),
+          });
+          const result = await reply.json().catch(() => ({}));
+          if (!reply.ok) throw new Error(reply.status === 412
+            ? 'Workspace changed. Refresh before editing.'
+            : (result.detail ?? 'Could not update workspace.'));
+          if (status) status.textContent = 'Workspace updated in ACP.';
+          await loadSidebar();
+        } catch (error) {
+          if (status) status.textContent = error instanceof Error
+            ? error.message : 'Workspace update failed.';
+        }
+      })();
+    };
+
+    if (kind === 'conversation') {
+      option('Rename', () => { void openWorkspaceEditor(kind, item.id, 'name'); });
+      option('Pin', undefined, 'Needs ACP canonical pin support');
+      option('Share to Programme', undefined, 'Requires PI-authorised programme sharing');
+      option(item.archived_at ? 'Restore' : 'Archive',
+        () => mutate({ archived: !item.archived_at }));
+      option('Move to Project', () => { void openWorkspaceEditor(kind, item.id, 'location'); });
+      option('Remove from Project',
+        ('project_id' in item && item.project_id) ? () => mutate({ project_id: null }) : undefined,
+        ('project_id' in item && item.project_id) ? undefined : 'Conversation is not in a project');
+      option('Delete', undefined, 'Permanent deletion needs an approved retention policy');
+    } else {
+      option('Share to Programme', undefined, 'Requires approved PI sharing');
+      option('Rename Project', () => { void openWorkspaceEditor(kind, item.id); });
+      option('Project Settings', () => { void openWorkspaceEditor(kind, item.id); });
+      option('Pin Project', undefined, 'Needs ACP canonical pin support');
+      option(item.archived_at ? 'Restore Project' : 'Remove Project from sidebar',
+        () => mutate({ archived: !item.archived_at }));
+      option('Delete Project', undefined, 'Requires approved project retention and delete semantics');
+      if (!item.archived_at) option('New chat in Project', () => { void createConversation(item.id); });
+    }
+    return trigger;
   }
 
   function appendChat(parent: HTMLElement, chat: Conversation) {
@@ -521,6 +566,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   function renderSidebar() {
     if (!projectTree || !unfiledChats) return;
+    clearWorkspacePopovers();
     projectTree.replaceChildren();
     unfiledChats.replaceChildren();
 
@@ -551,7 +597,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       group.append(header, children);
       projectTree.append(group);
     }
-    const other = availableConversations.filter(c => isVisibleConversation(c)).slice(0, 15);
+    const other = availableConversations.filter(c => isVisibleConversation(c) && !c.project_id).slice(0, 15);
     other.forEach(chat => appendChat(unfiledChats, chat));
     if (!other.length) {
       const empty = document.createElement('small');
@@ -689,6 +735,17 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      if (response.status === 404) {
+        // A stale browser pointer should not make the rest of Guide unusable.
+        activeConversation = null;
+        activeProject = null;
+        window.sessionStorage.removeItem('qp:last-conversation-id');
+        if (activeTitle) activeTitle.textContent = 'Choose a conversation';
+        renderMessages([]);
+        if (status) status.textContent =
+          'That conversation is no longer available. Select another chat or create one.';
+        return;
+      }
       if (status) status.textContent = payload.detail ?? 'Unable to load conversation.';
       return;
     }
@@ -713,11 +770,15 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const run = await response.json().catch(() => ({}));
     if (conversationId !== activeConversation) return;
     if (!response.ok) {
-      if (status) status.textContent = run.detail ?? 'Unable to read agent status.';
-      // Do not delete the pointer for transient 503 failures.
-      if (response.status === 403 || response.status === 404) {
+      // A remembered run can expire or disappear independently of its durable
+      // conversation. Clear only the stale run pointer, never the conversation.
+      if (response.status === 404) {
         clearRememberedRun(conversationId, runId);
+        if (status) status.textContent = 'Previous run status expired; your conversation is still available.';
+        return;
       }
+      if (status) status.textContent = run.detail ?? 'Unable to read agent status.';
+      if (response.status === 403) clearRememberedRun(conversationId, runId);
       return;
     }
     if (run.conversation_id !== conversationId) {
@@ -765,7 +826,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
     if (!response.ok) {
       if (memoryStatus) {
-        memoryStatus.textContent = response.status === 503
+        memoryStatus.textContent = [404, 503].includes(response.status)
           ? 'Memory controls are not available until the ACP memory service is activated.'
           : (payload.detail ?? 'Unable to load memories.');
       }
@@ -1358,4 +1419,27 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .workspace-menu-actions:popover-open > button:disabled {
     opacity:.5; cursor:not-allowed;
   }
+</style>
+
+<style is:global>
+  .workspace-menu-actions:popover-open {
+    display:flex !important; flex-direction:column !important;
+    align-items:stretch !important; gap:.1rem;
+    position:fixed !important; margin:0 !important; z-index:1200;
+    border:1px solid var(--border); border-radius:.7rem;
+    background:var(--surface); color:var(--text); box-sizing:border-box;
+    padding:.35rem; max-width:calc(100vw - 16px); max-height:70vh;
+    overflow-y:auto; box-shadow:0 12px 32px rgb(0 0 0 / 35%);
+  }
+  .workspace-menu-actions:popover-open > button {
+    flex:none !important; display:block !important;
+    width:100% !important; padding:.55rem .7rem !important;
+    border:0; border-radius:.4rem; font:inherit; font-size:.8rem;
+    text-align:left !important; white-space:normal !important;
+    background:transparent; color:var(--text); cursor:pointer;
+  }
+  .workspace-menu-actions:popover-open > button:hover:not(:disabled) {
+    background:var(--background-soft);
+  }
+  .workspace-menu-actions:popover-open > button:disabled { opacity:.5; cursor:not-allowed; }
 </style>
