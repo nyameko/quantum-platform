@@ -348,20 +348,36 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   }
 
   function workspaceMenu(kind: WorkspaceKind, item: Workspace) {
-    const menu = document.createElement('details');
-    menu.className = 'workspace-menu';
-    const summary = document.createElement('summary');
-    summary.textContent = '⋯';
-    summary.title = 'Actions for ' + item.title;
-    summary.setAttribute('aria-label', summary.title);
+    const menuButton = document.createElement('button');
+    menuButton.type = 'button';
+    menuButton.className = 'workspace-menu';
+    menuButton.textContent = '⋯';
+    menuButton.title = 'Actions for ' + item.title;
+    menuButton.setAttribute('aria-label', menuButton.title);
+    menuButton.setAttribute('aria-haspopup', 'menu');
+    menuButton.setAttribute('aria-expanded', 'false');
     const actions = document.createElement('div');
     actions.className = 'workspace-menu-actions';
+    actions.setAttribute('role', 'menu');
+    actions.setAttribute('popover', 'auto');
+    actions.addEventListener('toggle', () => {
+      menuButton.setAttribute('aria-expanded', String(actions.matches(':popover-open')));
+    });
+    menuButton.addEventListener('click', () => {
+      if (actions.matches(':popover-open')) { actions.hidePopover(); return; }
+      actions.showPopover();
+      const rect = menuButton.getBoundingClientRect();
+      const width = 208;
+      actions.style.left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)) + 'px';
+      actions.style.top = (window.innerHeight - rect.bottom > actions.offsetHeight + 8
+        ? rect.bottom + 4 : Math.max(8, rect.top - actions.offsetHeight - 4)) + 'px';
+    });
 
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.textContent = kind === 'project' ? 'Rename / archive' : 'Rename / move / archive';
     edit.addEventListener('click', () => {
-      menu.open = false;
+      actions.hidePopover();
       void openWorkspaceEditor(kind, item.id);
     });
     actions.append(edit);
@@ -371,7 +387,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       create.type = 'button';
       create.textContent = 'New chat in project';
       create.addEventListener('click', () => {
-        menu.open = false;
+        actions.hidePopover();
         void createConversation(item.id);
       });
       actions.append(create);
@@ -389,8 +405,10 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     remove.title = 'Permanent deletion requires reviewed ACP retention and memory-source policy';
     actions.append(remove);
 
-    menu.append(summary, actions);
-    return menu;
+    const wrapper = document.createElement('span');
+    wrapper.className = 'workspace-menu-wrap';
+    wrapper.append(menuButton, actions);
+    return wrapper;
   }
 
   function appendChat(parent: HTMLElement, chat: Conversation) {
@@ -1086,16 +1104,18 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background: var(--background);
   }
   .sidebar-chat.selected { background: var(--background); font-weight: 700; }
-  .workspace-menu { position:relative; flex:0 0 auto; }
-  .workspace-menu summary { display:grid; place-items:center; list-style:none; cursor:pointer;
-    min-width:2.3rem; min-height:2.3rem; border:1px solid var(--border);
-    border-radius:.55rem; background:var(--surface); color:var(--text); }
-  .workspace-menu summary::-webkit-details-marker { display:none; }
-  .workspace-menu-actions { position:absolute; z-index:12; right:0; top:100%;
-    min-width:12rem; padding:.35rem; display:grid; gap:.2rem;
-    border:1px solid var(--border); border-radius:.6rem;
-    background:var(--surface-elevated); box-shadow:0 9px 24px rgb(0 0 0 / 20%); }
-  .workspace-menu-actions button { width:100%; min-height:2.1rem; text-align:left;
+  .workspace-menu-wrap { display:inline-flex; margin-left:auto; flex-shrink:0; }
+  .workspace-menu { display:grid; place-items:center; flex-shrink:0; min-width:2.3rem; height:2.3rem;
+    border:1px solid transparent; border-radius:.55rem; background:transparent; color:var(--text); cursor:pointer; }
+  .workspace-menu:hover, .workspace-menu:focus-visible { border-color:var(--border); background:var(--background-soft); }
+  .workspace-menu-actions:popover-open {
+    position:fixed; inset:unset; z-index:1000;
+    min-width:13rem; max-height:min(65vh,25rem); overflow-y:auto;
+    padding:.35rem; display:grid; gap:.2rem; border:1px solid var(--border);
+    border-radius:.6rem; color:var(--text); background:var(--surface);
+    box-shadow:0 10px 30px rgb(0 0 0 / 35%);
+  }
+  .workspace-menu-actions button { display:block; width:100%; min-height:2.1rem; text-align:left;
     background:transparent; color:var(--text); font-weight:500; font-size:.8rem; }
   .workspace-menu-actions button:hover:not(:disabled) { background:var(--background); }
   .workspace-menu-actions button:disabled { opacity:.55; cursor:not-allowed; }
@@ -1118,7 +1138,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .sidebar-section-heading { margin-top: 1rem; }
   .sidebar-section-heading h2 { margin: 0; }
   .project-header { padding-top: .3rem; }
-  .project-header .folder-name { flex: 1; }
+  .project-header .folder-name { flex: 1; min-width:0; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; }
   .project-children { padding-left: .65rem; border-left: 1px solid var(--border); }
   .project-children[hidden], #project-form[hidden] { display: none; }
   .icon-control { min-width: 2.4rem; width: 2.4rem; padding: 0; text-align: center; }
