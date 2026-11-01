@@ -15,6 +15,18 @@ import Card from '@nyameko/ui/Card.astro';
       Manage your password and multi-factor authentication.
     </p>
 
+    <section class="security-overview" aria-labelledby="security-overview-heading">
+      <h2 id="security-overview-heading">Security checklist</h2>
+      <p>Each status reflects your own account settings. Public-key registration is not the same as HPC or VPN provisioning.</p>
+      <ul aria-live="polite">
+        <li><span id="security-email" class="security-mark">·</span><span>Email verified</span></li>
+        <li><span id="security-mfa" class="security-mark">·</span><span>MFA configured</span></li>
+        <li><span id="security-ssh" class="security-mark">·</span><span>SSH public key registered</span></li>
+        <li><span id="security-wg" class="security-mark">·</span><span>WireGuard public key registered</span></li>
+      </ul>
+      <p id="security-overview-status" role="status">Checking your account…</p>
+    </section>
+
     <div class="grid grid-3 security-grid">
       <Card
         eyebrow="MFA"
@@ -68,7 +80,34 @@ import Card from '@nyameko/ui/Card.astro';
 <script>
   import { requireSession } from '../lib/auth';
 
-  await requireSession();
+  if (await requireSession()) {
+    const status = document.getElementById('security-overview-status');
+    try {
+      const response = await fetch('/api/v1/me/', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (!response.ok) throw new Error('Account security status unavailable.');
+      const me = await response.json();
+      for (const [id, ok] of [
+        ['security-email', me.email_verified === true],
+        ['security-mfa', me.mfa_configured === true],
+        ['security-ssh', me.ssh_key_registered === true],
+        ['security-wg', me.wireguard_key_registered === true],
+      ] as const) {
+        const element = document.getElementById(id);
+        if (!element) continue;
+        element.textContent = ok ? '✓' : '✕';
+        element.classList.add(ok ? 'verified' : 'missing');
+        element.setAttribute('aria-label', ok ? 'Configured' : 'Needs setup');
+      }
+      if (status) status.textContent = me.posix_provisioned
+        ? 'Research POSIX identity is recorded as provisioned.'
+        : 'Research POSIX identity is not yet recorded as provisioned.';
+    } catch {
+      if (status) status.textContent =
+        'Unable to verify account security. No success status is assumed.';
+    }
+  }
 </script>
 
 <style>
@@ -78,6 +117,15 @@ import Card from '@nyameko/ui/Card.astro';
     letter-spacing: -0.05em;
   }
 
+  .security-overview { margin-top:1.6rem; max-width:40rem; padding:1.25rem;
+    border:1px solid var(--border); border-radius:.9rem; background:var(--surface); }
+  .security-overview h2 { margin:0 0 .45rem; font-size:1.25rem; }
+  .security-overview p { color:var(--muted-strong); font-size:.88rem; }
+  .security-overview ul { padding:0; list-style:none; display:grid; gap:.45rem; margin:1rem 0; }
+  .security-overview li { display:flex; align-items:center; gap:.6rem; }
+  .security-mark { display:inline-grid; width:1.3rem; height:1.3rem; place-items:center; font-weight:800; }
+  .security-mark.verified { color:#32b879; }
+  .security-mark.missing { color:#ed6570; }
   .security-grid {
     margin-top: 2.5rem;
   }
