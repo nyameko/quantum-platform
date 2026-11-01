@@ -24,7 +24,7 @@ const links = [
 ] as const;
 
 const discordUrl = import.meta.env.PUBLIC_DISCORD_URL;
-const guideOnPage = section === 'User Portal' && !/^\/(agent|login|account)(\/|$)/.test(Astro.url.pathname);
+const guideOnPage = section === 'User Portal' && !/^\/(login|account)(\/|$)/.test(Astro.url.pathname);
 ---
 <!doctype html>
 <html lang="en">
@@ -102,7 +102,7 @@ const guideOnPage = section === 'User Portal' && !/^\/(agent|login|account)(\/|$
                 title="Quantum Guide"
                 hidden
               >
-                ☰ Guide
+                <span aria-hidden="true" class="nav-guide-symbol"></span> Guide
               </button>
             )
           }
@@ -129,6 +129,12 @@ const guideOnPage = section === 'User Portal' && !/^\/(agent|login|account)(\/|$
                 </span>
                 <span id="portal-username">Account</span>
               </a>
+            )
+          }
+          {
+            section === 'User Portal' && (
+              <button id="portal-signout" class="portal-signout"
+                type="button" hidden>Sign out</button>
             )
           }
         </div>
@@ -209,6 +215,7 @@ const guideOnPage = section === 'User Portal' && !/^\/(agent|login|account)(\/|$
         '#portal-account',
       );
 
+      const signout = document.querySelector<HTMLButtonElement>('#portal-signout');
       if (account) {
         (async () => {
           try {
@@ -235,11 +242,34 @@ const guideOnPage = section === 'User Portal' && !/^\/(agent|login|account)(\/|$
             }
 
             account.hidden = false;
+            if (signout) signout.hidden = false;
           } catch {
             // Anonymous/public pages do not need an account control.
           }
         })();
       }
+      signout?.addEventListener('click', async () => {
+        signout.disabled = true;
+        try {
+          const csrf = await fetch('/api/v1/csrf/', {
+            credentials: 'same-origin', cache: 'no-store',
+          });
+          if (!csrf.ok) throw new Error('CSRF protection unavailable.');
+          const part = document.cookie.split('; ').find(c => c.startsWith('csrftoken='));
+          if (!part) throw new Error('CSRF token not found.');
+          const token = decodeURIComponent(part.slice('csrftoken='.length));
+          const response = await fetch('/api/v1/logout/', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'X-CSRFToken': token, 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+          if (!response.ok) throw new Error('Unable to sign out.');
+          window.location.replace('/login/');
+        } catch {
+          signout.disabled = false;
+          signout.textContent = 'Sign out failed — retry';
+        }
+      });
     </script>
   </body>
 </html>
@@ -333,15 +363,25 @@ const guideOnPage = section === 'User Portal' && !/^\/(agent|login|account)(\/|$
   }
 
   .portal-guide-toggle {
+    display: inline-flex; gap: .35rem; align-items: center;
     border: 1px solid var(--border); border-radius: .55rem;
     background: var(--surface); color: var(--text); padding: .4rem .6rem;
     cursor: pointer;
   }
-  .portal-guide-toggle[hidden] { display: none !important; }
-  @media (min-width: 901px) {
-    .portal-guide-toggle { display: none !important; }
+  .nav-guide-symbol {
+    display: inline-block; width: 1rem; height: 1rem;
+    background: currentColor; opacity: .7;
+    mask: url('/assets/guide/panel.svg') center / contain no-repeat;
+    -webkit-mask: url('/assets/guide/panel.svg') center / contain no-repeat;
   }
-
+  .portal-signout {
+    min-height: 2.25rem; white-space: nowrap; border: 1px solid var(--border);
+    border-radius: .6rem; background: var(--surface); color: var(--text);
+    font: inherit; font-size: .8rem; padding: .4rem .75rem; cursor: pointer;
+  }
+  .portal-signout[hidden] { display: none; }
+  .portal-guide-toggle[hidden] { display: none !important; }
+ 
   .portal-account {
     display: inline-flex;
     align-items: center;
