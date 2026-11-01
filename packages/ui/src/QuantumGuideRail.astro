@@ -661,6 +661,7 @@
       const response = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
       if (!response.ok) return;
       const me = await response.json();
+      clearFloatingMenus();
       programmeRoot?.replaceChildren();
       for (const membership of (me.memberships ?? [])) {
         if (membership.status !== 'approved' || !membership.programme?.name) continue;
@@ -706,7 +707,6 @@
           });
         }
       }
-      clearFloatingMenus();
       projectRoot?.replaceChildren();
       recentRoot?.replaceChildren();
       for (const project of projects.filter(p => !p.archived_at).slice(0, 12)) {
