@@ -248,6 +248,42 @@
   .rail-action-list:popover-open > button:disabled { opacity:.5; cursor:not-allowed; }
 </style>
 
+<style is:global>
+  .guide-workspace-dialog {
+    padding: 1.25rem; width: min(27rem, 92vw); max-width: 92vw;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: .85rem;
+    box-shadow: 0 16px 48px rgb(0 0 0 / 35%);
+  }
+  .guide-workspace-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+  .guide-workspace-dialog form { display: grid; gap: .85rem; }
+  .guide-workspace-dialog h2 { margin: 0; font-size: 1.15rem; }
+  .guide-workspace-dialog input, .guide-workspace-dialog select {
+    width: 100%; padding: .7rem; box-sizing: border-box; font: inherit;
+    background: var(--background); color: var(--text);
+    border: 1px solid var(--border); border-radius: .45rem;
+  }
+  .guide-workspace-dialog p[role=alert] { color: var(--text); min-height: 1em; }
+  .guide-workspace-dialog-actions { display:flex; justify-content:flex-end; gap:.6rem; }
+  .guide-workspace-dialog-actions button { padding:.55rem .9rem; font:inherit; cursor:pointer; }
+  .rail-action-list:popover-open {
+    display:flex !important; flex-direction:column !important; align-items:stretch !important;
+    position:fixed !important; margin:0 !important; padding:.35rem !important;
+    z-index:1100; box-sizing:border-box; max-height:min(65vh,25rem);
+    background:var(--surface); color:var(--text); border:1px solid var(--border);
+    border-radius:.7rem; box-shadow:0 12px 36px rgb(0 0 0 / 35%);
+    overflow-y:auto; gap:.1rem;
+  }
+  .rail-action-list:popover-open > button {
+    display:block !important; flex:none !important; width:100% !important;
+    padding:.55rem .65rem !important; text-align:left !important;
+    white-space:normal !important; border:0; border-radius:.45rem;
+    background:transparent; color:var(--text); cursor:pointer; font:inherit; font-size:.8rem;
+  }
+  .rail-action-list:popover-open > button:disabled { opacity:.5; cursor:not-allowed; }
+  .rail-action-list:popover-open > button:not(:disabled):hover { background:var(--background-soft); }
+</style>
+
 <script>
   const rail = document.querySelector<HTMLElement>('#quantum-guide-rail');
   const projectRoot = document.querySelector<HTMLElement>('#rail-projects');
@@ -397,116 +433,207 @@
       'Still processing. Open full Guide to check the conversation.';
   }
 
-  function railMenu(kind: 'project' | 'conversation' | 'programme', id: string, title: string) {
+  // Popovers live in the document's top layer, outside the flex row. Keeping
+  // them out of the row fixes the sideways/stretched menus in Firefox.
+  const floatingMenus = new Set<HTMLElement>();
+  function clearFloatingMenus() {
+    for (const menu of floatingMenus) {
+      if (menu.matches(':popover-open')) menu.hidePopover();
+      menu.remove();
+    }
+    floatingMenus.clear();
+  }
+
+  function placePopup(trigger: HTMLButtonElement, popup: HTMLElement) {
+    popup.showPopover();
+    const anchor = trigger.getBoundingClientRect();
+    const width = Math.min(216, window.innerWidth - 16);
+    const height = popup.getBoundingClientRect().height;
+    const left = Math.max(8, Math.min(anchor.right - width, window.innerWidth - width - 8));
+    const top = window.innerHeight - anchor.bottom >= height + 8
+      ? anchor.bottom + 5 : Math.max(8, anchor.top - height - 5);
+    Object.assign(popup.style, {
+      position: 'fixed', inset: 'auto', margin: '0',
+      width: width + 'px', left: left + 'px', top: top + 'px',
+      right: 'auto', bottom: 'auto',
+    });
+    popup.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  }
+
+  type WorkspaceKind = 'project' | 'conversation';
+  function workspacePath(kind: WorkspaceKind, id: string) {
+    return '/api/v1/agent/' + (kind === 'project' ? 'projects' : 'conversations')
+      + '/' + encodeURIComponent(id) + '/';
+  }
+
+  async function updateWorkspace(
+    kind: WorkspaceKind, id: string, changes: Record<string, unknown>,
+  ) {
+    const path = workspacePath(kind, id);
+    const current = await fetch(path, { credentials: 'same-origin', cache: 'no-store' });
+    const item = await current.json().catch(() => ({}));
+    if (!current.ok) throw new Error(item.detail ?? 'Workspace no longer exists. Refresh the Guide.');
+    if (!item.updated_at) throw new Error('Workspace revision missing. Refresh the Guide.');
+    const reply = await postJson(path, changes,
+      { 'If-Match': '"' + item.updated_at + '"' }, 'PATCH');
+    const result = await reply.json().catch(() => ({}));
+    if (!reply.ok) throw new Error(reply.status === 412
+      ? 'This workspace changed. Refresh and try again.'
+      : (result.detail ?? 'Workspace update failed.'));
+    if (kind === 'conversation' && changes.archived === true
+      && railConversationId === id) {
+      railConversationId = null;
+      window.sessionStorage.removeItem('qp:last-conversation-id');
+      inlineTranscript?.replaceChildren();
+    }
+    if (chatStatus) chatStatus.textContent = 'Workspace saved in ACP.';
+    await showRail();
+  }
+
+  async function quickEditWorkspace(
+    kind: WorkspaceKind, id: string, action: 'rename' | 'move',
+  ) {
+    const path = workspacePath(kind, id);
+    try {
+      const current = await fetch(path, { credentials: 'same-origin', cache: 'no-store' });
+      const item = await current.json().catch(() => ({}));
+      if (!current.ok) throw new Error(item.detail ?? 'Workspace no longer exists.');
+      const dialog = document.createElement('dialog');
+      dialog.className = 'guide-workspace-dialog';
+      dialog.setAttribute('aria-label', action === 'rename' ? 'Rename workspace' : 'Move conversation');
+      const form = document.createElement('form');
+      form.method = 'dialog';
+      const heading = document.createElement('h2');
+      heading.textContent = action === 'rename' ? 'Rename ' + kind : 'Move to project';
+      const control = action === 'rename'
+        ? document.createElement('input') : document.createElement('select');
+      control.setAttribute('aria-label', heading.textContent);
+      control.required = true;
+      if (control instanceof HTMLInputElement) {
+        control.maxLength = 200;
+        control.value = item.title ?? '';
+      } else {
+        const unfiled = new Option('No project (unfiled)', '');
+        control.add(unfiled);
+        const projects = await fetch('/api/v1/agent/projects/', {
+          credentials: 'same-origin', cache: 'no-store',
+        });
+        if (!projects.ok) throw new Error('Projects could not be loaded.');
+        const payload = await projects.json();
+        for (const project of (payload.items ?? [])) {
+          if (!project.archived_at || project.id === item.project_id) {
+            control.add(new Option(project.title, project.id));
+          }
+        }
+        control.value = item.project_id ?? '';
+        control.required = false;
+      }
+      const controls = document.createElement('div');
+      controls.className = 'guide-workspace-dialog-actions';
+      const cancel = document.createElement('button');
+      cancel.type = 'button'; cancel.textContent = 'Cancel';
+      cancel.addEventListener('click', () => dialog.close());
+      const save = document.createElement('button');
+      save.type = 'submit'; save.textContent = 'Save';
+      const error = document.createElement('p');
+      error.setAttribute('role', 'alert');
+      form.append(heading, control, error, controls);
+      controls.append(cancel, save);
+      dialog.append(form);
+      document.body.append(dialog);
+      dialog.addEventListener('close', () => dialog.remove(), { once: true });
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        const value = control.value.trim();
+        if (action === 'rename' && (!value || value.length > 200)) {
+          error.textContent = 'Enter a title between 1 and 200 characters.';
+          return;
+        }
+        save.disabled = true;
+        void updateWorkspace(kind, id, action === 'rename'
+          ? { title: value } : { project_id: value || null })
+          .then(() => dialog.close())
+          .catch(err => { error.textContent = err instanceof Error ? err.message : 'Save failed.'; })
+          .finally(() => { save.disabled = false; });
+      });
+      dialog.showModal();
+      control.focus();
+    } catch (error) {
+      if (chatStatus) chatStatus.textContent = error instanceof Error
+        ? error.message : 'Workspace unavailable.';
+    }
+  }
+
+  function railMenu(
+    kind: 'project' | 'conversation' | 'programme',
+    id: string, title: string, projectId: string | null = null,
+    archived = false,
+  ) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'rail-actions';
     button.textContent = '⋯';
-    button.title = 'Actions for ' + title;
-    button.setAttribute('aria-label', button.title);
+    button.setAttribute('aria-label', 'Actions for ' + title);
     button.setAttribute('aria-haspopup', 'menu');
     button.setAttribute('aria-expanded', 'false');
     const actions = document.createElement('div');
     actions.className = 'rail-action-list';
     actions.setAttribute('role', 'menu');
     actions.setAttribute('popover', 'auto');
-    actions.addEventListener('toggle', () => {
-      button.setAttribute('aria-expanded', String(actions.matches(':popover-open')));
-    });
+    document.body.append(actions);
+    floatingMenus.add(actions);
+    actions.addEventListener('toggle', () =>
+      button.setAttribute('aria-expanded', String(actions.matches(':popover-open'))));
     button.addEventListener('click', () => {
-      if (actions.matches(':popover-open')) { actions.hidePopover(); return; }
-      actions.showPopover();
-      const rect = button.getBoundingClientRect();
-      const width = 216;
-      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
-      const below = window.innerHeight - rect.bottom >= Math.min(240, actions.offsetHeight + 8);
-      actions.style.left = left + 'px';
-      actions.style.top = (below ? rect.bottom + 4
-        : Math.max(8, rect.top - actions.offsetHeight - 4)) + 'px';
+      if (actions.matches(':popover-open')) actions.hidePopover();
+      else placePopup(button, actions);
     });
-    const manage = document.createElement('button');
-    manage.type = 'button';
-    manage.textContent = kind === 'programme' ? 'View access / settings'
-      : kind === 'project' ? 'Rename / archive' : 'Rename / move / archive';
-    manage.addEventListener('click', () => {
-      if (kind === 'programme') window.location.assign('/programmes/');
-      else {
-        window.sessionStorage.setItem('qp:workspace-edit', kind + ':' + id);
-        window.location.assign('/agent/');
-      }
-    });
-    actions.append(manage);
-    if (kind !== 'programme') {
-      const archive = document.createElement('button');
-      archive.type = 'button';
-      archive.textContent = 'Archive · remove from sidebar';
-      archive.title = 'Retains conversation and memory records; restore in full Guide';
-      archive.addEventListener('click', () => {
-        actions.hidePopover();
-        void (async () => {
-          const collection = kind === 'project' ? 'projects' : 'conversations';
-          const path = '/api/v1/agent/' + collection + '/' + encodeURIComponent(id) + '/';
-          try {
-            const current = await fetch(path, {
-              credentials: 'same-origin', cache: 'no-store',
-            });
-            if (!current.ok) throw new Error('Could not load the latest workspace version.');
-            const item = await current.json();
-            if (!item.updated_at) throw new Error('Workspace version unavailable.');
-            const response = await postJson(
-              path, { archived: true },
-              { 'If-Match': '"' + item.updated_at + '"' }, 'PATCH',
-            );
-            if (!response.ok) {
-              const failure = await response.json().catch(() => ({}));
-              throw new Error(failure.detail ?? 'Archive failed.');
-            }
-            if (chatStatus) chatStatus.textContent =
-              'Archived. Use Show archived in full Guide to restore it.';
-            await showRail();
-          } catch (error) {
-            if (chatStatus) chatStatus.textContent = error instanceof Error
-              ? error.message : 'Archive failed.';
-          }
-        })();
+    const option = (label: string, fn?: () => void, why?: string) => {
+      const item = document.createElement('button');
+      item.type = 'button'; item.textContent = label;
+      if (why) { item.disabled = true; item.title = why; }
+      if (fn) item.addEventListener('click', () => { actions.hidePopover(); fn(); });
+      actions.append(item);
+    };
+    const apply = (changes: Record<string, unknown>) => {
+      void updateWorkspace(kind as WorkspaceKind, id, changes).catch(err => {
+        if (chatStatus) chatStatus.textContent = err instanceof Error ? err.message : 'Save failed.';
       });
-      actions.append(archive);
-    }
-    if (kind === 'project') {
-      const create = document.createElement('button');
-      create.type = 'button';
-      create.textContent = 'New chat in project';
-      create.addEventListener('click', () => {
+    };
+    if (kind === 'conversation') {
+      option('Rename', () => { void quickEditWorkspace('conversation', id, 'rename'); });
+      option('Pin', undefined, 'Requires ACP canonical pin support');
+      option('Share to Programme', undefined, 'Requires authorised PI-governed room sharing');
+      option(archived ? 'Restore from archive' : 'Archive', () => apply({ archived: !archived }));
+      option('Move to Project', () => { void quickEditWorkspace('conversation', id, 'move'); });
+      option('Remove from Project', projectId ? () => apply({ project_id: null }) : undefined,
+        projectId ? undefined : 'Already unfiled');
+      option('Delete', undefined, 'Permanent deletion is governed by ACP retention policy');
+    } else if (kind === 'project') {
+      option('Share to Programme', undefined, 'PI-controlled project sharing not yet available');
+      option('Rename Project', () => { void quickEditWorkspace('project', id, 'rename'); });
+      option('Project Settings', () => {
+        window.sessionStorage.setItem('qp:workspace-edit', 'project:' + id);
+        window.location.assign('/agent/');
+      });
+      option('Pin Project', undefined, 'Requires canonical ACP pin support');
+      option(archived ? 'Restore Project' : 'Remove Project from sidebar',
+        () => apply({ archived: !archived }));
+      option('Delete Project', undefined, 'Permanent deletion requires approved retention policy');
+      option('New chat in Project', () => {
         window.sessionStorage.setItem('qp:workspace-new-chat', id);
         window.location.assign('/agent/');
       });
-      actions.append(create);
-    }
-    if (kind !== 'programme') {
-      const pin = document.createElement('button');
-      pin.type = 'button'; pin.disabled = true;
-      pin.textContent = 'Pin · unavailable';
-      pin.title = 'Requires reviewed ACP canonical pin support';
-      actions.append(pin);
-      const remove = document.createElement('button');
-      remove.type = 'button'; remove.disabled = true;
-      remove.textContent = 'Delete · unavailable';
-      remove.title = 'Requires ACP retention, deletion and memory-source policy';
-      actions.append(remove);
     } else {
-      const shared = document.createElement('button');
-      shared.type = 'button'; shared.disabled = true;
-      shared.textContent = 'New shared chat · unavailable';
-      shared.title = 'Requires PI-governed ACP programme rooms';
-      actions.append(shared);
+      option('View programme access', () => window.location.assign('/programmes/'));
+      option('New shared chat', undefined, 'Requires reviewed PI-authorised shared room release');
     }
-    const wrapper = document.createElement('span');
-    wrapper.className = 'rail-actions-wrap';
-    wrapper.append(button, actions);
-    return wrapper;
+    return button;
   }
 
-  function chatButton(chat: { id: string; title?: string }) {
+  function chatButton(chat: {
+    id: string; title?: string; project_id?: string | null; archived_at?: string | null;
+  }) {
     const row = document.createElement('div');
     row.className = 'rail-chat-row';
     const button = document.createElement('button');
@@ -522,7 +649,9 @@
       });
       if (openConversation) openConversation.href = '/agent/';
     });
-    row.append(button, railMenu('conversation', chat.id, chat.title || 'New chat'));
+    row.append(button, railMenu('conversation', chat.id, chat.title || 'New chat',
+      ('project_id' in chat ? (chat as {project_id?: string | null}).project_id ?? null : null),
+      Boolean('archived_at' in chat && (chat as {archived_at?: string}).archived_at)));
     return row;
   }
 
@@ -577,6 +706,7 @@
           });
         }
       }
+      clearFloatingMenus();
       projectRoot?.replaceChildren();
       recentRoot?.replaceChildren();
       for (const project of projects.filter(p => !p.archived_at).slice(0, 12)) {
@@ -591,7 +721,8 @@
         folder.append(heading, children);
         const wrapper = document.createElement('div');
         wrapper.className = 'rail-folder-row';
-        wrapper.append(folder, railMenu('project', project.id, project.title));
+        wrapper.append(folder, railMenu('project', project.id, project.title, null,
+          Boolean(project.archived_at)));
         projectRoot?.append(wrapper);
       }
       // Recent means recently updated conversations, including those filed under projects.
