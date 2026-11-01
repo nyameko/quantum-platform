@@ -13,11 +13,10 @@ const { eyebrow, title, href, icon, description, brandIcon = false, class: class
 ---
 
 {href ? (
-  <a class={`card ${className}`} href={href}>
+  <a class={`card ${className}`} href={href} data-help={description} aria-description={description}
     {icon && (brandIcon ? <img class="card-brand-visual" src={icon} alt="" aria-hidden="true" /> : <span class="card-visual" aria-hidden="true" style={`--card-icon:url("${icon}")`} />)}
     {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
     {title && <h3>{title}</h3>}
-    {description && <span class="card-help" data-help={description} title={description} aria-label={`About ${title}: ${description}`}>i</span>}
     <div class="card-body"><slot /></div>
   </a>
 ) : (
@@ -63,17 +62,19 @@ const { eyebrow, title, href, icon, description, brandIcon = false, class: class
     display:block; width:3.2rem; height:3.2rem; margin:0 0 1.15rem;
     object-fit:contain;
   }
-  .card-help {
-    position:absolute; top:1rem; right:1rem; width:1.45rem; height:1.45rem;
-    border:1px solid var(--border); border-radius:50%; display:grid;
-    place-items:center; font-size:.8rem; font-weight:700; color:var(--muted-strong);
-  }
-  .card:hover .card-help::after, .card:focus-within .card-help::after {
-    content:attr(data-help); position:absolute; z-index:4; right:0; top:calc(100% + .5rem);
-    width:min(18rem, 65vw); box-sizing:border-box; padding:.8rem; border-radius:.65rem;
-    background:var(--surface-elevated); border:1px solid var(--border-strong);
-    color:var(--text); box-shadow:0 10px 28px rgb(0 0 0 / 30%);
+  /* Descriptions remain hover/focus hints; no redundant information glyphs. */
+  a.card[data-help]:hover::after, a.card[data-help]:focus-visible::after {
+    content:attr(data-help); position:absolute; z-index:35;
+    right:1rem; top:3.2rem; width:min(18rem, 65vw); box-sizing:border-box;
+    padding:.8rem; border-radius:.65rem; border:1px solid var(--border-strong);
+    background:var(--surface-elevated); color:var(--text);
+    box-shadow:0 10px 28px rgb(0 0 0 / 30%);
     font-size:.85rem; font-weight:400; line-height:1.45; pointer-events:none;
+  }
+  /* The first column sits beside Quantum Guide; shift its hints right. */
+  a.card.tooltip-right[data-help]:hover::after,
+  a.card.tooltip-right[data-help]:focus-visible::after {
+    left:calc(100% - 1.4rem); right:auto;
   }
   .card-eyebrow {
     margin: 0 0 0.65rem;
