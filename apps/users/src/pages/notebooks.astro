@@ -1,0 +1,63 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+
+// Links are explicit, curated references to upstream-SDK notebooks already in
+// the quantum-workflows repository, not executable ACP "skills".
+const source = 'https://github.com/nyameko/quantum-workflows/blob/main/labs/01-intro-quantum-computing/';
+---
+
+<SiteLayout title="Reviewed notebooks" siteName="Quantum Platform" section="User Portal">
+  <section class="section container notebook-catalog">
+    <p class="eyebrow">M4D · SCIENTIFIC LEARNING RESOURCES</p>
+    <h1>Research notebooks</h1>
+    <p class="lede">
+      Learn directly with established libraries. These resources are ordinary Jupyter notebooks,
+      not Quantum Platform-specific commands, and do not allocate GPUs or QPUs.
+    </p>
+
+    <article class="notebook-card">
+      <p class="eyebrow">FOUNDATIONS · CPU · QISKIT / QISKIT AER</p>
+      <h2>Introduction to quantum computing</h2>
+      <p>
+        Classical bits, qubits, superposition, measurement, Bloch visualisation,
+        interference and two-qubit entanglement, with theory cells and executable Python.
+      </p>
+      <p class="note">
+        This notebook demonstrates Bell-state correlations.
+        A complete CHSH inequality/violation notebook is a separate follow-up lesson.
+      </p>
+      <div class="resource-actions">
+        <a href={source + 'Intro_QC_Demo.ipynb'} target="_blank" rel="noopener noreferrer">
+          Inspect source notebook
+        </a>
+        <a href={source + 'README.md'} target="_blank" rel="noopener noreferrer">
+          Environment setup and teaching notes
+        </a>
+        <a href="/workbench/">Open your Jupyter Workbench</a>
+      </div>
+      <p class="note">
+        Your workbench does not yet automatically import this notebook.
+        Use the reviewed source and environment instructions; future managed kernels
+        and one-click notebook import will be enabled when the infrastructure supports them.
+      </p>
+    </article>
+
+    <p class="note">
+      Notebook execution uses upstream Python SDKs directly. Resource entitlements,
+      reviewed ACP skills and later Slurm/remote-QPU dispatch are separate capabilities.
+    </p>
+  </section>
+</SiteLayout>
+
+<style>
+  .notebook-catalog { max-width:70rem; }
+  h1 { margin:.4rem 0; font-size:clamp(2.4rem,5vw,4rem); letter-spacing:-.04em; }
+  .notebook-card { padding:1.5rem; margin-top:2rem; border:1px solid var(--border);
+    border-radius:1rem; background:var(--surface); }
+  h2 { font-size:1.45rem; margin:.4rem 0 1rem; }
+  .resource-actions { display:flex; gap:.6rem; flex-wrap:wrap; margin:1.3rem 0; }
+  .resource-actions a { color:var(--text); text-decoration:none; border:1px solid var(--border);
+    border-radius:.6rem; padding:.7rem .85rem; }
+  .resource-actions a:hover { background:var(--background-soft); }
+  .note { color:var(--muted-strong); font-size:.9rem; }
+</style>
