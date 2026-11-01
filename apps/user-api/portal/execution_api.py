@@ -1,4 +1,5 @@
 import shlex
+import logging
 import os
 import subprocess
 import tempfile
@@ -19,6 +20,17 @@ TERMINAL_STATES = {
     ExecutionRecord.State.FAILED,
     ExecutionRecord.State.CANCELLED,
 }
+
+logger = logging.getLogger(__name__)
+
+
+class SlurmGatewayHistoryError(RuntimeError):
+    """Bounded diagnostic category without leaking privileged SSH output."""
+
+    def __init__(self, reason):
+        super().__init__("Scheduler history is temporarily unavailable.")
+        self.reason = reason
+
 
 SLURM_STATE_MAP = {
     "PENDING": ExecutionRecord.State.QUEUED,
@@ -102,6 +114,15 @@ def _gateway(op, arg, stdin=None):
                 timeout=20,
             )
         except subprocess.CalledProcessError as exc:
+            if op == "history":
+                reason = {
+                    64: "history_command_not_installed",
+                    77: "research_identity_not_entitled",
+                    255: "ssh_gateway_unreachable_or_unauthorized",
+                }.get(exc.returncode, "scheduler_accounting_command_failed")
+                logger.warning("Slurm history gateway failure: %s (exit %s)",
+                               reason, exc.returncode)
+                raise SlurmGatewayHistoryError(reason) from exc
             message = (
                 exc.stderr or exc.stdout or "Slurm gateway command failed."
             ).strip()
@@ -358,9 +379,18 @@ def slurm_history(request):
         # Trust-boundary property: authenticated username only, never request.data
         # or query_params. The gateway verifies that this POSIX user is entitled.
         output = _gateway("history", request.user.username)
+    except SlurmGatewayHistoryError as exc:
+        return Response(
+            {
+                "detail": "Scheduler history is temporarily unavailable.",
+                "reason": exc.reason,
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     except RuntimeError:
         return Response(
-            {"detail": "Scheduler history is temporarily unavailable."},
+            {"detail": "Scheduler history is temporarily unavailable.",
+             "reason": "scheduler_gateway_unavailable"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
