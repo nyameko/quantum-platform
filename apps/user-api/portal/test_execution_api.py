@@ -61,6 +61,56 @@ class ExecutionApiTests(TestCase):
         self.assertNotIn("module load apptainer", script)
         self.assertIn("qw cpu-smoke", script)
 
+    @patch("portal.execution_api._gateway", return_value="12346")
+    def test_submit_bell_aer_uses_fixed_cpu_slurm_template(self, gateway):
+        response = self.client.post(
+            "/api/v1/executions/bell-aer/",
+            data={"executor": "ibm", "partition": "gpu", "shots": 999999},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        record = ExecutionRecord.objects.get(pk=response.json()["id"])
+        self.assertEqual(record.offering, "bell-aer")
+        self.assertEqual(record.parameters["logical_target"], "cpu-small")
+        self.assertEqual(record.parameters["executor"], "aer")
+        self.assertEqual(record.parameters["shots"], 1024)
+        self.assertEqual(record.scheduler_job_id, "12346")
+
+        script = gateway.call_args.kwargs["stdin"]
+        self.assertIn("#SBATCH --job-name=qw-bell-aer", script)
+        self.assertIn("#SBATCH --partition=cpu-small", script)
+        self.assertIn("#SBATCH --chdir=/home/research/nlisa", script)
+        self.assertIn("/usr/bin/apptainer exec", script)
+        self.assertIn("qw hello --executor aer --shots 1024 --seed 42", script)
+        self.assertNotIn("--executor ibm", script)
+        self.assertNotIn("--gres=gpu", script)
+        self.assertIn(str(record.pk), script)
+
+    @patch("portal.execution_api._gateway")
+    def test_bell_requires_approved_membership(self, gateway):
+        ProgrammeMembership.objects.filter(person=self.person).update(
+            status=ProgrammeMembership.Status.SUSPENDED
+        )
+        response = self.client.post(
+            "/api/v1/executions/bell-aer/",
+            data={},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403, response.content)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_bell_requires_provisioned_posix_identity(self, gateway):
+        self.person.posix_uid = None
+        self.person.save(update_fields=["posix_uid"])
+        response = self.client.post(
+            "/api/v1/executions/bell-aer/",
+            data={},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 409, response.content)
+        gateway.assert_not_called()
+
     @patch("portal.execution_api.Path.exists", return_value=True)
     @patch("portal.execution_api._gateway", return_value="COMPLETED|slurm-cpu-01")
     def test_detail_refreshes_completed_slurm_state(self, _gateway, _path_exists):
