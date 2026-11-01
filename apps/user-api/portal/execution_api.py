@@ -142,6 +142,36 @@ srun /usr/bin/apptainer exec \
 """
 
 
+def _bell_aer_script(record):
+    """Fixed, credential-free Bell experiment on the existing Slurm CPU runner."""
+    result_path = record.result_path
+    image = settings.QUANTUM_WORKFLOWS_CPU_IMAGE
+    home_path = f"/home/research/{record.user.username}"
+    log_path = f"{home_path}/.quantum-platform/slurm-%j.out"
+
+    return f"""#!/usr/bin/env bash
+#SBATCH --job-name=qw-bell-aer
+#SBATCH --partition=cpu-small
+#SBATCH --time=00:20:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --chdir={shlex.quote(home_path)}
+#SBATCH --output={shlex.quote(log_path)}
+
+set -euo pipefail
+
+result_root={shlex.quote(result_path)}
+image={shlex.quote(image)}
+
+mkdir -p "$result_root"
+srun /usr/bin/apptainer exec \\
+  --bind "$result_root:/results" \\
+  "$image" \\
+  qw hello --executor aer --shots 1024 --seed 42 --output /results
+"""
+
+
 def _payload(record):
     return {
         "id": str(record.pk),
@@ -206,9 +236,8 @@ def executions(request):
     return Response(payload)
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def submit_cpu_smoke(request):
+def _submit_fixed_workflow(request, *, offering, parameters, batch_script):
+    """Only server-owned templates can be submitted through the restricted gateway."""
     if not _entitled(request.user):
         return Response(
             {"detail": "An approved research programme membership is required."},
@@ -230,9 +259,9 @@ def submit_cpu_smoke(request):
 
     record = ExecutionRecord.objects.create(
         user=request.user,
-        offering="cpu-smoke",
+        offering=offering,
         state=ExecutionRecord.State.CREATED,
-        parameters={"iterations": 100000, "logical_target": "cpu-small"},
+        parameters=parameters,
         result_path="",
     )
     record.result_path = (
@@ -245,7 +274,7 @@ def submit_cpu_smoke(request):
         scheduler_job_id = _gateway(
             "submit",
             request.user.username,
-            stdin=_cpu_smoke_script(record),
+            stdin=batch_script(record),
         ).splitlines()[-1].strip()
         if not scheduler_job_id or not scheduler_job_id.split("_", 1)[0].isdigit():
             raise RuntimeError("Slurm gateway returned an invalid job identifier.")
@@ -273,6 +302,32 @@ def submit_cpu_smoke(request):
     )
     return Response(_payload(record), status=status.HTTP_201_CREATED)
 
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def submit_cpu_smoke(request):
+    return _submit_fixed_workflow(
+        request,
+        offering="cpu-smoke",
+        parameters={"iterations": 100000, "logical_target": "cpu-small"},
+        batch_script=_cpu_smoke_script,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def submit_bell_aer(request):
+    return _submit_fixed_workflow(
+        request,
+        offering="bell-aer",
+        parameters={
+            "shots": 1024,
+            "seed": 42,
+            "executor": "aer",
+            "logical_target": "cpu-small",
+        },
+        batch_script=_bell_aer_script,
+    )
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

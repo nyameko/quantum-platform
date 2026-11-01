@@ -41,6 +41,52 @@ def agent_projects(request):
     return _call(request, "POST", "/v1/projects", body={"title": title})
 
 
+def _workspace_patch(request, path, *, conversation=False):
+    """Validate owner-scoped metadata; ACP still enforces signed identity and RLS."""
+    version = request.headers.get("If-Match", "")
+    if not (2 < len(version) <= 100 and version.startswith('"') and version.endswith('"')):
+        return Response({"detail": "Quoted current workspace version required."}, status=400)
+    if not isinstance(request.data, dict) or not request.data:
+        return Response({"detail": "Workspace update is required."}, status=400)
+    allowed = {"title", "archived", "project_id"} if conversation else {"title", "archived"}
+    if set(request.data) - allowed:
+        return Response({"detail": "Unsupported workspace field."}, status=400)
+    body = {}
+    if "title" in request.data:
+        title = request.data["title"]
+        if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
+            return Response({"detail": "Workspace title must be 1–200 characters."}, status=400)
+        body["title"] = title.strip()
+    if "archived" in request.data:
+        archived = request.data["archived"]
+        if not isinstance(archived, bool):
+            return Response({"detail": "Archived must be a boolean."}, status=400)
+        body["archived"] = archived
+    if "project_id" in request.data:
+        project_id = request.data["project_id"]
+        try:
+            body["project_id"] = None if project_id is None else str(UUID(str(project_id)))
+        except (ValueError, TypeError):
+            return Response({"detail": "Invalid target project ID."}, status=400)
+    try:
+        data = agent_client.call(
+            request.user, "PATCH", path,
+            scope="agent:personal", json_body=body, if_match=version,
+        )
+        return Response(data, status=200)
+    except agent_client.AgentServiceError as exc:
+        return Response({"detail": str(exc)}, status=exc.status_code)
+
+
+@api_view(["GET", "PATCH"])
+@permission_classes([IsAuthenticated])
+def agent_project(request, project_id):
+    path = f"/v1/projects/{project_id}"
+    if request.method == "GET":
+        return _call(request, "GET", path)
+    return _workspace_patch(request, path)
+
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def agent_conversations(request):
@@ -67,10 +113,13 @@ def agent_conversations(request):
     return _call(request, "POST", "/v1/conversations", body=body)
 
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 def agent_conversation(request, conversation_id):
-    return _call(request, "GET", f"/v1/conversations/{conversation_id}")
+    path = f"/v1/conversations/{conversation_id}"
+    if request.method == "GET":
+        return _call(request, "GET", path)
+    return _workspace_patch(request, path, conversation=True)
 
 
 @api_view(["POST"])

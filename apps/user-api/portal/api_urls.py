@@ -8,6 +8,7 @@ from .agent_api import (
     agent_memory_revoke,
     agent_conversations,
     agent_projects,
+    agent_project,
     agent_run,
     agent_turn,
 )
@@ -22,6 +23,7 @@ from .execution_api import (
     execution_detail,
     executions,
     submit_cpu_smoke,
+    submit_bell_aer,
 )
 from .internal_wireguard_api import (
     acknowledge_wireguard_peers,
@@ -56,6 +58,7 @@ from .views import (
 urlpatterns = [
     path("health/", health, name="health"),
     path("agent/projects/", agent_projects, name="agent-projects"),
+    path("agent/projects/<uuid:project_id>/", agent_project, name="agent-project"),
     path("agent/conversations/", agent_conversations, name="agent-conversations"),
     path(
         "agent/conversations/<uuid:conversation_id>/",
@@ -74,6 +77,7 @@ urlpatterns = [
     path("agent/memories/<uuid:memory_id>/revoke/", agent_memory_revoke, name="agent-memory-revoke"),
     path("executions/", executions, name="executions"),
     path("executions/cpu-smoke/", submit_cpu_smoke, name="execution-cpu-smoke"),
+    path("executions/bell-aer/", submit_bell_aer, name="execution-bell-aer"),
     path("executions/<uuid:execution_id>/", execution_detail, name="execution-detail"),
     path("executions/<uuid:execution_id>/cancel/", cancel_execution, name="execution-cancel"),
     path(
