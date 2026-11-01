@@ -9,6 +9,9 @@ from .agent_api import (
     agent_conversations,
     agent_projects,
     agent_project,
+    agent_programme_conversations,
+    agent_programme_conversation,
+    agent_programme_message,
     agent_run,
     agent_turn,
 )
@@ -58,6 +61,12 @@ from .views import (
 urlpatterns = [
     path("health/", health, name="health"),
     path("agent/projects/", agent_projects, name="agent-projects"),
+    path("agent/programmes/<int:programme_id>/conversations/",
+         agent_programme_conversations, name="agent-programme-conversations"),
+    path("agent/programmes/<int:programme_id>/conversations/<uuid:conversation_id>/",
+         agent_programme_conversation, name="agent-programme-conversation"),
+    path("agent/programmes/<int:programme_id>/conversations/<uuid:conversation_id>/messages/",
+         agent_programme_message, name="agent-programme-message"),
     path("agent/projects/<uuid:project_id>/", agent_project, name="agent-project"),
     path("agent/conversations/", agent_conversations, name="agent-conversations"),
     path(
