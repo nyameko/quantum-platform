@@ -331,6 +331,68 @@ def submit_bell_aer(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def slurm_history(request):
+    """Read-only scheduler accounting, scoped by signed portal user and POSIX identity.
+
+    Never accept a username, account or job-owner selector from the browser.
+    Only the restricted SSH gateway can execute the fixed sacct query; no
+    arbitrary commands or output paths are accepted.
+    """
+    if not _entitled(request.user):
+        return Response(
+            {"detail": "An approved research programme membership is required."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    person = getattr(request.user, "person", None)
+    if person is None or person.posix_uid is None or person.posix_gid is None:
+        return Response(
+            {"detail": "Your POSIX research identity is not provisioned."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    if not _configured():
+        return Response(
+            {"detail": "The Slurm execution gateway is not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    try:
+        # Trust-boundary property: authenticated username only, never request.data
+        # or query_params. The gateway verifies that this POSIX user is entitled.
+        output = _gateway("history", request.user.username)
+    except RuntimeError:
+        return Response(
+            {"detail": "Scheduler history is temporarily unavailable."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    history = []
+    for line in output.splitlines()[:75]:
+        parts = line.split("|")
+        if len(parts) != 10:
+            continue
+        job, name, partition, state, exit_code, elapsed, submitted, started, finished, nodes = (
+            value.strip() for value in parts
+        )
+        if not job.isdigit():
+            continue
+        # display data, not a new ExecutionRecord or an assumed job entitlement
+        history.append({
+            "job_id": job,
+            "job_name": name,
+            "partition": partition,
+            "state": state,
+            "exit_code": exit_code,
+            "elapsed": elapsed,
+            "submitted_at": submitted,
+            "started_at": started,
+            "finished_at": finished,
+            "nodes": nodes,
+            "source": "slurm",
+        })
+    return Response({"items": history, "window_days": 7})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def execution_detail(request, execution_id):
     record = ExecutionRecord.objects.filter(pk=execution_id, user=request.user).first()
     if record is None:
