@@ -1,3 +1,7 @@
+<button id="rail-expand-handle" type="button" hidden
+  title="Expand Quantum Guide" aria-label="Expand Quantum Guide">
+  <span class="rail-symbol panel" aria-hidden="true"></span> Guide
+</button>
 <aside id="quantum-guide-rail" class="quantum-guide-rail" aria-label="Quantum Guide" hidden>
   <div class="rail-heading">
     <a href="/agent/" class="rail-title" title="Open Quantum Guide">Quantum Guide</a>
@@ -56,7 +60,13 @@
     background: var(--surface);
     box-shadow: var(--shadow);
   }
-  .quantum-guide-rail[hidden] { display: none !important; }
+  .quantum-guide-rail[hidden], #rail-expand-handle[hidden] { display: none !important; }
+  #rail-expand-handle { position:fixed; z-index:30; top:5.25rem; left:.5rem;
+    display:flex; align-items:center; gap:.4rem; padding:.55rem .7rem;
+    border:1px solid var(--border); border-radius:.65rem; color:var(--text);
+    background:var(--surface); box-shadow:var(--shadow); cursor:pointer; }
+  #rail-expand-handle:hover { background:var(--background-soft); }
+  #rail-expand-handle .rail-symbol { background:currentColor; }
   .rail-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
   .rail-heading-actions { display:flex; align-items:center; gap:.2rem; }
   .rail-tool { width:2rem; height:2rem; display:grid; place-items:center; cursor:pointer;
@@ -123,25 +133,30 @@
   .rail-folder { margin: .5rem 0; }
   .rail-folder summary { font-size: .82rem; cursor: pointer; font-weight: 700; overflow-wrap: anywhere; }
   .rail-folder-children { margin-left: .8rem; border-left: 1px solid var(--border); padding-left: .25rem; }
-  .rail-chat-row, .rail-folder-row { display:flex; align-items:start; min-width:0; gap:.2rem; }
+  .rail-chat-row, .rail-folder-row { display:flex; align-items:center; min-width:0; gap:.2rem; width:100%; }
+  .rail-chat-row > .rail-actions, .rail-folder-row > .rail-actions { margin-left:auto; }
+  .rail-folder-row > .rail-folder { overflow:hidden; }
+  .rail-folder > summary { max-width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rail-folder > summary::before { flex-shrink:0; }
   .rail-chat-row > .rail-chat, .rail-folder-row > .rail-folder { flex:1; min-width:0; }
-  .rail-folder-row > .rail-actions { margin-top:.55rem; }
-  .rail-actions { position:relative; flex:0 0 auto; }
-  .rail-actions summary { display:grid; place-items:center; list-style:none; width:1.75rem; min-height:1.9rem;
-    border:1px solid var(--border); border-radius:.4rem; font-size:1rem; cursor:pointer; }
-  .rail-actions summary::-webkit-details-marker { display:none; }
-  .rail-action-list { position:absolute; z-index:24; right:0; top:100%; width:12rem;
-    border:1px solid var(--border); border-radius:.5rem; padding:.35rem;
-    background:var(--surface-elevated); box-shadow:0 10px 24px rgb(0 0 0 / 22%); display:grid; gap:.15rem; }
+
+  .rail-actions { margin-left:auto; flex:0 0 auto; border:1px solid transparent; border-radius:.45rem;
+    background:transparent; color:var(--text); cursor:pointer; min-width:1.95rem; height:1.95rem;
+    display:grid; place-items:center; font-size:1rem; font-family:inherit; }
+  .rail-actions:hover, .rail-actions:focus-visible { background:var(--background-soft); border-color:var(--border); }
+  .rail-action-list:popover-open {
+    position:fixed; inset:unset; z-index:1000; width:13.5rem; max-height:min(65vh,25rem); overflow-y:auto;
+    border:1px solid var(--border); border-radius:.7rem; padding:.4rem;
+    color:var(--text); background:var(--surface); box-shadow:0 12px 36px rgb(0 0 0 / 40%);
+    display:grid; gap:.15rem; box-sizing:border-box;
+  }
   .rail-action-list button, .rail-action-list a {
-    display:block; width:100%; box-sizing:border-box; padding:.5rem; text-align:left;
-    border:0; border-radius:.35rem; color:var(--text); background:transparent; font:inherit;
-    font-size:.75rem; text-decoration:none; cursor:pointer;
+    display:block; width:100%; box-sizing:border-box; padding:.6rem; text-align:left;
+    border:0; border-radius:.4rem; color:var(--text); background:transparent; font:inherit;
+    font-size:.79rem; text-decoration:none; cursor:pointer;
   }
-  .rail-action-list button:hover:not(:disabled), .rail-action-list a:hover {
-    background:var(--background-soft);
-  }
-  .rail-action-list button:disabled { opacity:.5; cursor:not-allowed; }
+  .rail-action-list button:hover:not(:disabled), .rail-action-list a:hover { background:var(--background-soft); }
+  .rail-action-list button:disabled { opacity:.55; cursor:not-allowed; }
   :global(body.has-guide-rail > main) { margin-left: 17.7rem; }
   :global(body.guide-rail-collapsed .quantum-guide-rail) { display:none !important; }
   :global(body.guide-rail-collapsed > main),
@@ -152,6 +167,7 @@
     :global(body.has-guide-rail > main), :global(body.has-guide-rail > .site-footer) { margin-left: 0; }
     :global(body.guide-rail-mobile-open .quantum-guide-rail) { transform: translateX(0); visibility: visible; }
     .rail-close { display: inline-block; }
+    #rail-expand-handle { display:none !important; }
   }
 </style>
 
@@ -165,6 +181,7 @@
   const close = document.querySelector<HTMLButtonElement>('#rail-close');
   const mobileToggle = document.querySelector<HTMLButtonElement>('#portal-guide-toggle');
   const collapse = document.querySelector<HTMLButtonElement>('#rail-collapse');
+  const expandHandle = document.querySelector<HTMLButtonElement>('#rail-expand-handle');
   const searchToggle = document.querySelector<HTMLButtonElement>('#rail-search-toggle');
   const searchField = document.querySelector<HTMLElement>('#rail-search-field');
   const searchInput = document.querySelector<HTMLInputElement>('#rail-search');
@@ -181,6 +198,7 @@
 
   function setDesktopCollapsed(collapsed: boolean) {
     document.body.classList.toggle('guide-rail-collapsed', collapsed);
+    if (expandHandle) expandHandle.hidden = !collapsed;
     window.sessionStorage.setItem('qp:guide-collapsed', String(collapsed));
     mobileToggle?.setAttribute('aria-expanded', String(!collapsed));
     if (mobileToggle) {
@@ -300,14 +318,32 @@
   }
 
   function railMenu(kind: 'project' | 'conversation' | 'programme', id: string, title: string) {
-    const menu = document.createElement('details');
-    menu.className = 'rail-actions';
-    const summary = document.createElement('summary');
-    summary.textContent = '⋯';
-    summary.title = 'Actions for ' + title;
-    summary.setAttribute('aria-label', summary.title);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'rail-actions';
+    button.textContent = '⋯';
+    button.title = 'Actions for ' + title;
+    button.setAttribute('aria-label', button.title);
+    button.setAttribute('aria-haspopup', 'menu');
+    button.setAttribute('aria-expanded', 'false');
     const actions = document.createElement('div');
     actions.className = 'rail-action-list';
+    actions.setAttribute('role', 'menu');
+    actions.setAttribute('popover', 'auto');
+    actions.addEventListener('toggle', () => {
+      button.setAttribute('aria-expanded', String(actions.matches(':popover-open')));
+    });
+    button.addEventListener('click', () => {
+      if (actions.matches(':popover-open')) { actions.hidePopover(); return; }
+      actions.showPopover();
+      const rect = button.getBoundingClientRect();
+      const width = 216;
+      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+      const below = window.innerHeight - rect.bottom >= Math.min(240, actions.offsetHeight + 8);
+      actions.style.left = left + 'px';
+      actions.style.top = (below ? rect.bottom + 4
+        : Math.max(8, rect.top - actions.offsetHeight - 4)) + 'px';
+    });
     const manage = document.createElement('button');
     manage.type = 'button';
     manage.textContent = kind === 'programme' ? 'View access / settings'
@@ -348,8 +384,8 @@
       shared.title = 'Requires PI-governed ACP programme rooms';
       actions.append(shared);
     }
-    menu.append(summary, actions);
-    return menu;
+    button.append(actions);
+    return button;
   }
 
   function chatButton(chat: { id: string; title?: string }) {
@@ -519,6 +555,7 @@
   };
   mobileToggle?.addEventListener('click', toggleGuide);
   collapse?.addEventListener('click', toggleGuide);
+  expandHandle?.addEventListener('click', () => setDesktopCollapsed(false));
   close?.addEventListener('click', () => {
     document.body.classList.remove('guide-rail-mobile-open');
     mobileToggle?.setAttribute('aria-expanded', 'false');
