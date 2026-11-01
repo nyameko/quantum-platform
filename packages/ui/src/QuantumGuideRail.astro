@@ -628,39 +628,128 @@
       if (actions.matches(':popover-open')) actions.hidePopover();
       else placePopup(button, actions);
     });
-    const option = (label: string, fn?: () => void, why?: string) => {
+    const option = (label: string, fn?: () => void, why?: string, danger = false) => {
       const item = document.createElement('button');
       item.type = 'button'; item.textContent = label;
+      if (danger) item.classList.add('rail-danger');
       if (why) { item.disabled = true; item.title = why; }
       if (fn) item.addEventListener('click', () => { actions.hidePopover(); fn(); });
       actions.append(item);
+    };
+    const divider = () => {
+      const hr = document.createElement('hr');
+      hr.className = 'rail-menu-divider';
+      hr.setAttribute('role', 'separator');
+      actions.append(hr);
     };
     const apply = (changes: Record<string, unknown>) => {
       void updateWorkspace(kind as WorkspaceKind, id, changes).catch(err => {
         if (chatStatus) chatStatus.textContent = err instanceof Error ? err.message : 'Save failed.';
       });
     };
+    const submenu = (label: string, mode: 'projects' | 'programmes') => {
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'rail-has-submenu';
+      toggle.textContent = label;
+      toggle.setAttribute('aria-expanded', 'false');
+      const panel = document.createElement('div');
+      panel.className = 'rail-submenu';
+      panel.hidden = true;
+      toggle.addEventListener('click', () => {
+        panel.hidden = !panel.hidden;
+        toggle.setAttribute('aria-expanded', String(!panel.hidden));
+        if (panel.hidden || panel.childElementCount) return;
+        const state = document.createElement('span');
+        state.className = 'rail-submenu-note';
+        state.textContent = 'Loading…';
+        panel.append(state);
+        void (async () => {
+          try {
+            if (mode === 'projects') {
+              const response = await fetch('/api/v1/agent/projects/', {
+                credentials: 'same-origin', cache: 'no-store',
+              });
+              if (!response.ok) throw new Error('Projects unavailable.');
+              const data = await response.json();
+              panel.replaceChildren();
+              const projects = (data.items ?? []).filter(
+                (p: { archived_at?: string | null }) => !p.archived_at,
+              ) as Array<{id:string;title:string}>;
+              for (const project of projects) {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.textContent = project.title + (project.id === projectId ? ' ✓' : '');
+                item.disabled = project.id === projectId;
+                item.addEventListener('click', () => {
+                  actions.hidePopover();
+                  apply({ project_id: project.id });
+                });
+                panel.append(item);
+              }
+              if (!projects.length) state.textContent = 'No active projects found.';
+            } else {
+              const response = await fetch('/api/v1/me/', {
+                credentials: 'same-origin', cache: 'no-store',
+              });
+              if (!response.ok) throw new Error('Programmes unavailable.');
+              const me = await response.json();
+              panel.replaceChildren();
+              const memberships = (me.memberships ?? []).filter(
+                (m: {status:string;programme?:{name?:string}}) =>
+                  m.status === 'approved' && Boolean(m.programme?.name),
+              );
+              const info = document.createElement('span');
+              info.className = 'rail-submenu-note';
+              info.textContent = 'PI-approved sharing requests are not enabled yet.';
+              panel.append(info);
+              for (const membership of memberships) {
+                const item = document.createElement('button');
+                item.type = 'button'; item.disabled = true;
+                item.title = 'Requires a pending request and PI approval';
+                item.textContent = membership.programme.name;
+                panel.append(item);
+              }
+              if (!memberships.length) info.textContent = 'No approved programmes available.';
+            }
+            if (mode === 'projects' && !panel.childElementCount) panel.append(state);
+          } catch (error) {
+            state.textContent = error instanceof Error ? error.message : 'List unavailable.';
+            panel.replaceChildren(state);
+          }
+        })();
+      });
+      actions.append(toggle, panel);
+    };
     if (kind === 'conversation') {
       option('Rename', () => { void quickEditWorkspace('conversation', id, 'rename'); });
       option('Pin', undefined, 'Requires ACP canonical pin support');
-      option('Share to Programme', undefined, 'Requires authorised PI-governed room sharing');
-      option(archived ? 'Restore from archive' : 'Archive', () => apply({ archived: !archived }));
-      option('Move to Project', () => { void quickEditWorkspace('conversation', id, 'move'); });
-      option('Remove from Project', projectId ? () => apply({ project_id: null }) : undefined,
+      option(archived ? 'Restore' : 'Archive', () => apply({ archived: !archived }));
+      divider();
+      submenu('Share to Programme', 'programmes');
+      divider();
+      submenu('Move to Project', 'projects');
+      option('Remove from Project',
+        projectId ? () => apply({ project_id: null }) : undefined,
         projectId ? undefined : 'Already unfiled');
-      option('Delete', undefined, 'Permanent deletion is governed by ACP retention policy');
+      divider();
+      option('Delete permanently', undefined,
+        'Permanent deletion requires approved ACP retention and provenance policy', true);
     } else if (kind === 'project') {
-      option('Share to Programme', undefined, 'PI-controlled project sharing not yet available');
+      submenu('Share to Programme', 'programmes');
+      divider();
       option('Rename Project', () => { void quickEditWorkspace('project', id, 'rename'); });
       option('Project Settings', () => {
         window.sessionStorage.setItem('qp:workspace-edit', 'project:' + id);
         window.location.assign('/agent/');
       });
-      option('Pin Project', undefined, 'Requires canonical ACP pin support');
+      option('Pin Project', undefined, 'Requires ACP canonical pin support');
       option(archived ? 'Restore Project' : 'Remove Project from sidebar',
         () => apply({ archived: !archived }));
-      option('Delete Project', undefined, 'Permanent deletion requires approved retention policy');
-      option('New chat in Project', () => {
+      divider();
+      option('Delete Project', undefined,
+        'Permanent project deletion requires reviewed retention policy', true);
+      if (!archived) option('New chat in Project', () => {
         window.sessionStorage.setItem('qp:workspace-new-chat', id);
         window.location.assign('/agent/');
       });
