@@ -13,7 +13,7 @@ const { eyebrow, title, href, icon, description, brandIcon = false, class: class
 ---
 
 {href ? (
-  <a class={`card ${className}`} href={href} data-help={description} aria-description={description}
+  <a class={`card ${className}`} href={href} data-help={description} aria-description={description}>
     {icon && (brandIcon ? <img class="card-brand-visual" src={icon} alt="" aria-hidden="true" /> : <span class="card-visual" aria-hidden="true" style={`--card-icon:url("${icon}")`} />)}
     {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
     {title && <h3>{title}</h3>}
