@@ -347,6 +347,52 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     return !availableProjects.some(p => p.id === chat.project_id && p.archived_at);
   }
 
+  function workspaceMenu(kind: WorkspaceKind, item: Workspace) {
+    const menu = document.createElement('details');
+    menu.className = 'workspace-menu';
+    const summary = document.createElement('summary');
+    summary.textContent = '⋯';
+    summary.title = 'Actions for ' + item.title;
+    summary.setAttribute('aria-label', summary.title);
+    const actions = document.createElement('div');
+    actions.className = 'workspace-menu-actions';
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.textContent = kind === 'project' ? 'Rename / archive' : 'Rename / move / archive';
+    edit.addEventListener('click', () => {
+      menu.open = false;
+      void openWorkspaceEditor(kind, item.id);
+    });
+    actions.append(edit);
+
+    if (kind === 'project' && !item.archived_at) {
+      const create = document.createElement('button');
+      create.type = 'button';
+      create.textContent = 'New chat in project';
+      create.addEventListener('click', () => {
+        menu.open = false;
+        void createConversation(item.id);
+      });
+      actions.append(create);
+    }
+    if (kind === 'conversation') {
+      const pin = document.createElement('button');
+      pin.type = 'button'; pin.disabled = true;
+      pin.textContent = 'Pin · unavailable';
+      pin.title = 'Requires ACP canonical pin support';
+      actions.append(pin);
+    }
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.disabled = true;
+    remove.textContent = 'Delete · unavailable';
+    remove.title = 'Permanent deletion requires reviewed ACP retention and memory-source policy';
+    actions.append(remove);
+
+    menu.append(summary, actions);
+    return menu;
+  }
+
   function appendChat(parent: HTMLElement, chat: Conversation) {
     const row = document.createElement('div');
     row.className = 'chat-row';
@@ -357,14 +403,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     button.title = chat.title || 'New chat';
     if (chat.id === activeConversation) button.setAttribute('aria-current', 'page');
     button.addEventListener('click', () => void selectConversation(chat));
-    const edit = document.createElement('button');
-    edit.type = 'button';
-    edit.className = 'icon-control secondary workspace-action';
-    edit.textContent = '⋯';
-    edit.title = 'Rename, move or archive ' + chat.title;
-    edit.setAttribute('aria-label', edit.title);
-    edit.addEventListener('click', () => void openWorkspaceEditor('conversation', chat.id));
-    row.append(button, edit);
+    row.append(button, workspaceMenu('conversation', chat));
     parent.append(row);
   }
 
@@ -394,22 +433,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         else closedFolders.add(project.id);
         renderSidebar();
       });
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'icon-control secondary';
-      add.textContent = '+';
-      add.title = 'New chat in ' + project.title;
-      add.setAttribute('aria-label', add.title);
-      add.disabled = Boolean(project.archived_at);
-      add.addEventListener('click', () => void createConversation(project.id));
-      const edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'icon-control secondary workspace-action';
-      edit.textContent = '⋯';
-      edit.title = 'Rename or archive ' + project.title;
-      edit.setAttribute('aria-label', edit.title);
-      edit.addEventListener('click', () => void openWorkspaceEditor('project', project.id));
-      header.append(fold, add, edit);
+      header.append(fold, workspaceMenu('project', project));
       availableConversations.filter(c => c.project_id === project.id && isVisibleConversation(c))
         .forEach(chat => appendChat(children, chat));
       group.append(header, children);
@@ -420,7 +444,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     if (!other.length) {
       const empty = document.createElement('small');
       empty.className = 'small-note';
-      empty.textContent = 'No unfiled chats';
+      empty.textContent = 'No recent chats';
       unfiledChats.append(empty);
     }
   }
@@ -940,6 +964,27 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
+    // A sidebar menu on another portal page can navigate to the canonical
+    // workspace editor without transferring credentials or workspace content.
+    const projectNewChat = window.sessionStorage.getItem('qp:workspace-new-chat');
+    window.sessionStorage.removeItem('qp:workspace-new-chat');
+    if (projectNewChat) {
+      const project = availableProjects.find(p => p.id === projectNewChat && !p.archived_at);
+      if (project) void createConversation(project.id);
+    }
+    const editRequest = window.sessionStorage.getItem('qp:workspace-edit');
+    window.sessionStorage.removeItem('qp:workspace-edit');
+    if (editRequest) {
+      const [kind, id] = editRequest.split(':');
+      if (
+        (kind === 'project' && availableProjects.some(p => p.id === id))
+        || (kind === 'conversation' && availableConversations.some(c => c.id === id))
+      ) {
+        shell?.classList.remove('nav-collapsed');
+        toggleSidebar?.setAttribute('aria-expanded', 'true');
+        void openWorkspaceEditor(kind as WorkspaceKind, id);
+      }
+    }
     try {
       const reply = await fetch('/api/v1/me/', { credentials: 'same-origin', cache: 'no-store' });
       if (reply.ok) {
@@ -957,7 +1002,14 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             link.href = '/programmes/';
             link.className = 'small-note';
             link.textContent = 'Group discussions require approved programme workspace support.';
-            folder.append(label, link);
+            const settings = document.createElement('a');
+            settings.href = '/programmes/';
+            settings.textContent = 'View programme and access';
+            settings.className = 'small-note';
+            const pending = document.createElement('p');
+            pending.className = 'small-note';
+            pending.textContent = 'New shared chat is unavailable until PI-governed ACP rooms are enabled.';
+            folder.append(label, settings, link, pending);
             root.append(folder);
           }
         }
@@ -1034,6 +1086,19 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background: var(--background);
   }
   .sidebar-chat.selected { background: var(--background); font-weight: 700; }
+  .workspace-menu { position:relative; flex:0 0 auto; }
+  .workspace-menu summary { display:grid; place-items:center; list-style:none; cursor:pointer;
+    min-width:2.3rem; min-height:2.3rem; border:1px solid var(--border);
+    border-radius:.55rem; background:var(--surface); color:var(--text); }
+  .workspace-menu summary::-webkit-details-marker { display:none; }
+  .workspace-menu-actions { position:absolute; z-index:12; right:0; top:100%;
+    min-width:12rem; padding:.35rem; display:grid; gap:.2rem;
+    border:1px solid var(--border); border-radius:.6rem;
+    background:var(--surface-elevated); box-shadow:0 9px 24px rgb(0 0 0 / 20%); }
+  .workspace-menu-actions button { width:100%; min-height:2.1rem; text-align:left;
+    background:transparent; color:var(--text); font-weight:500; font-size:.8rem; }
+  .workspace-menu-actions button:hover:not(:disabled) { background:var(--background); }
+  .workspace-menu-actions button:disabled { opacity:.55; cursor:not-allowed; }
   .folder-name::before { content:''; display:inline-block; width:1rem; height:1rem; margin-right:.4rem;
     vertical-align:middle; background:currentColor; opacity:.55;
     mask:url('/assets/guide/folder.svg') center / contain no-repeat;
