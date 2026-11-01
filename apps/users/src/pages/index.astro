@@ -40,7 +40,7 @@ import Card from '@nyameko/ui/Card.astro';
     </div>
 
     <div class="grid grid-3 home-grid">
-      <Card icon="/assets/guide/identity.svg" description="Create and maintain your research profile, institution and verified research identity." eyebrow="Identity" title="Research profile" href="/profile/">
+      <Card class="tooltip-right" icon="/assets/guide/identity.svg" description="Create and maintain your research profile, institution and verified research identity." eyebrow="Identity" title="Research profile" href="/profile/">
         <p id="profile-state">Loading profile state…</p>
       </Card>
       <Card icon="/assets/guide/research.svg" description="Join a research programme, apply as PI and review approved memberships." eyebrow="Research" title="Programmes" href="/programmes/">
@@ -53,7 +53,7 @@ import Card from '@nyameko/ui/Card.astro';
           <li><span id="home-keys-icon" class="factor-icon" aria-hidden="true">·</span> SSH &amp; WireGuard keys registered</li>
         </ul>
       </Card>
-      <Card icon="/assets/guide/jupyter-brand.svg" brandIcon description="Launch a managed Jupyter research environment to run existing scientific Python SDKs." eyebrow="Jupyter" title="Workbench" href="/workbench/">
+      <Card class="tooltip-right" icon="/assets/guide/jupyter-brand.svg" brandIcon description="Launch a managed Jupyter research environment to run existing scientific Python SDKs." eyebrow="Jupyter" title="Workbench" href="/workbench/">
         <p>Launch or resume your lightweight Kubernetes research notebook.</p>
       </Card>
       <Card icon="/assets/guide/slurm-brand.svg" brandIcon description="Submit and inspect scheduled CPU research jobs and, when approved, GPU jobs through Slurm." eyebrow="Slurm" title="Runs" href="/runs/">
