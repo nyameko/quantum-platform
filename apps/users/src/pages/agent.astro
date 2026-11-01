@@ -235,7 +235,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         credentials: 'same-origin', cache: 'no-store',
       });
       if (!response.ok) throw new Error(
-        response.status === 503 ? 'Profile service is not deployed yet.'
+        [404, 503].includes(response.status) ? 'Profile service is not deployed yet.'
           : 'Assistant preferences are unavailable.'
       );
       const data = await response.json();
@@ -534,8 +534,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         () => mutate({ archived: !item.archived_at }));
       option('Move to Project', () => { void openWorkspaceEditor(kind, item.id, 'location'); });
       option('Remove from Project',
-        item.project_id ? () => mutate({ project_id: null }) : undefined,
-        item.project_id ? undefined : 'Conversation is not in a project');
+        ('project_id' in item && item.project_id) ? () => mutate({ project_id: null }) : undefined,
+        ('project_id' in item && item.project_id) ? undefined : 'Conversation is not in a project');
       option('Delete', undefined, 'Permanent deletion needs an approved retention policy');
     } else {
       option('Share to Programme', undefined, 'Requires approved PI sharing');
@@ -597,7 +597,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       group.append(header, children);
       projectTree.append(group);
     }
-    const other = availableConversations.filter(c => isVisibleConversation(c)).slice(0, 15);
+    const other = availableConversations.filter(c => isVisibleConversation(c) && !c.project_id).slice(0, 15);
     other.forEach(chat => appendChat(unfiledChats, chat));
     if (!other.length) {
       const empty = document.createElement('small');
@@ -759,11 +759,15 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const run = await response.json().catch(() => ({}));
     if (conversationId !== activeConversation) return;
     if (!response.ok) {
-      if (status) status.textContent = run.detail ?? 'Unable to read agent status.';
-      // Do not delete the pointer for transient 503 failures.
-      if (response.status === 403 || response.status === 404) {
+      // A remembered run can expire or disappear independently of its durable
+      // conversation. Clear only the stale run pointer, never the conversation.
+      if (response.status === 404) {
         clearRememberedRun(conversationId, runId);
+        if (status) status.textContent = 'Previous run status expired; your conversation is still available.';
+        return;
       }
+      if (status) status.textContent = run.detail ?? 'Unable to read agent status.';
+      if (response.status === 403) clearRememberedRun(conversationId, runId);
       return;
     }
     if (run.conversation_id !== conversationId) {
