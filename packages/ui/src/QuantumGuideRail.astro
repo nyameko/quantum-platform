@@ -48,6 +48,10 @@
   <nav id="rail-programmes" aria-label="Approved research programmes"></nav>
   <h2 class="rail-section-title">Recent chats</h2>
   <nav id="rail-recents" class="rail-vertical-list" aria-label="Recent research conversations"></nav>
+  <details id="rail-archive-section" class="rail-archive-section" hidden>
+    <summary>Archive</summary>
+    <nav id="rail-archives" aria-label="Archived research conversations and projects"></nav>
+  </details>
   <a class="rail-all" href="/notebooks/">Explore scientific notebooks</a>
 </aside>
 
@@ -140,6 +144,13 @@
   .rail-folder > summary::before { flex-shrink:0; }
   .rail-chat-row > .rail-chat, .rail-folder-row > .rail-folder { flex:1; min-width:0; }
 
+  .rail-archive-section { margin-top:1rem; border-top:1px solid var(--border); padding-top:.6rem; }
+  .rail-archive-section[hidden] { display:none !important; }
+  .rail-archive-section > summary { cursor:pointer; font-size:.83rem; font-weight:650;
+    list-style:disclosure-closed; margin-bottom:.45rem; }
+  .rail-archived-title { flex:1; min-width:0; font-size:.79rem; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; padding:.4rem .25rem; color:var(--muted-strong); }
+  #rail-archives { display:grid; grid-template-columns:minmax(0, 1fr); gap:.12rem; }
   .rail-actions-wrap { display:inline-flex; flex:0 0 auto; }
   .rail-actions { flex:0 0 auto; border:1px solid transparent; border-radius:.45rem;
     background:transparent; color:var(--text); cursor:pointer; min-width:1.95rem; height:1.95rem;
@@ -282,12 +293,41 @@
   }
   .rail-action-list:popover-open > button:disabled { opacity:.5; cursor:not-allowed; }
   .rail-action-list:popover-open > button:not(:disabled):hover { background:var(--background-soft); }
+  .rail-action-list:popover-open > hr.rail-menu-divider {
+    border:0; width:100%; height:1px; margin:.28rem 0;
+    background:var(--border);
+  }
+  .rail-action-list:popover-open > button.rail-danger {
+    color:#dc4757 !important; font-weight:600;
+  }
+  .rail-action-list:popover-open .rail-submenu[hidden] { display:none !important; }
+  .rail-action-list:popover-open .rail-submenu {
+    display:grid; gap:.1rem; border-left:1px solid var(--border);
+    margin:0 .4rem .25rem .55rem; padding:.2rem .15rem .2rem .6rem;
+  }
+  .rail-action-list:popover-open .rail-submenu > button {
+    border:0; border-radius:.35rem; background:transparent;
+    padding:.48rem .4rem; color:var(--text); font:inherit; font-size:.76rem;
+    cursor:pointer; text-align:left; white-space:normal;
+  }
+  .rail-action-list:popover-open .rail-submenu > button:hover:not(:disabled) {
+    background:var(--background-soft);
+  }
+  .rail-action-list:popover-open .rail-submenu > button:disabled { opacity:.55; cursor:not-allowed; }
+  .rail-action-list:popover-open .rail-submenu-note {
+    color:var(--muted-strong); font-size:.72rem; padding:.25rem .4rem;
+  }
+  .rail-action-list:popover-open > button.rail-has-submenu::after {
+    content:'›'; float:right; font-size:1.15rem; line-height:.85; margin-left:.4rem;
+  }
 </style>
 
 <script>
   const rail = document.querySelector<HTMLElement>('#quantum-guide-rail');
   const projectRoot = document.querySelector<HTMLElement>('#rail-projects');
   const recentRoot = document.querySelector<HTMLElement>('#rail-recents');
+  const archiveSection = document.querySelector<HTMLDetailsElement>('#rail-archive-section');
+  const archiveRoot = document.querySelector<HTMLElement>('#rail-archives');
   const programmeRoot = document.querySelector<HTMLElement>('#rail-programmes');
   const promptForm = document.querySelector<HTMLFormElement>('#rail-prompt-form');
   const prompt = document.querySelector<HTMLTextAreaElement>('#rail-prompt');
@@ -588,39 +628,128 @@
       if (actions.matches(':popover-open')) actions.hidePopover();
       else placePopup(button, actions);
     });
-    const option = (label: string, fn?: () => void, why?: string) => {
+    const option = (label: string, fn?: () => void, why?: string, danger = false) => {
       const item = document.createElement('button');
       item.type = 'button'; item.textContent = label;
+      if (danger) item.classList.add('rail-danger');
       if (why) { item.disabled = true; item.title = why; }
       if (fn) item.addEventListener('click', () => { actions.hidePopover(); fn(); });
       actions.append(item);
+    };
+    const divider = () => {
+      const hr = document.createElement('hr');
+      hr.className = 'rail-menu-divider';
+      hr.setAttribute('role', 'separator');
+      actions.append(hr);
     };
     const apply = (changes: Record<string, unknown>) => {
       void updateWorkspace(kind as WorkspaceKind, id, changes).catch(err => {
         if (chatStatus) chatStatus.textContent = err instanceof Error ? err.message : 'Save failed.';
       });
     };
+    const submenu = (label: string, mode: 'projects' | 'programmes') => {
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'rail-has-submenu';
+      toggle.textContent = label;
+      toggle.setAttribute('aria-expanded', 'false');
+      const panel = document.createElement('div');
+      panel.className = 'rail-submenu';
+      panel.hidden = true;
+      toggle.addEventListener('click', () => {
+        panel.hidden = !panel.hidden;
+        toggle.setAttribute('aria-expanded', String(!panel.hidden));
+        if (panel.hidden || panel.childElementCount) return;
+        const state = document.createElement('span');
+        state.className = 'rail-submenu-note';
+        state.textContent = 'Loading…';
+        panel.append(state);
+        void (async () => {
+          try {
+            if (mode === 'projects') {
+              const response = await fetch('/api/v1/agent/projects/', {
+                credentials: 'same-origin', cache: 'no-store',
+              });
+              if (!response.ok) throw new Error('Projects unavailable.');
+              const data = await response.json();
+              panel.replaceChildren();
+              const projects = (data.items ?? []).filter(
+                (p: { archived_at?: string | null }) => !p.archived_at,
+              ) as Array<{id:string;title:string}>;
+              for (const project of projects) {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.textContent = project.title + (project.id === projectId ? ' ✓' : '');
+                item.disabled = project.id === projectId;
+                item.addEventListener('click', () => {
+                  actions.hidePopover();
+                  apply({ project_id: project.id });
+                });
+                panel.append(item);
+              }
+              if (!projects.length) state.textContent = 'No active projects found.';
+            } else {
+              const response = await fetch('/api/v1/me/', {
+                credentials: 'same-origin', cache: 'no-store',
+              });
+              if (!response.ok) throw new Error('Programmes unavailable.');
+              const me = await response.json();
+              panel.replaceChildren();
+              const memberships = (me.memberships ?? []).filter(
+                (m: {status:string;programme?:{name?:string}}) =>
+                  m.status === 'approved' && Boolean(m.programme?.name),
+              );
+              const info = document.createElement('span');
+              info.className = 'rail-submenu-note';
+              info.textContent = 'PI-approved sharing requests are not enabled yet.';
+              panel.append(info);
+              for (const membership of memberships) {
+                const item = document.createElement('button');
+                item.type = 'button'; item.disabled = true;
+                item.title = 'Requires a pending request and PI approval';
+                item.textContent = membership.programme.name;
+                panel.append(item);
+              }
+              if (!memberships.length) info.textContent = 'No approved programmes available.';
+            }
+            if (mode === 'projects' && !panel.childElementCount) panel.append(state);
+          } catch (error) {
+            state.textContent = error instanceof Error ? error.message : 'List unavailable.';
+            panel.replaceChildren(state);
+          }
+        })();
+      });
+      actions.append(toggle, panel);
+    };
     if (kind === 'conversation') {
       option('Rename', () => { void quickEditWorkspace('conversation', id, 'rename'); });
       option('Pin', undefined, 'Requires ACP canonical pin support');
-      option('Share to Programme', undefined, 'Requires authorised PI-governed room sharing');
-      option(archived ? 'Restore from archive' : 'Archive', () => apply({ archived: !archived }));
-      option('Move to Project', () => { void quickEditWorkspace('conversation', id, 'move'); });
-      option('Remove from Project', projectId ? () => apply({ project_id: null }) : undefined,
+      option(archived ? 'Restore' : 'Archive', () => apply({ archived: !archived }));
+      divider();
+      submenu('Share to Programme', 'programmes');
+      divider();
+      submenu('Move to Project', 'projects');
+      option('Remove from Project',
+        projectId ? () => apply({ project_id: null }) : undefined,
         projectId ? undefined : 'Already unfiled');
-      option('Delete', undefined, 'Permanent deletion is governed by ACP retention policy');
+      divider();
+      option('Delete permanently', undefined,
+        'Permanent deletion requires approved ACP retention and provenance policy', true);
     } else if (kind === 'project') {
-      option('Share to Programme', undefined, 'PI-controlled project sharing not yet available');
+      submenu('Share to Programme', 'programmes');
+      divider();
       option('Rename Project', () => { void quickEditWorkspace('project', id, 'rename'); });
       option('Project Settings', () => {
         window.sessionStorage.setItem('qp:workspace-edit', 'project:' + id);
         window.location.assign('/agent/');
       });
-      option('Pin Project', undefined, 'Requires canonical ACP pin support');
+      option('Pin Project', undefined, 'Requires ACP canonical pin support');
       option(archived ? 'Restore Project' : 'Remove Project from sidebar',
         () => apply({ archived: !archived }));
-      option('Delete Project', undefined, 'Permanent deletion requires approved retention policy');
-      option('New chat in Project', () => {
+      divider();
+      option('Delete Project', undefined,
+        'Permanent project deletion requires reviewed retention policy', true);
+      if (!archived) option('New chat in Project', () => {
         window.sessionStorage.setItem('qp:workspace-new-chat', id);
         window.location.assign('/agent/');
       });
@@ -709,6 +838,7 @@
       }
       projectRoot?.replaceChildren();
       recentRoot?.replaceChildren();
+      archiveRoot?.replaceChildren();
       for (const project of projects.filter(p => !p.archived_at).slice(0, 12)) {
         const folder = document.createElement('details');
         folder.className = 'rail-folder';
@@ -729,7 +859,24 @@
       chats.filter(chat => !chat.archived_at
         && !projects.some(p => p.id === chat.project_id && p.archived_at)).slice(0, 12)
         .forEach(chat => recentRoot?.append(chatButton(chat)));
-      if (!projects.length && projectRoot) projectRoot.textContent = 'No projects yet.';
+      const archivedProjects = projects.filter(p => Boolean(p.archived_at));
+      const archivedChats = chats.filter(chat => Boolean(chat.archived_at)
+        && !archivedProjects.some(p => p.id === chat.project_id));
+      for (const project of archivedProjects) {
+        const group = document.createElement('div');
+        group.className = 'rail-folder-row';
+        const name = document.createElement('span');
+        name.className = 'rail-archived-title';
+        name.textContent = project.title;
+        group.append(name, railMenu('project', project.id, project.title, null, true));
+        archiveRoot?.append(group);
+      }
+      for (const chat of archivedChats) archiveRoot?.append(chatButton(chat));
+      if (archiveSection) archiveSection.hidden =
+        archivedProjects.length + archivedChats.length === 0;
+      if (!projects.filter(p => !p.archived_at).length && projectRoot) {
+        projectRoot.textContent = 'No active projects yet.';
+      }
       filterRail();
     } catch {
       if (rail && !rail.hidden && projectRoot) {

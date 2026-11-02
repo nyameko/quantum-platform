@@ -486,15 +486,24 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       actions.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
     });
 
-    const option = (label: string, fn?: () => void, disabledReason?: string) => {
+    const option = (
+      label: string, fn?: () => void, disabledReason?: string, danger = false,
+    ) => {
       const button = document.createElement('button');
       button.type = 'button'; button.textContent = label;
+      if (danger) button.classList.add('workspace-danger');
       if (disabledReason) {
         button.disabled = true;
         button.title = disabledReason;
       }
       if (fn) button.addEventListener('click', () => { actions.hidePopover(); fn(); });
       actions.append(button);
+    };
+    const divider = () => {
+      const hr = document.createElement('hr');
+      hr.className = 'workspace-menu-divider';
+      hr.setAttribute('role', 'separator');
+      actions.append(hr);
     };
     const mutate = (changes: Record<string, unknown>) => {
       void (async () => {
@@ -525,26 +534,96 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         }
       })();
     };
+    const submenu = (label: string, mode: 'projects' | 'programmes') => {
+      const toggle = document.createElement('button');
+      toggle.type = 'button'; toggle.className = 'workspace-submenu-trigger';
+      toggle.textContent = label; toggle.setAttribute('aria-expanded', 'false');
+      const panel = document.createElement('div');
+      panel.className = 'workspace-submenu'; panel.hidden = true;
+      toggle.addEventListener('click', () => {
+        panel.hidden = !panel.hidden;
+        toggle.setAttribute('aria-expanded', String(!panel.hidden));
+        if (panel.hidden || panel.childElementCount) return;
+        if (mode === 'projects') {
+          const currentId = 'project_id' in item ? item.project_id : null;
+          for (const project of availableProjects.filter(p => !p.archived_at)) {
+            const choice = document.createElement('button');
+            choice.type = 'button';
+            choice.textContent = project.title + (project.id === currentId ? ' ✓' : '');
+            choice.disabled = project.id === currentId;
+            choice.addEventListener('click', () => {
+              actions.hidePopover();
+              mutate({ project_id: project.id });
+            });
+            panel.append(choice);
+          }
+          if (!panel.childElementCount) {
+            const msg = document.createElement('span');
+            msg.className = 'workspace-submenu-note';
+            msg.textContent = 'No active projects yet.';
+            panel.append(msg);
+          }
+        } else {
+          const msg = document.createElement('span');
+          msg.className = 'workspace-submenu-note';
+          msg.textContent = 'Checking approved programmes…';
+          panel.append(msg);
+          void (async () => {
+            try {
+              const response = await fetch('/api/v1/me/', {
+                credentials: 'same-origin', cache: 'no-store',
+              });
+              if (!response.ok) throw new Error('Programme membership unavailable.');
+              const me = await response.json();
+              const memberships = (me.memberships ?? []).filter(
+                (m: {status:string;programme?:{name?:string}}) =>
+                  m.status === 'approved' && Boolean(m.programme?.name),
+              );
+              msg.textContent = memberships.length
+                ? 'Pending PI-approval sharing is not enabled yet.'
+                : 'No approved programmes available.';
+              for (const membership of memberships) {
+                const choice = document.createElement('button');
+                choice.type = 'button'; choice.disabled = true;
+                choice.textContent = membership.programme.name;
+                choice.title = 'Cannot share until PI request/approval workflow is implemented';
+                panel.append(choice);
+              }
+            } catch (error) {
+              msg.textContent = error instanceof Error ? error.message : 'Programmes unavailable.';
+            }
+          })();
+        }
+      });
+      actions.append(toggle, panel);
+    };
 
     if (kind === 'conversation') {
       option('Rename', () => { void openWorkspaceEditor(kind, item.id, 'name'); });
-      option('Pin', undefined, 'Needs ACP canonical pin support');
-      option('Share to Programme', undefined, 'Requires PI-authorised programme sharing');
+      option('Pin', undefined, 'Requires canonical ACP pin support');
       option(item.archived_at ? 'Restore' : 'Archive',
         () => mutate({ archived: !item.archived_at }));
-      option('Move to Project', () => { void openWorkspaceEditor(kind, item.id, 'location'); });
+      divider();
+      submenu('Share to Programme', 'programmes');
+      divider();
+      submenu('Move to Project', 'projects');
       option('Remove from Project',
         ('project_id' in item && item.project_id) ? () => mutate({ project_id: null }) : undefined,
         ('project_id' in item && item.project_id) ? undefined : 'Conversation is not in a project');
-      option('Delete', undefined, 'Permanent deletion needs an approved retention policy');
+      divider();
+      option('Delete permanently', undefined,
+        'Permanent deletion needs approved ACP retention policy', true);
     } else {
-      option('Share to Programme', undefined, 'Requires approved PI sharing');
+      submenu('Share to Programme', 'programmes');
+      divider();
       option('Rename Project', () => { void openWorkspaceEditor(kind, item.id); });
       option('Project Settings', () => { void openWorkspaceEditor(kind, item.id); });
-      option('Pin Project', undefined, 'Needs ACP canonical pin support');
+      option('Pin Project', undefined, 'Requires canonical ACP pin support');
       option(item.archived_at ? 'Restore Project' : 'Remove Project from sidebar',
         () => mutate({ archived: !item.archived_at }));
-      option('Delete Project', undefined, 'Requires approved project retention and delete semantics');
+      divider();
+      option('Delete Project', undefined,
+        'Permanent deletion needs approved retention policy', true);
       if (!item.archived_at) option('New chat in Project', () => { void createConversation(item.id); });
     }
     return trigger;
@@ -1442,4 +1521,33 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     background:var(--background-soft);
   }
   .workspace-menu-actions:popover-open > button:disabled { opacity:.5; cursor:not-allowed; }
+  .workspace-menu-actions:popover-open > button.workspace-danger {
+    color:#dc4757 !important; font-weight:650;
+  }
+  .workspace-menu-actions:popover-open > hr.workspace-menu-divider {
+    border:0; height:1px; width:100%; margin:.28rem 0;
+    background:var(--border);
+  }
+  .workspace-menu-actions:popover-open > button.workspace-submenu-trigger::after {
+    content:'›'; float:right; font-size:1.15rem; margin-left:.4rem;
+  }
+  .workspace-menu-actions:popover-open .workspace-submenu[hidden] { display:none !important; }
+  .workspace-menu-actions:popover-open .workspace-submenu {
+    display:grid; gap:.1rem; border-left:1px solid var(--border);
+    margin:0 .4rem .25rem .55rem; padding:.2rem .15rem .2rem .6rem;
+  }
+  .workspace-menu-actions:popover-open .workspace-submenu > button {
+    border:0; border-radius:.35rem; background:transparent;
+    padding:.48rem .4rem; color:var(--text); font:inherit; font-size:.76rem;
+    cursor:pointer; text-align:left; white-space:normal;
+  }
+  .workspace-menu-actions:popover-open .workspace-submenu > button:hover:not(:disabled) {
+    background:var(--background-soft);
+  }
+  .workspace-menu-actions:popover-open .workspace-submenu > button:disabled {
+    opacity:.55; cursor:not-allowed;
+  }
+  .workspace-menu-actions:popover-open .workspace-submenu-note {
+    color:var(--muted-strong); font-size:.72rem; padding:.25rem .4rem;
+  }
 </style>
