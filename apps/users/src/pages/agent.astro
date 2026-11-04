@@ -961,7 +961,130 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     transcript.scrollTop = transcript.scrollHeight;
   }
 
+  reviewButton?.addEventListener('click', () => void reviewConversation());
+
+  async function reviewConversation() {
+    const conversationId = activeConversation;
+    if (!conversationId || !reviewPanel || !reviewSummary || !reviewCandidates
+        || !reviewSkill || !reviewStatus) {
+      if (status) status.textContent = 'Send or choose a saved conversation first.';
+      return;
+    }
+    reviewPanel.hidden = false;
+    reviewPanel.open = true;
+    reviewCandidates.replaceChildren();
+    reviewSkill.replaceChildren();
+    reviewSummary.textContent = '';
+    reviewStatus.textContent = 'Reviewing canonical ACP conversation…';
+    if (reviewButton) reviewButton.disabled = true;
+    try {
+      const response = await fetch(
+        '/api/v1/agent/conversations/' + conversationId + '/review/',
+        { credentials: 'same-origin', cache: 'no-store' },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (activeConversation !== conversationId) return;
+      if (!response.ok) throw new Error(data.detail ?? 'Conversation review unavailable.');
+      if (data.review_type !== 'extractive_preview'
+          || !Array.isArray(data.candidates) || !Array.isArray(data.topics)) {
+        throw new Error('Unexpected review format.');
+      }
+      reviewSummary.textContent = 'Reviewed ' + Number(data.user_turns || 0)
+        + ' researcher turns and ' + Number(data.assistant_turns || 0)
+        + ' assistant responses. Extracted topics (not a model-generated summary):';
+      const topics = document.createElement('ul');
+      for (const topic of data.topics) {
+        const li = document.createElement('li');
+        li.textContent = 'Message ' + topic.sequence + ': ' + String(topic.excerpt);
+        topics.append(li);
+      }
+      if (!topics.childElementCount) {
+        const li = document.createElement('li');
+        li.textContent = 'No substantive researcher requests found.';
+        topics.append(li);
+      }
+      reviewCandidates.append(topics);
+      const heading = document.createElement('h3');
+      heading.textContent = 'Suggested reusable context (' + data.candidates.length + ')';
+      reviewCandidates.append(heading);
+      if (!data.candidates.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No clear reusable preference found. Nothing was saved.';
+        reviewCandidates.append(empty);
+      }
+      for (const candidate of data.candidates as Array<{
+        body: string; kind: string; source_message_id: string;
+        source_conversation_id: string; source_sequence: number;
+      }>) {
+        const card = document.createElement('article');
+        card.className = 'memory-item';
+        const body = document.createElement('p');
+        body.textContent = candidate.body;
+        const provenance = document.createElement('small');
+        provenance.textContent = 'Source: your message #' + candidate.source_sequence
+          + ' · ' + candidate.kind + ' · unapproved suggestion';
+        const choose = document.createElement('button');
+        choose.type = 'button';
+        choose.className = 'secondary';
+        choose.textContent = 'Edit as memory proposal';
+        choose.addEventListener('click', () => {
+          if (activeConversation !== conversationId) return;
+          sourceConversationId = candidate.source_conversation_id;
+          sourceMessageId = candidate.source_message_id;
+          if (memoryBody) memoryBody.value = candidate.body.slice(0, 2000);
+          if (memoryKind) memoryKind.value =
+            ['preference', 'project_note', 'semantic', 'episodic'].includes(candidate.kind)
+              ? candidate.kind : 'project_note';
+          if (memorySource) memorySource.textContent =
+            'Proposal grounded in your message #' + candidate.source_sequence + '.';
+          if (proposeMemory) proposeMemory.disabled = false;
+          if (memoryDetails) {
+            memoryDetails.open = true;
+            memoryDetails.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+          memoryBody?.focus();
+        });
+        card.append(body, provenance, choose);
+        reviewCandidates.append(card);
+      }
+      const skill = data.skill_draft;
+      if (skill && typeof skill.markdown === 'string') {
+        const title = document.createElement('h3');
+        title.textContent = 'Proposed reusable workflow / skill (not installed)';
+        const draft = document.createElement('textarea');
+        draft.value = skill.markdown;
+        draft.readOnly = true;
+        draft.rows = 7;
+        draft.setAttribute('aria-label', 'Draft skill for Git review');
+        const copy = document.createElement('button');
+        copy.type = 'button'; copy.className = 'secondary';
+        copy.textContent = 'Copy draft for review';
+        copy.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(draft.value);
+            if (reviewStatus) reviewStatus.textContent =
+              'Draft copied; it is not an active or approved skill.';
+          } catch {
+            if (reviewStatus) reviewStatus.textContent =
+              'Clipboard unavailable; select and copy the draft manually.';
+          }
+        });
+        reviewSkill.append(title, draft, copy);
+      }
+      reviewStatus.textContent = 'Preview ready. No memories or skills saved.';
+    } catch (error) {
+      if (reviewStatus) reviewStatus.textContent = error instanceof Error
+        ? error.message : 'Review failed.';
+    } finally {
+      if (reviewButton) reviewButton.disabled = false;
+    }
+  }
+
   async function loadConversation() {
+    if (reviewPanel) {
+      reviewPanel.hidden = true;
+      reviewPanel.open = false;
+    }
     renderProcessingStatus(null);
     sourceConversationId = null;
     sourceMessageId = null;
