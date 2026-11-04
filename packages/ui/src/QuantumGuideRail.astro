@@ -927,6 +927,7 @@
     railConversationId = null;
     window.sessionStorage.removeItem('qp:last-conversation-id');
     inlineTranscript?.replaceChildren();
+    if (prompt) prompt.value = '';
     if (chatStatus) chatStatus.textContent =
       'New unsaved conversation. Your first message will create the chat.';
     prompt?.focus();
