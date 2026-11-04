@@ -17,3 +17,31 @@ The Guide may display a **passive reasoning/processing status** reflecting obser
 Programme conversations require current membership authorization on every relevant call, distinct from private agent projects. The secure terminal pairing/broker contract in ACP ADR 0012 remains a proposed integration until separately implemented and live-accepted; a POSIX SSH login must not be promoted to ACP identity proof.
 
 See [ACP documentation](https://github.com/nyameko/agent-control-plane/blob/main/docs/M4-PERSISTENT-AGENTS.md), [M4 conformance](https://github.com/nyameko/agent-control-plane/blob/main/docs/conformance/m4c-m4g-live-release-gates.md) and [portal agent proxy](https://github.com/nyameko/quantum-platform/blob/main/apps/user-api/portal/agent_api.py).
+## M4g browser-approved terminal pairing — source candidate, not live-validated
+
+The browser approval page `/agent/pair/` now has a reviewed source candidate
+for **one short-lived SSH/terminal-to-ACP pairing** (default five-minute
+lifetime). The terminal generates a high-entropy proof held **only in process
+memory** and shows a 12-character code. The real researcher, already logged in,
+enters the matching code and explicitly confirms the device pairing. The
+server records the hashed code/proof, not raw credentials.
+
+Each `/api/v1/agent/terminal-gateway/*` read/turn request rechecks that
+pairing is active and unexpired, then **Quantum Platform**—not the SSH
+host—signs a fresh owner-scoped ACP assertion and forwards an allowlisted API
+operation. The user can revoke the pairing in the portal; the next gateway
+request is rejected. **POSIX UID, SSH username, browser cookies and shell
+environment names do not confer ACP rights.**
+
+The baseline client issues **one requested ACP operation per pairing**,
+without writing auth secrets to disk; interactive long-running session
+ergonomics can follow once actual authorization and revocation are verified.
+No login-node sshd/PAM changes, shell replacement, database dump, browser
+cookie transfer, or model/tool access are introduced.
+
+This requires reviewed portal database migration `0008_terminal_pairing.py`,
+an approved Quantum Platform backend/frontend release and the corresponding
+updated thin terminal client in ACP. Source/CI tests are synthetic. **The
+human operator performs all real `nlisa` browser/SSH tests**, including a
+wrong-user attempt, expired proof and immediate subsequent-request denial
+after revocation. No deployment or human acceptance is claimed here.
