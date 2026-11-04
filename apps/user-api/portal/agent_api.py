@@ -31,44 +31,6 @@ def _call(request, method, path, *, key=None, params=None, body=None):
         return Response({"detail": message}, status=code)
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def agent_reviewed_skills(request):
-    """Signed owner-only lookup of truly reviewed, immutable resource entries."""
-    return _call(request, "GET", "/v1/skills/catalog")
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def agent_skill_bindings(request):
-    return _call(request, "GET", "/v1/skills/bindings")
-
-
-@api_view(["PUT", "POST"])
-@permission_classes([IsAuthenticated])
-def agent_skill_binding(request, skill_id, version):
-    revision = request.headers.get("If-Match", "")
-    if not (revision.startswith('"') and revision.endswith('"')
-            and revision[1:-1].isdecimal() and len(revision) <= 10):
-        return Response({"detail": "Quoted current binding revision required."}, status=400)
-    try:
-        if request.method == "PUT":
-            result = agent_client.call(
-                request.user, "PUT",
-                f"/v1/skills/{skill_id}/versions/{version}/binding",
-                scope="agent:personal", if_match=revision, json_body={},
-            )
-        else:
-            result = agent_client.call(
-                request.user, "POST",
-                f"/v1/skills/{skill_id}/versions/{version}/revoke",
-                scope="agent:personal", if_match=revision, json_body={},
-            )
-        return Response(result, status=200)
-    except agent_client.AgentServiceError as exc:
-        return Response({"detail": str(exc)}, status=exc.status_code)
-
-
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def agent_profile(request):
