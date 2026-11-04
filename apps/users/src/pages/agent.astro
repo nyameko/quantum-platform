@@ -1400,8 +1400,15 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             const rooms = document.createElement('div');
             rooms.className = 'programme-rooms';
             const programmeId = Number(m.programme.id);
+            let roomRequestGeneration = 0;
             const onExpand = () => {
-              if (!folder.open || rooms.dataset.loaded === 'true') return;
+              // Refresh the authorized list on every open, including after revocation.
+              // Ignore in-flight responses from earlier open/close cycles.
+              const requestGeneration = ++roomRequestGeneration;
+              if (!folder.open) {
+                rooms.replaceChildren();
+                return;
+              }
               rooms.replaceChildren();
               const loading = document.createElement('p');
               loading.className = 'small-note';
@@ -1420,6 +1427,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
                     ? 'Programme access is no longer available.'
                     : 'Shared rooms are not currently available.');
                   const data = await reply.json();
+                  if (!folder.open || requestGeneration !== roomRequestGeneration) return;
                   rooms.replaceChildren();
                   const active = Array.isArray(data.items) ? data.items : [];
                   for (const room of active) {
@@ -1439,8 +1447,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
                     empty.textContent = 'No shared conversations created yet.';
                     rooms.append(empty);
                   }
-                  rooms.dataset.loaded = 'true';
                 } catch (error) {
+                  if (!folder.open || requestGeneration !== roomRequestGeneration) return;
                   rooms.replaceChildren();
                   const unavailable = document.createElement('p');
                   unavailable.className = 'small-note';
