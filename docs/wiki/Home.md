@@ -27,3 +27,12 @@ Begin with [root README](https://github.com/nyameko/quantum-platform/blob/main/R
 ## Guide and automated help
 
 See [Guide integration and ticket routing](Guide-assistance.md) and the [machine-readable discovery index](guide-index.json). Public documentation is not an execution authorization.
+
+
+## Detailed researcher and operator topics
+
+- [Programme approval and resource entitlements](Programme-approval-and-resource-entitlements.md)
+- [Authentication MFA and key management](Authentication-MFA-and-key-management.md)
+- [JupyterHub and SSH identity](JupyterHub-and-SSH-identity.md)
+- [API development and tests](API-development-and-tests.md)
+- [Research programme administration](Research-programme-administration.md)

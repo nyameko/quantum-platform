@@ -13,6 +13,13 @@
       "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-and-integration"
     },
     {
+      "slug": "API-development-and-tests",
+      "title": "API development and tests",
+      "source_path": "docs/wiki/API-development-and-tests.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/API-development-and-tests.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-development-and-tests"
+    },
+    {
       "slug": "Account-and-access",
       "title": "Account and access",
       "source_path": "docs/wiki/Account-and-access.md",
@@ -32,6 +39,13 @@
       "source_path": "docs/wiki/Agent-and-Guide.md",
       "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Agent-and-Guide.md",
       "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Agent-and-Guide"
+    },
+    {
+      "slug": "Authentication-MFA-and-key-management",
+      "title": "Authentication MFA and key management",
+      "source_path": "docs/wiki/Authentication-MFA-and-key-management.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Authentication-MFA-and-key-management.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Authentication-MFA-and-key-management"
     },
     {
       "slug": "Contributing",
@@ -60,6 +74,27 @@
       "source_path": "docs/wiki/Home.md",
       "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Home.md",
       "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Home"
+    },
+    {
+      "slug": "JupyterHub-and-SSH-identity",
+      "title": "JupyterHub and SSH identity",
+      "source_path": "docs/wiki/JupyterHub-and-SSH-identity.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/JupyterHub-and-SSH-identity.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/JupyterHub-and-SSH-identity"
+    },
+    {
+      "slug": "Programme-approval-and-resource-entitlements",
+      "title": "Programme approval and resource entitlements",
+      "source_path": "docs/wiki/Programme-approval-and-resource-entitlements.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Programme-approval-and-resource-entitlements.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Programme-approval-and-resource-entitlements"
+    },
+    {
+      "slug": "Research-programme-administration",
+      "title": "Research programme administration",
+      "source_path": "docs/wiki/Research-programme-administration.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Research-programme-administration.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Research-programme-administration"
     },
     {
       "slug": "Researcher-guide",
