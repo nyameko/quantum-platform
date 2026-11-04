@@ -17,6 +17,18 @@ from .agent_api import (
     agent_run,
     agent_turn,
 )
+from .terminal_pairing_api import (
+    terminal_pair_start,
+    terminal_pair_status,
+    terminal_pair_approve,
+    terminal_pairings,
+    terminal_pair_revoke,
+    terminal_gateway_projects,
+    terminal_gateway_conversations,
+    terminal_gateway_conversation,
+    terminal_gateway_turn,
+    terminal_gateway_run,
+)
 from .access_keys_api import (
     revoke_ssh_key,
     revoke_wireguard_key,
@@ -63,6 +75,22 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path("agent/terminal-pairings/start/", terminal_pair_start, name="terminal-pair-start"),
+    path("agent/terminal-pairings/status/", terminal_pair_status, name="terminal-pair-status"),
+    path("agent/terminal-pairings/approve/", terminal_pair_approve, name="terminal-pair-approve"),
+    path("agent/terminal-pairings/", terminal_pairings, name="terminal-pairings"),
+    path("agent/terminal-pairings/<uuid:pairing_id>/revoke/",
+         terminal_pair_revoke, name="terminal-pair-revoke"),
+    path("agent/terminal-gateway/projects/",
+         terminal_gateway_projects, name="terminal-gateway-projects"),
+    path("agent/terminal-gateway/conversations/",
+         terminal_gateway_conversations, name="terminal-gateway-conversations"),
+    path("agent/terminal-gateway/conversations/<uuid:conversation_id>/",
+         terminal_gateway_conversation, name="terminal-gateway-conversation"),
+    path("agent/terminal-gateway/conversations/<uuid:conversation_id>/turns/",
+         terminal_gateway_turn, name="terminal-gateway-turn"),
+    path("agent/terminal-gateway/runs/<uuid:run_id>/",
+         terminal_gateway_run, name="terminal-gateway-run"),
     path("agent/profile/", agent_profile, name="agent-profile"),
     path("agent/projects/", agent_projects, name="agent-projects"),
     path("agent/programmes/<int:programme_id>/conversations/",
