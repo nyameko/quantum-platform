@@ -1544,9 +1544,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   });
 
 
-  // M4c first slice: read-only programme-room discovery through the existing
-  // live-membership-checked, signed ACP proxy. Private chats remain separate.
+  // M4c first usable slice: ACP owns the canonical programme transcript.
+  // This dialog posts USER messages only; no shared model/tool invocation.
   async function showProgrammeRoom(programmeId: number, roomId: string) {
+    const endpoint = '/api/v1/agent/programmes/' + programmeId
+      + '/conversations/' + encodeURIComponent(roomId) + '/';
     const dialog = document.createElement('dialog');
     dialog.className = 'programme-room-dialog';
     dialog.setAttribute('aria-label', 'Shared programme conversation');
@@ -1554,31 +1556,57 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     heading.textContent = 'Loading shared conversation…';
     const messages = document.createElement('div');
     messages.className = 'programme-room-messages';
-    const foot = document.createElement('p');
-    foot.className = 'small-note';
-    foot.textContent = 'Read-only preview. Shared replies and approvals are separate M4c work.';
+    const feedback = document.createElement('p');
+    feedback.className = 'small-note';
+    feedback.setAttribute('role', 'status');
+    const form = document.createElement('form');
+    const label = document.createElement('label');
+    label.textContent = 'Write a shared programme message (visible to authorized members)';
+    const input = document.createElement('textarea');
+    input.rows = 3;
+    input.maxLength = 4000;
+    input.required = true;
+    input.setAttribute('aria-label', 'Shared programme message');
+    label.append(input);
+    const sendButton = document.createElement('button');
+    sendButton.type = 'submit';
+    sendButton.textContent = 'Post message';
+    form.append(label, sendButton);
+    const refreshButton = document.createElement('button');
+    refreshButton.type = 'button';
+    refreshButton.className = 'secondary';
+    refreshButton.textContent = 'Refresh room';
     const close = document.createElement('button');
-    close.type = 'button';
+    close.type = 'button'; close.className = 'secondary';
     close.textContent = 'Close';
     close.addEventListener('click', () => dialog.close());
-    dialog.append(heading, messages, foot, close);
+    dialog.append(heading, messages, feedback, form, refreshButton, close);
     document.body.append(dialog);
     dialog.addEventListener('close', () => dialog.remove(), { once: true });
     dialog.showModal();
-    try {
-      const reply = await fetch(
-        '/api/v1/agent/programmes/' + programmeId + '/conversations/'
-          + encodeURIComponent(roomId) + '/', {
-          credentials: 'same-origin', cache: 'no-store',
-        });
-      if (!reply.ok) throw new Error(
-        reply.status === 403 || reply.status === 404
-          ? 'Programme membership or room access was revoked.'
-          : 'The programme conversation could not be loaded.',
-      );
+
+    let requestGeneration = 0;
+    let accessRevoked = false;
+    const refreshRoom = async () => {
+      const generation = ++requestGeneration;
+      const reply = await fetch(endpoint, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (generation !== requestGeneration || !dialog.open) return;
+      if (!reply.ok) {
+        messages.replaceChildren();
+        if ([401, 403, 404].includes(reply.status)) {
+          accessRevoked = true;
+          sendButton.disabled = true;
+          input.disabled = true;
+          throw new Error('Programme room access is no longer authorized.');
+        }
+        throw new Error('Unable to load programme conversation.');
+      }
       const room = await reply.json();
       heading.textContent = String(room.title ?? 'Shared conversation');
       const entries = Array.isArray(room.messages) ? room.messages : [];
+      messages.replaceChildren();
       for (const entry of entries) {
         const row = document.createElement('article');
         const author = document.createElement('strong');
@@ -1590,13 +1618,53 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         row.append(author, body);
         messages.append(row);
       }
-      if (!entries.length) {
-        messages.textContent = 'No messages yet.';
-      }
+      if (!entries.length) messages.textContent = 'No shared messages yet.';
+      feedback.textContent = 'Shared conversation loaded. Messages are visible only to current members.';
+    };
+    refreshButton.addEventListener('click', () => void refreshRoom().catch(error => {
+      feedback.textContent = error instanceof Error ? error.message : 'Refresh failed.';
+    }));
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text || accessRevoked || sendButton.disabled) return;
+      sendButton.disabled = true;
+      feedback.textContent = 'Posting your shared message…';
+      void (async () => {
+        try {
+          const reply = await csrfJsonFetch(endpoint + 'messages/', {
+            method: 'POST',
+            body: JSON.stringify({
+              content: { text },
+              client_message_id: crypto.randomUUID(),
+            }),
+          });
+          if (!reply.ok) {
+            if ([401, 403, 404].includes(reply.status)) {
+              accessRevoked = true;
+              input.disabled = true;
+              messages.replaceChildren();
+              throw new Error('Programme access denied or revoked. No message was posted.');
+            }
+            const failure = await reply.json().catch(() => ({}));
+            throw new Error(failure.detail ?? 'Shared message could not be posted.');
+          }
+          input.value = '';
+          await refreshRoom();
+          feedback.textContent = 'Message saved in the canonical programme transcript.';
+        } catch (error) {
+          feedback.textContent = error instanceof Error
+            ? error.message : 'Shared post failed.';
+        } finally {
+          if (!accessRevoked) sendButton.disabled = false;
+        }
+      })();
+    });
+    try {
+      await refreshRoom();
     } catch (error) {
       heading.textContent = 'Unable to open shared room';
-      messages.textContent = error instanceof Error
-        ? error.message : 'Room unavailable.';
+      feedback.textContent = error instanceof Error ? error.message : 'Room unavailable.';
     }
   }
 
