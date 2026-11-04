@@ -1,0 +1,7 @@
+# Security, privacy and resource boundaries
+
+Public signup does not allocate HPC resources. Programme membership does not authorize arbitrary programme data. A user-facing route does not grant administrator access. The browser session is managed by Quantum Platform; ACP trusts scoped server-issued assertions; Slurm and hardware providers enforce their own allocations.
+
+Keep authentication tokens, cookies, key material, raw environment secrets, private datasets and research participants' information out of public PRs, wikis and assistant conversations. Redact logs before sharing. Require CSRF protection for state-changing browser actions, permission checks on server endpoints, request throttling, provenance for assistant-suggested actions and approval for destructive/financially costly work.
+
+Review identity-related negative tests, wrong-user UUID access, programme membership revocation, tenant isolation, cancellation permissions, idempotency and recovery. For private vulnerabilities use a secure maintainer channel rather than a public issue containing exploit steps. See [account access](Account-and-access.md) and [Django API](https://github.com/nyameko/quantum-platform/blob/main/apps/user-api/portal/api_urls.py).
