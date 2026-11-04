@@ -1,0 +1,119 @@
+---
+/**
+ * M4d: consistent actions for every reviewed notebook.
+ * Pinned notebook URLs remain upstream source references; copying does not
+ * run a shell command or allocate scientific resources.
+ */
+interface Props {
+  slug: string;
+  notebookUrl: string;
+  filename: string;
+  notesUrl: string;
+}
+const { slug, notebookUrl, filename, notesUrl } = Astro.props;
+---
+
+<div class="notebook-footer">
+  <p id={slug + '-import-status'} class="import-status" role="status" aria-live="polite"></p>
+  <div class="notebook-actions" role="group" aria-label="Notebook actions">
+    <a class="notebook-action jupyter-action" href="/workbench/"
+      aria-label="Open JupyterLab Workbench" aria-describedby={slug + '-jupyter-tip'}
+      title="Open JupyterLab Workbench">
+      <img src="/assets/guide/jupyter-brand.svg" alt="" width="23" height="30"
+        loading="lazy" decoding="async" />
+      <span class="action-tooltip" id={slug + '-jupyter-tip'} role="tooltip">Open JupyterLab Workbench</span>
+    </a>
+    <a class="notebook-action" href={notesUrl} target="_blank" rel="noopener noreferrer"
+      aria-label="Environment setup and teaching notes on GitHub"
+      aria-describedby={slug + '-github-tip'} title="Environment setup and teaching notes">
+      <svg viewBox="0 0 24 24" width="25" height="25" fill="none"
+        stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M9 19c-4.4 1.4-4.4-2.5-6-3"/>
+        <path d="M15 22v-3.9c0-1 .1-1.6-.6-2.3 2.9-.3 5.9-1.4 5.9-6.3a4.9 4.9 0 0 0-1.3-3.4 4.6 4.6 0 0 0-.1-3.3S17.6 2.5 15 4a11 11 0 0 0-6 0C6.4 2.5 5.1 2.8 5.1 2.8a4.6 4.6 0 0 0-.1 3.3 4.9 4.9 0 0 0-1.3 3.4c0 4.9 3 6 5.9 6.3-.7.7-.6 1.3-.6 2.3V22"/>
+      </svg>
+      <span class="action-tooltip" id={slug + '-github-tip'} role="tooltip">Environment setup and teaching notes</span>
+    </a>
+    <button class="notebook-action" type="button"
+      data-notebook-url={notebookUrl} data-notebook-filename={filename}
+      aria-label="Copy notebook import command" aria-describedby={slug + '-shell-tip'}
+      data-status-id={slug + '-import-status'} title="Copy notebook import command">
+      <svg viewBox="0 0 24 24" width="25" height="25" fill="none"
+        stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <rect x="2.5" y="4" width="19" height="16" rx="2.5"/>
+        <path d="m6.5 9 3.6 3-3.6 3M12.5 16h4.5"/>
+      </svg>
+      <span class="action-tooltip" id={slug + '-shell-tip'} role="tooltip">Copy notebook import command</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  // One generic handler for every notebook card: no duplicate IDs or scripts.
+  document.querySelectorAll<HTMLButtonElement>('button[data-notebook-url]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const source = button.dataset.notebookUrl;
+      const filename = button.dataset.notebookFilename;
+      const status = document.getElementById(button.dataset.statusId ?? '');
+      if (!source || !filename) return;
+      const command = [
+        'mkdir -p "$HOME/notebooks/quantum-foundations"',
+        'curl -fL --retry 2 --output "$HOME/notebooks/quantum-foundations/'
+          + filename + '" ' + source,
+      ].join('\n');
+      try {
+        await navigator.clipboard.writeText(command);
+        if (status) status.textContent =
+          'Import command copied. Paste it into your JupyterLab Terminal.';
+      } catch {
+        if (status) status.textContent =
+          'Clipboard unavailable. Check browser clipboard permissions and try again.';
+      }
+    });
+  });
+</script>
+
+<style>
+  .notebook-footer {
+    display:flex; flex-wrap:wrap; justify-content:space-between; align-items:end;
+    gap:.75rem; margin-top:auto; padding-top:1.2rem;
+    border-top:1px solid var(--border);
+  }
+  .import-status { color:var(--muted-strong); font-size:.83rem; margin:0; flex:1 1 13rem; }
+  .import-status:empty { display:none; }
+  .notebook-actions {
+    display:flex; gap:.45rem; align-items:center; margin-left:auto;
+  }
+  .notebook-action {
+    position:relative; display:inline-grid; place-items:center;
+    width:2.9rem; height:2.9rem; padding:.35rem; box-sizing:border-box;
+    border:1px solid var(--border); border-radius:.65rem;
+    background:var(--surface); color:var(--text);
+    text-decoration:none; cursor:pointer; font:inherit;
+  }
+  .notebook-action:hover, .notebook-action:focus-visible {
+    background:var(--background-soft); border-color:var(--muted-strong);
+  }
+  .notebook-action:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+  .action-tooltip {
+    position:absolute; right:0; bottom:calc(100% + .55rem);
+    padding:.42rem .65rem; border-radius:.45rem;
+    background:var(--text); color:var(--surface);
+    box-shadow:0 4px 12px rgba(0,0,0,.2);
+    font-size:.78rem; font-weight:550; line-height:1.3;
+    white-space:nowrap; max-width:min(19rem, 80vw);
+    opacity:0; visibility:hidden; pointer-events:none; z-index:5;
+    transform:translateY(3px); transition:opacity .12s ease, transform .12s ease;
+  }
+  .action-tooltip::after {
+    content:""; position:absolute; right:1.05rem; top:100%;
+    border:.32rem solid transparent; border-top-color:var(--text);
+  }
+  .notebook-action:is(:hover, :focus-visible) .action-tooltip {
+    visibility:visible; opacity:1; transform:translateY(0);
+  }
+  @media (prefers-reduced-motion:reduce) {
+    .action-tooltip { transition:none; }
+  }
+</style>
