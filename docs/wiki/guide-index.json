@@ -69,6 +69,20 @@
       "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Guide-assistance"
     },
     {
+      "slug": "Guide-knowledge-and-source-ingestion",
+      "title": "Guide knowledge and source ingestion",
+      "source_path": "docs/wiki/Guide-knowledge-and-source-ingestion.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Guide-knowledge-and-source-ingestion.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Guide-knowledge-and-source-ingestion"
+    },
+    {
+      "slug": "Guide-support-and-ticket-workflows",
+      "title": "Guide support and ticket workflows",
+      "source_path": "docs/wiki/Guide-support-and-ticket-workflows.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Guide-support-and-ticket-workflows.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Guide-support-and-ticket-workflows"
+    },
+    {
       "slug": "Home",
       "title": "Home",
       "source_path": "docs/wiki/Home.md",

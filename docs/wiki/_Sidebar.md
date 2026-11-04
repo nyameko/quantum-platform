@@ -17,3 +17,6 @@
 - [JupyterHub and SSH identity](JupyterHub-and-SSH-identity.md)
 - [API development and tests](API-development-and-tests.md)
 - [Research programme administration](Research-programme-administration.md)
+**Guide integration**
+- [Guide knowledge and source ingestion](Guide-knowledge-and-source-ingestion.md)
+- [Guide support and ticket workflows](Guide-support-and-ticket-workflows.md)
