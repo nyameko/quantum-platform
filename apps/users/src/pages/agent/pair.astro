@@ -88,6 +88,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       if (feedback) feedback.textContent = 'Enter exactly 12 hexadecimal characters.';
       return;
     }
+    if (!window.confirm(
+      'Approve this terminal to access your PRIVATE ACP projects and chats?\\n'
+      + 'Code: ' + value + '\\n\\n'
+      + 'Only continue if this exact code is displayed in your own terminal.'
+    )) return;
     if (approve) approve.disabled = true;
     void (async () => {
       try {
