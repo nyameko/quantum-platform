@@ -114,6 +114,10 @@ def call(
         ):
             if response.status_code == 429:
                 raise AgentServiceError("The agent service queue is temporarily full.")
+            if response.status_code == 403:
+                raise AgentServiceError(
+                    "This resource is not approved or authorized.", status_code=403
+                )
             if response.status_code == 404:
                 raise AgentServiceError(
                     "The requested agent resource was not found.", status_code=404

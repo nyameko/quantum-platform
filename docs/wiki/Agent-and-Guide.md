@@ -61,6 +61,27 @@ room, automatically expose private research memory, or invoke an agent model.
   A human PI and separately approved researcher must prove create, post,
   outsider denial and revocation in the deployed interface.
 
+
+## M4d reviewed notebook references (source candidate)
+
+Research Assistant includes **Reviewed research resources** below its approved
+memory section. The source of trust is the **ACP immutable Git allow-list**,
+not unreviewed notebook files, model messages or a portal-configured URL.
+
+- Catalog and personal bindings are fetched using authenticated Quantum Platform
+  proxies; ACP verifies the signed identity and database owner/tenant RLS.
+- A researcher can inspect the exact reviewed `quantum-workflows` notebook at
+  its immutable Git SHA, explicitly **Enable** a version, or **Revoke** it using
+  an optimistic `If-Match` revision. Stale revisions are rejected.
+- The ACP catalog is deliberately **empty until a human reviewer approves a
+  real source manifest in a separate PR**. An empty panel is a truthful
+  "no reviewed resources" status, not a failure of the UI.
+- Enabling a notebook reference only attaches a reviewed resource to the
+  researcher's ACP profile. **It does not install packages, create a skill
+  executor, allocate resources, submit Slurm jobs, access a QPU, or grant
+  model tools.** Workbench runs are separate explicit actions.
+- Requires ACP schema v8 and paired M4d ACP API. Source CI is not proof of
+  live migration or human `nlisa` acceptance.
 ## M4d reviewed notebook references (source candidate)
 
 The Guide contains a **Reviewed learning resources** panel. It only lists
