@@ -1,29 +1,24 @@
 # Quantum Platform User API
 
-Phase 2, iteration 1 establishes the Django/PostgreSQL backend boundary,
-core research domain models, Django Admin, and a database-backed health API.
+Django/DRF + PostgreSQL backend for the portal's account, authentication, research programme and resource orchestration contracts.
 
-Authentication, registration, email verification, MFA/WebAuthn, PI approval
-workflow, and credential provisioning are intentionally deferred.
+**Current source status (4 November 2026):** the original Phase 2 scaffold has progressed. The source tree includes account verification and MFA flows, identity/PI/programme administration, SSH/WireGuard public key registration, POSIX allocation, JupyterHub launch, Slurm execution records, and signed personal-agent proxy methods. These capabilities still require the correct deployed image, settings, migrations, accounts, providers and live acceptance tests. This README describes source features, **not** blanket production readiness.
 
 ## Local setup
 
-```bash
+```sh
 cd apps/user-api
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e .
 cp .env.example .env
-python manage.py makemigrations
+# Configure a disposable development PostgreSQL database in .env.
+python manage.py check
 python manage.py migrate
-python manage.py createsuperuser
+python manage.py test portal --settings=config.test_settings
 python manage.py runserver 127.0.0.1:8000
 ```
 
-Health:
-`curl http://127.0.0.1:8000/api/v1/health/`
+Never commit `.env`, tokens, private keys or production settings. Do not run `makemigrations` as part of routine environment setup; generate migrations only for reviewed model changes. Development health endpoint: `http://127.0.0.1:8000/api/v1/health/`; local admin: `http://127.0.0.1:8000/admin/` when appropriately configured.
 
-Admin:
-`http://127.0.0.1:8000/admin/`
-
-Do not commit `.env` or production credentials.
+See [wiki API map](../../docs/wiki/API-and-integration.md), [developer guide](../../docs/wiki/Developer-guide.md), [root quick start](../../docs/QUICK_START.md) and [route declarations](portal/api_urls.py).

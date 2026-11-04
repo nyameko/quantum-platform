@@ -1,0 +1,7 @@
+# Publishing and maintaining the GitHub Wiki
+
+`docs/wiki/` is the reviewable source; the [native GitHub Wiki](https://github.com/nyameko/quantum-platform/wiki) lives in a separate `.wiki.git` repository and is **not** published by a docs PR. After merging, initialize the wiki with a first page if necessary. From a clean authenticated checkout, run `bash scripts/publish-github-wiki.sh --dry-run` and inspect changes, then `bash scripts/publish-github-wiki.sh` to publish. Do not place access tokens in command lines, logs or URLs. Verify Home, sidebar and all links.
+
+Guides follow ArchWiki-style task navigation: context/prerequisites, clear commands and scopes, warnings near side effects, troubleshooting by symptom, references to exact owned source. **Status** is per capability, not inferred from a merged PR or dashboard color. Production source/image/schema/entitlement may differ from current main. Public docs never contain private topologies, credentials or user records.
+
+For Guide/ACP retrieval, capture title, repo, page slug, source commit, audience, capability status and cited source path. An agent can advise from public docs but must not infer permission to change accounts, secrets, hardware allocations or production resources. If information conflicts, escalate with links to conflicting evidence.

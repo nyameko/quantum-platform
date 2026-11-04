@@ -1,5 +1,8 @@
 # Quantum Platform
 
+> **Documentation portal:** [Wiki home](docs/wiki/Home.md) · [Account/access](docs/wiki/Account-and-access.md) · [Workbenches/runs](docs/wiki/Workbench-and-runs.md) · [Agent/Guide](docs/wiki/Agent-and-Guide.md) · [Developer and API](docs/wiki/Developer-guide.md). Reviewed sources are in `docs/wiki/`; the separate [GitHub Wiki](https://github.com/nyameko/quantum-platform/wiki) is published using [the documented process](docs/WIKI_PUBLISHING.md).
+
+
 Public web, identity, and research-access platform for quantum-centric computing.
 
 `quantum-platform` is the application layer of a larger hybrid HPC / Kubernetes / quantum-computing research environment. It provides the public-facing web applications, researcher identity workflows, and the user portal that will progressively connect people to infrastructure services such as JupyterHub, Slurm, GPU systems, and quantum-computing resources.
