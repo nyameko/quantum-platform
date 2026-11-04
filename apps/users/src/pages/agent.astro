@@ -161,11 +161,21 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       </div>
     </details>
 
+    <details class="panel memory-panel" id="skills-details">
+      <summary>Reviewed research resources <span class="memory-summary-hint">Versioned, owner-enabled Git references</span></summary>
+      <div class="memory-content">
+        <p class="note">Only human-reviewed, immutable Git notebook references can be enabled.
+          Enabling a reference grants no execution, model tools, scheduler, or GPU access.
+          Open the notebook source yourself and use normal approved Workbench resources.</p>
+        <button type="button" id="skills-refresh" class="secondary">Refresh reviewed resources</button>
+        <p id="skills-status" role="status" aria-live="polite"></p>
+        <div id="skills-items" class="memory-list"></div>
+      </div>
+    </details>
     <p class="note">
-      Research memories remain private and require approval. Their use by Hermes
-      is separately controlled by ACP deployment settings; saving a memory does not
-      guarantee it has been enabled for inference. Skills and the polished Guide
-      remain separate roadmap milestones.
+      ACP stores private approved memory and explicit reviewed resource bindings;
+      saving a memory does not guarantee inference hydration is enabled. Model routing
+      and execution remain governed independently.
     </p>
       </main>
     </div>
@@ -245,6 +255,9 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const toggleSidebar = document.querySelector<HTMLButtonElement>('#toggle-sidebar');
   const toggleWidth = document.querySelector<HTMLButtonElement>('#toggle-width');
   const memoryDetails = document.querySelector<HTMLDetailsElement>('#memory-details');
+  const skillsStatus = document.querySelector<HTMLElement>('#skills-status');
+  const skillsItems = document.querySelector<HTMLElement>('#skills-items');
+  const skillsRefresh = document.querySelector<HTMLButtonElement>('#skills-refresh');
   const activeTitle = document.querySelector<HTMLElement>('#active-title');
   const transcript = document.querySelector<HTMLElement>('#transcript');
   const turnForm = document.querySelector<HTMLFormElement>('#turn-form');
@@ -1668,10 +1681,120 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     }
   }
 
+  type ReviewedResource = {
+    id: string; version: string; source_commit: string; manifest_sha256: string;
+    resource_path: string; reviewed_by: string;
+    required_capabilities: string[]; automatic_code_execution: boolean;
+  };
+  type ReviewedBinding = {
+    skill_id: string; version: string; status: 'enabled' | 'revoked';
+    revision: number; currently_reviewed: boolean;
+  };
+  skillsRefresh?.addEventListener('click', () => void loadReviewedSkills());
+
+  async function loadReviewedSkills() {
+    if (!skillsItems || !skillsStatus) return;
+    skillsItems.replaceChildren();
+    skillsStatus.textContent = 'Loading reviewed Git references from ACP…';
+    const root = '/api/v1/agent/skills/';
+    try {
+      const [catalogRes, bindingsRes] = await Promise.all([
+        fetch(root + 'catalog/', { credentials: 'same-origin', cache: 'no-store' }),
+        fetch(root + 'bindings/', { credentials: 'same-origin', cache: 'no-store' }),
+      ]);
+      if (!catalogRes.ok || !bindingsRes.ok) {
+        throw new Error(catalogRes.status === 503 || bindingsRes.status === 503
+          ? 'Reviewed resources are not deployed or schema v8 is unavailable.'
+          : 'Cannot load reviewed resource bindings.');
+      }
+      const catalog = await catalogRes.json();
+      const bound = await bindingsRes.json();
+      if (!Array.isArray(catalog.items) || !Array.isArray(bound.items)) {
+        throw new Error('Invalid reviewed resource response.');
+      }
+      if (catalog.items.length === 0) {
+        skillsStatus.textContent =
+          'No reviewed notebook versions published yet. Proposed resources are not executable skills.';
+        return;
+      }
+      skillsStatus.textContent = catalog.items.length
+        + ' human-reviewed notebook reference(s); inspect and explicitly enable as needed.';
+      for (const entry of catalog.items as ReviewedResource[]) {
+        if (!/^[a-z][a-z0-9_.-]{0,119}$/.test(entry.id)
+            || !/^[0-9]+(?:\.[0-9]+){0,3}(?:[-.][a-z0-9]+)*$/.test(entry.version)
+            || !/^[a-f0-9]{40}$/.test(entry.source_commit)
+            || !/^[a-zA-Z0-9_./-]+$/.test(entry.resource_path)
+            || !entry.resource_path.startsWith('labs/')
+            || !entry.resource_path.endsWith('.ipynb')
+            || entry.resource_path.split('/').includes('..')
+            || entry.automatic_code_execution !== false) continue;
+        const binding = (bound.items as ReviewedBinding[]).find(value =>
+          value.skill_id === entry.id && value.version === entry.version,
+        );
+        const card = document.createElement('article');
+        card.className = 'memory-item';
+        const label = document.createElement('strong');
+        label.textContent = entry.id + ' · v' + entry.version;
+        const info = document.createElement('p');
+        info.textContent = 'Reviewed by ' + entry.reviewed_by
+          + ' · Git ' + entry.source_commit.slice(0, 12)
+          + ' · ' + (binding?.status ?? 'not enabled');
+        const source = document.createElement('a');
+        source.href = 'https://github.com/nyameko/quantum-workflows/blob/'
+          + entry.source_commit + '/' + entry.resource_path;
+        source.target = '_blank';
+        source.rel = 'noopener noreferrer';
+        source.textContent = 'Inspect immutable notebook source';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'secondary';
+        toggle.textContent = binding?.status === 'enabled' ? 'Revoke' : 'Enable reviewed reference';
+        toggle.disabled = Boolean(binding && !binding.currently_reviewed);
+        if (toggle.disabled) toggle.title = 'Version no longer in reviewed catalog';
+        toggle.addEventListener('click', () => {
+          const revoke = binding?.status === 'enabled';
+          if (!window.confirm(
+            (revoke ? 'Revoke' : 'Enable') + ' reviewed notebook reference '
+            + entry.id + ' v' + entry.version + '?\nThis does not execute any code.'
+          )) return;
+          toggle.disabled = true;
+          void (async () => {
+            try {
+              const target = root + encodeURIComponent(entry.id)
+                + '/versions/' + encodeURIComponent(entry.version) + '/binding/';
+              const result = await csrfJsonFetch(target, {
+                method: revoke ? 'POST' : 'PUT',
+                headers: { 'If-Match': '"' + (binding?.revision ?? 0) + '"' },
+                body: JSON.stringify({}),
+              });
+              if (!result.ok) {
+                const err = await result.json().catch(() => ({}));
+                throw new Error(result.status === 412
+                  ? 'Binding changed elsewhere; reload and confirm again.'
+                  : err.detail ?? 'Skill binding request denied.');
+              }
+              await loadReviewedSkills();
+            } catch (error) {
+              skillsStatus.textContent = error instanceof Error
+                ? error.message : 'Unable to update reviewed resource.';
+              toggle.disabled = false;
+            }
+          })();
+        });
+        card.append(label, info, source, toggle);
+        skillsItems.append(card);
+      }
+    } catch (error) {
+      skillsStatus.textContent = error instanceof Error
+        ? error.message : 'Reviewed resource service unavailable.';
+    }
+  }
+
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
     await loadPersonalProfile();
+    await loadReviewedSkills();
     // A sidebar menu on another portal page can navigate to the canonical
     // workspace editor without transferring credentials or workspace content.
     const projectNewChat = window.sessionStorage.getItem('qp:workspace-new-chat');
