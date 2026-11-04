@@ -440,7 +440,7 @@
   function suggestConversationTitle(firstMessage: string): string {
     // A new conversation is persisted only after the researcher sends a turn.
     // Never use unsent drafts or model-generated text as server-side history.
-    return firstMessage.replace(/\\s+/g, ' ').trim().slice(0, 80) || 'New chat';
+    return firstMessage.replace(/\s+/g, ' ').trim().slice(0, 80) || 'New chat';
   }
 
   async function ensureInlineConversation(firstMessage: string): Promise<string> {
