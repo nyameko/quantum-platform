@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+import NotebookActions from '../components/NotebookActions.astro';
 
 // Links are explicit, curated references to upstream-SDK notebooks already in
 // the quantum-workflows repository, not executable ACP "skills".
@@ -7,6 +8,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 // Published review/entitlement policy remains owned by the catalogue, not Guide.
 const sourceRevision = '6867222b0eda57e55796143c466a61660102a6d7';
 const source = 'https://github.com/nyameko/quantum-workflows/blob/' +
+  sourceRevision + '/labs/01-intro-quantum-computing/';
+const rawSource = 'https://raw.githubusercontent.com/nyameko/quantum-workflows/' +
   sourceRevision + '/labs/01-intro-quantum-computing/';
 ---
 
@@ -30,20 +33,17 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/' +
         This notebook demonstrates Bell-state correlations.
         A complete CHSH inequality/violation notebook is a separate follow-up lesson.
       </p>
-      <div class="resource-actions">
-        <a href={source + 'Intro_QC_Demo.ipynb'} target="_blank" rel="noopener noreferrer">
-          Inspect source notebook
-        </a>
-        <a href={source + 'README.md'} target="_blank" rel="noopener noreferrer">
-          Environment setup and teaching notes
-        </a>
-        <a href="/workbench/">Open your Jupyter Workbench</a>
-      </div>
       <p class="note">
-        Your workbench does not yet automatically import this notebook.
-        Use the reviewed source and environment instructions; future managed kernels
-        and one-click notebook import will be enabled when the infrastructure supports them.
+        Open JupyterLab using the orange icon, follow the GitHub teaching notes,
+        then use the terminal icon to copy a commit-pinned import command.
+        Your workbench does not yet automatically import or execute the notebook.
       </p>
+      <NotebookActions
+        slug="intro"
+        notebookUrl={rawSource + 'Intro_QC_Demo.ipynb'}
+        filename="Intro_QC_Demo.ipynb"
+        notesUrl={source + 'README.md'}
+      />
     </article>
 
     <article class="notebook-card" id="bell-state">
@@ -64,15 +64,6 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/' +
         Z-basis parity alone is not proof of entanglement or a CHSH Bell-inequality
         violation. See the notebook for basis-dependent measurements and limitations.
       </p>
-      <div class="resource-actions">
-        <a href="/workbench/">Open JupyterLab</a>
-        <a href={source + '02-bell-cpu-gpu-qpu.ipynb'}
-          target="_blank" rel="noopener noreferrer">Inspect Bell notebook source</a>
-        <a href={source + 'README.md'}
-          target="_blank" rel="noopener noreferrer">Environment instructions</a>
-        <button type="button" id="copy-bell-import">Copy notebook import command</button>
-      </div>
-      <p id="bell-import-status" class="note" role="status" aria-live="polite"></p>
       <p class="note">
         To work with your own copy, open a JupyterLab Terminal, paste the import
         command, then open <code>notebooks/quantum-foundations/Bell_State_CPU_GPU_QPU.ipynb</code>.
@@ -85,6 +76,12 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/' +
         in Guide and explicitly approve an ACP memory; raw job output should
         not be silently promoted to long-term memory.
       </p>
+      <NotebookActions
+        slug="bell"
+        notebookUrl={rawSource + '02-bell-cpu-gpu-qpu.ipynb'}
+        filename="Bell_State_CPU_GPU_QPU.ipynb"
+        notesUrl={source + 'README.md'}
+      />
     </article>
 
     <p class="note">
@@ -94,42 +91,11 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/' +
   </section>
 </SiteLayout>
 
-<script>
-  const importButton = document.querySelector<HTMLButtonElement>('#copy-bell-import');
-  const importStatus = document.querySelector<HTMLElement>('#bell-import-status');
-  const pinnedNotebook =
-    'https://raw.githubusercontent.com/nyameko/quantum-workflows/' +
-    '6867222b0eda57e55796143c466a61660102a6d7/' +
-    'labs/01-intro-quantum-computing/02-bell-cpu-gpu-qpu.ipynb';
-  const importCommand = [
-    'mkdir -p "$HOME/notebooks/quantum-foundations"',
-    'curl -fL --retry 2 --output "$HOME/notebooks/quantum-foundations/Bell_State_CPU_GPU_QPU.ipynb" '
-       + pinnedNotebook,
-  ].join('\n');
-  importButton?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(importCommand);
-      if (importStatus) importStatus.textContent =
-        'Import command copied. Paste it into your JupyterLab Terminal.';
-    } catch {
-      if (importStatus) importStatus.textContent =
-        'Clipboard unavailable. Inspect the source notebook and download it through JupyterLab.';
-    }
-  });
-</script>
-
-
 <style>
   .notebook-catalog { max-width:70rem; }
   h1 { margin:.4rem 0; font-size:clamp(2.4rem,5vw,4rem); letter-spacing:-.04em; }
   .notebook-card { padding:1.5rem; margin-top:2rem; border:1px solid var(--border);
-    border-radius:1rem; background:var(--surface); }
+    border-radius:1rem; background:var(--surface); display:flex; flex-direction:column; }
   h2 { font-size:1.45rem; margin:.4rem 0 1rem; }
-  .resource-actions { display:flex; gap:.6rem; flex-wrap:wrap; margin:1.3rem 0; }
-  .resource-actions a, .resource-actions button { color:var(--text); text-decoration:none;
-    border:1px solid var(--border); border-radius:.6rem; padding:.7rem .85rem;
-    background:var(--surface); font:inherit; font-size:.9rem; cursor:pointer; }
-  .resource-actions a:hover, .resource-actions button:hover { background:var(--background-soft); }
-  .resource-actions a:hover { background:var(--background-soft); }
   .note { color:var(--muted-strong); font-size:.9rem; }
 </style>
