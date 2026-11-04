@@ -1298,6 +1298,63 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     await loadMemories();
   });
 
+
+  // M4c first slice: read-only programme-room discovery through the existing
+  // live-membership-checked, signed ACP proxy. Private chats remain separate.
+  async function showProgrammeRoom(programmeId: number, roomId: string) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'programme-room-dialog';
+    dialog.setAttribute('aria-label', 'Shared programme conversation');
+    const heading = document.createElement('h2');
+    heading.textContent = 'Loading shared conversation…';
+    const messages = document.createElement('div');
+    messages.className = 'programme-room-messages';
+    const foot = document.createElement('p');
+    foot.className = 'small-note';
+    foot.textContent = 'Read-only preview. Shared replies and approvals are separate M4c work.';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'Close';
+    close.addEventListener('click', () => dialog.close());
+    dialog.append(heading, messages, foot, close);
+    document.body.append(dialog);
+    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+    dialog.showModal();
+    try {
+      const reply = await fetch(
+        '/api/v1/agent/programmes/' + programmeId + '/conversations/'
+          + encodeURIComponent(roomId) + '/', {
+          credentials: 'same-origin', cache: 'no-store',
+        });
+      if (!reply.ok) throw new Error(
+        reply.status === 403 || reply.status === 404
+          ? 'Programme membership or room access was revoked.'
+          : 'The programme conversation could not be loaded.',
+      );
+      const room = await reply.json();
+      heading.textContent = String(room.title ?? 'Shared conversation');
+      const entries = Array.isArray(room.messages) ? room.messages : [];
+      for (const entry of entries) {
+        const row = document.createElement('article');
+        const author = document.createElement('strong');
+        author.textContent = String(entry.author_subject ?? 'Programme member');
+        const body = document.createElement('p');
+        const content = entry.content;
+        body.textContent = typeof content === 'string' ? content
+          : typeof content?.text === 'string' ? content.text : '[Structured message]';
+        row.append(author, body);
+        messages.append(row);
+      }
+      if (!entries.length) {
+        messages.textContent = 'No messages yet.';
+      }
+    } catch (error) {
+      heading.textContent = 'Unable to open shared room';
+      messages.textContent = error instanceof Error
+        ? error.message : 'Room unavailable.';
+    }
+  }
+
   if (await requireSession()) {
     await loadSidebar();
     await loadMemories();
@@ -1336,18 +1393,73 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             folder.className = 'project-group';
             const label = document.createElement('summary');
             label.textContent = m.programme.name;
-            const link = document.createElement('a');
-            link.href = '/programmes/';
-            link.className = 'small-note';
-            link.textContent = 'Group discussions require approved programme workspace support.';
             const settings = document.createElement('a');
             settings.href = '/programmes/';
-            settings.textContent = 'View programme and access';
+            settings.textContent = 'View programme access';
             settings.className = 'small-note';
-            const pending = document.createElement('p');
-            pending.className = 'small-note';
-            pending.textContent = 'New shared chat is unavailable until PI-governed ACP rooms are enabled.';
-            folder.append(label, settings, link, pending);
+            const rooms = document.createElement('div');
+            rooms.className = 'programme-rooms';
+            const programmeId = Number(m.programme.id);
+            let roomRequestGeneration = 0;
+            const onExpand = () => {
+              // Refresh the authorized list on every open, including after revocation.
+              // Ignore in-flight responses from earlier open/close cycles.
+              const requestGeneration = ++roomRequestGeneration;
+              if (!folder.open) {
+                rooms.replaceChildren();
+                return;
+              }
+              rooms.replaceChildren();
+              const loading = document.createElement('p');
+              loading.className = 'small-note';
+              loading.textContent = 'Loading authorized programme conversations…';
+              rooms.append(loading);
+              void (async () => {
+                try {
+                  if (!Number.isSafeInteger(programmeId) || programmeId <= 0) {
+                    throw new Error('Invalid programme reference.');
+                  }
+                  const endpoint = '/api/v1/agent/programmes/' + programmeId + '/conversations/';
+                  const reply = await fetch(endpoint, {
+                    credentials: 'same-origin', cache: 'no-store',
+                  });
+                  if (!reply.ok) throw new Error(reply.status === 404 || reply.status === 403
+                    ? 'Programme access is no longer available.'
+                    : 'Shared rooms are not currently available.');
+                  const data = await reply.json();
+                  if (!folder.open || requestGeneration !== roomRequestGeneration) return;
+                  rooms.replaceChildren();
+                  const active = Array.isArray(data.items) ? data.items : [];
+                  for (const room of active) {
+                    if (typeof room.id !== 'string' || typeof room.title !== 'string') continue;
+                    const link = document.createElement('button');
+                    link.type = 'button';
+                    link.className = 'programme-room-link';
+                    link.textContent = room.title;
+                    link.addEventListener('click', () => {
+                      void showProgrammeRoom(programmeId, room.id);
+                    });
+                    rooms.append(link);
+                  }
+                  if (!rooms.childElementCount) {
+                    const empty = document.createElement('p');
+                    empty.className = 'small-note';
+                    empty.textContent = 'No shared conversations created yet.';
+                    rooms.append(empty);
+                  }
+                } catch (error) {
+                  if (!folder.open || requestGeneration !== roomRequestGeneration) return;
+                  rooms.replaceChildren();
+                  const unavailable = document.createElement('p');
+                  unavailable.className = 'small-note';
+                  unavailable.textContent = error instanceof Error
+                    ? error.message : 'Programme rooms unavailable.';
+                  rooms.append(unavailable);
+                }
+              })();
+            };
+            folder.addEventListener('toggle', onExpand);
+            folder.append(label, settings, rooms);
             root.append(folder);
           }
         }
@@ -1635,4 +1747,30 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .workspace-menu-actions:popover-open .workspace-submenu-note {
     color:var(--muted-strong); font-size:.72rem; padding:.25rem .4rem;
   }
+</style>
+
+
+<style is:global>
+  .programme-room-dialog {
+    width:min(46rem,94vw); max-height:80vh; overflow:auto;
+    padding:1.25rem; border:1px solid var(--border); border-radius:1rem;
+    background:var(--surface); color:var(--text);
+    box-shadow:0 18px 48px rgb(0 0 0 / 30%);
+  }
+  .programme-room-dialog::backdrop { background:rgb(0 0 0 / 55%); }
+  .programme-room-dialog h2 { font-size:1.1rem; margin:0 0 1rem; }
+  .programme-room-dialog .programme-room-messages { display:grid; gap:.75rem; }
+  .programme-room-dialog .programme-room-messages article {
+    border:1px solid var(--border); border-radius:.6rem;
+    padding:.7rem .85rem; overflow-wrap:anywhere;
+  }
+  .programme-room-dialog p { white-space:pre-wrap; line-height:1.5; }
+  .programme-room-dialog > button { margin-top:1rem; }
+  .programme-rooms { display:grid; gap:.35rem; }
+  .programme-room-link {
+    display:block; padding:.45rem .5rem; width:100%; text-align:left;
+    color:var(--text); background:transparent; border:1px solid var(--border);
+    border-radius:.45rem; font:inherit; font-size:.8rem; cursor:pointer;
+  }
+  .programme-room-link:hover { background:var(--background-soft); }
 </style>

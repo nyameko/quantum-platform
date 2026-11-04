@@ -3,7 +3,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
 // Links are explicit, curated references to upstream-SDK notebooks already in
 // the quantum-workflows repository, not executable ACP "skills".
-const source = 'https://github.com/nyameko/quantum-workflows/blob/main/labs/01-intro-quantum-computing/';
+// Immutable source revision is part of the reproducibility contract.
+// Published review/entitlement policy remains owned by the catalogue, not Guide.
+const sourceRevision = '6867222b0eda57e55796143c466a61660102a6d7';
+const source = 'https://github.com/nyameko/quantum-workflows/blob/' +
+  sourceRevision + '/labs/01-intro-quantum-computing/';
 ---
 
 <SiteLayout title="Reviewed notebooks" siteName="Quantum Platform" section="User Portal">
@@ -16,7 +20,7 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/main/labs/01-i
     </p>
 
     <article class="notebook-card">
-      <p class="eyebrow">FOUNDATIONS · CPU · QISKIT / QISKIT AER</p>
+      <p class="eyebrow">FOUNDATIONS · BEGINNER · CPU · QISKIT / QISKIT AER</p>
       <h2>Introduction to quantum computing</h2>
       <p>
         Classical bits, qubits, superposition, measurement, Bloch visualisation,
@@ -43,12 +47,18 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/main/labs/01-i
     </article>
 
     <article class="notebook-card" id="bell-state">
-      <p class="eyebrow">BELL STATE · CPU FIRST · OPTIONAL GPU/QPU</p>
+      <p class="eyebrow">BELL STATE · BEGINNER TO INTERMEDIATE · CPU FIRST · OPTIONAL GPU/QPU</p>
       <h2>Bell-state experiment: Qiskit Aer to hybrid execution</h2>
       <p>
         Prepare |Φ⁺⟩, run repeatable shot-based measurements and inspect
         correlations. The notebook starts with Qiskit Aer on CPU and discusses
         additional backends without requiring GPU/QPU access.
+      </p>
+      <p class="note">
+        Prerequisites: Python basics, qubit notation and simple measurement probabilities.
+        Source revision: <code>{sourceRevision.slice(0, 12)}</code> (immutable).
+        This is a curated reference, not an automatically approved ACP skill or an
+        entitlement to execute on a remote backend.
       </p>
       <p class="note">
         Z-basis parity alone is not proof of entanglement or a CHSH Bell-inequality
