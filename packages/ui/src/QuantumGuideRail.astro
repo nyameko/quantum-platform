@@ -762,14 +762,14 @@
 
   function chatButton(chat: {
     id: string; title?: string; project_id?: string | null; archived_at?: string | null;
-  }) {
+  }, labelOverride?: string) {
     const row = document.createElement('div');
     row.className = 'rail-chat-row';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'rail-chat';
-    button.textContent = chat.title || 'New chat';
-    button.title = chat.title || 'New chat';
+    button.textContent = labelOverride ?? chat.title ?? 'New chat';
+    button.title = labelOverride ?? chat.title ?? 'New chat';
     button.addEventListener('click', () => {
       window.sessionStorage.setItem('qp:last-conversation-id', chat.id);
       railConversationId = chat.id;
@@ -827,6 +827,22 @@
       const conversationPayload = await conversationsResponse.json();
       const projects: Array<{id: string; title: string; archived_at?: string | null}> = projectPayload.items ?? [];
       const chats: Array<{id: string; title?: string; project_id?: string | null; archived_at?: string | null}> = conversationPayload.items ?? [];
+      // Existing historic duplicates remain in ACP, but users must be able to
+      // tell them apart without silently rewriting research provenance.
+      const repeated = (items: Array<{id:string;title?:string}>) => {
+        const count = new Map<string, number>();
+        for (const item of items) {
+          const key = (item.title ?? '').trim().toLocaleLowerCase();
+          count.set(key, (count.get(key) ?? 0) + 1);
+        }
+        return (item: {id:string;title?:string}) => {
+          const name = item.title ?? 'New chat';
+          return (count.get(name.trim().toLocaleLowerCase()) ?? 0) > 1
+            ? name + ' · #' + item.id.slice(0, 6) : name;
+        };
+      };
+      const chatLabel = repeated(chats);
+      const projectLabel = repeated(projects);
       if (railConversationId === null && !sending) {
         const last = window.sessionStorage.getItem('qp:last-conversation-id');
         if (last && chats.some(chat => chat.id === last && !chat.archived_at)) {
@@ -843,11 +859,11 @@
         const folder = document.createElement('details');
         folder.className = 'rail-folder';
         const heading = document.createElement('summary');
-        heading.textContent = project.title;
+        heading.textContent = projectLabel(project);
         const children = document.createElement('div');
         children.className = 'rail-folder-children';
         chats.filter(chat => chat.project_id === project.id && !chat.archived_at).slice(0, 12)
-          .forEach(chat => children.append(chatButton(chat)));
+          .forEach(chat => children.append(chatButton(chat, chatLabel(chat))));
         folder.append(heading, children);
         const wrapper = document.createElement('div');
         wrapper.className = 'rail-folder-row';
@@ -859,7 +875,7 @@
       // inbox rather than a second copy of every project conversation.
       chats.filter(chat => !chat.archived_at && !chat.project_id)
         .slice(0, 8)
-        .forEach(chat => recentRoot?.append(chatButton(chat)));
+        .forEach(chat => recentRoot?.append(chatButton(chat, chatLabel(chat))));
       if (recentRoot && !recentRoot.childElementCount) {
         const empty = document.createElement('small');
         empty.className = 'rail-note';
@@ -874,11 +890,11 @@
         group.className = 'rail-folder-row';
         const name = document.createElement('span');
         name.className = 'rail-archived-title';
-        name.textContent = project.title;
+        name.textContent = projectLabel(project);
         group.append(name, railMenu('project', project.id, project.title, null, true));
         archiveRoot?.append(group);
       }
-      for (const chat of archivedChats) archiveRoot?.append(chatButton(chat));
+      for (const chat of archivedChats) archiveRoot?.append(chatButton(chat, chatLabel(chat)));
       if (archiveSection) archiveSection.hidden =
         archivedProjects.length + archivedChats.length === 0;
       if (!projects.filter(p => !p.archived_at).length && projectRoot) {
