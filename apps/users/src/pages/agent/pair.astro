@@ -1,0 +1,130 @@
+---
+import SiteLayout from '@nyameko/ui/SiteLayout.astro';
+---
+
+<SiteLayout title="Pair research terminal" siteName="Quantum Platform" section="User Portal">
+  <section class="section container">
+    <div class="pairing-shell">
+      <p class="eyebrow">M4G · TRUSTED TERMINAL PAIRING</p>
+      <h1>Pair a research terminal</h1>
+      <p>
+        Only approve a code that is currently displayed in your own SSH terminal.
+        Approving a code grants that terminal temporary access to your private
+        ACP conversations and projects. Never share browser cookies or API keys.
+      </p>
+      <form id="pair-terminal">
+        <label for="terminal-code">Verification code from the terminal</label>
+        <input id="terminal-code" required minlength="12" maxlength="12"
+          autocomplete="off" spellcheck="false" placeholder="12-digit hexadecimal code"/>
+        <button id="approve-terminal" type="submit">Approve this terminal</button>
+      </form>
+      <p id="pairing-feedback" role="status" aria-live="polite"></p>
+      <h2>Authorized temporary terminals</h2>
+      <p>Paired sessions expire automatically after five minutes. Revoke any
+        session you do not recognize. Revocation prevents the next request.</p>
+      <div id="pairing-sessions"></div>
+      <button id="refresh-pairings" type="button" class="secondary">Refresh sessions</button>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  import { csrfJsonFetch, requireSession } from '../../lib/auth';
+
+  const form = document.querySelector<HTMLFormElement>('#pair-terminal');
+  const code = document.querySelector<HTMLInputElement>('#terminal-code');
+  const approve = document.querySelector<HTMLButtonElement>('#approve-terminal');
+  const feedback = document.querySelector<HTMLElement>('#pairing-feedback');
+  const sessions = document.querySelector<HTMLElement>('#pairing-sessions');
+  const refresh = document.querySelector<HTMLButtonElement>('#refresh-pairings');
+
+  async function reload() {
+    if (!sessions) return;
+    const reply = await fetch('/api/v1/agent/terminal-pairings/', {
+      credentials: 'same-origin', cache: 'no-store',
+    });
+    if (!reply.ok) throw new Error('Authorized sessions are unavailable.');
+    const payload = await reply.json();
+    sessions.replaceChildren();
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'session-item';
+      const description = document.createElement('p');
+      description.textContent = String(item.device_label) + ' · expires '
+        + new Date(String(item.expires_at)).toLocaleTimeString();
+      const revoke = document.createElement('button');
+      revoke.type = 'button';
+      revoke.className = 'secondary';
+      revoke.textContent = 'Revoke';
+      revoke.addEventListener('click', () => {
+        revoke.disabled = true;
+        void (async () => {
+          try {
+            const reply = await csrfJsonFetch(
+              '/api/v1/agent/terminal-pairings/' + encodeURIComponent(String(item.id))
+              + '/revoke/', { method: 'POST', body: '{}' },
+            );
+            if (!reply.ok) throw new Error('Could not revoke terminal session.');
+            if (feedback) feedback.textContent = 'Terminal pairing revoked.';
+            await reload();
+          } catch (error) {
+            if (feedback) feedback.textContent =
+              error instanceof Error ? error.message : 'Revocation failed.';
+            revoke.disabled = false;
+          }
+        })();
+      });
+      row.append(description, revoke);
+      sessions.append(row);
+    }
+    if (!items.length) sessions.textContent = 'No authorized terminal sessions.';
+  }
+
+  form?.addEventListener('submit', event => {
+    event.preventDefault();
+    const value = code?.value.trim().toUpperCase() ?? '';
+    if (!/^[0-9A-F]{12}$/.test(value)) {
+      if (feedback) feedback.textContent = 'Enter exactly 12 hexadecimal characters.';
+      return;
+    }
+    if (approve) approve.disabled = true;
+    void (async () => {
+      try {
+        const reply = await csrfJsonFetch('/api/v1/agent/terminal-pairings/approve/', {
+          method: 'POST', body: JSON.stringify({ verification_code: value }),
+        });
+        const result = await reply.json().catch(() => ({}));
+        if (!reply.ok) throw new Error(result.detail ?? 'Pairing code rejected.');
+        if (feedback) feedback.textContent =
+          'Approved ' + String(result.device_label) + '. Return to your terminal.';
+        if (code) code.value = '';
+        await reload();
+      } catch (error) {
+        if (feedback) feedback.textContent =
+          error instanceof Error ? error.message : 'Pairing approval failed.';
+      } finally {
+        if (approve) approve.disabled = false;
+      }
+    })();
+  });
+  refresh?.addEventListener('click', () => void reload().catch(error => {
+    if (feedback) feedback.textContent =
+      error instanceof Error ? error.message : 'Unable to refresh.';
+  }));
+
+  if (await requireSession()) {
+    await reload().catch(error => {
+      if (feedback) feedback.textContent =
+        error instanceof Error ? error.message : 'Sessions unavailable.';
+    });
+  }
+</script>
+
+<style>
+  .pairing-shell { max-width: 42rem; margin: 2rem auto; }
+  #pair-terminal { display: grid; gap: .6rem; margin: 1.3rem 0; }
+  #terminal-code { padding: .65rem; font-family: monospace; letter-spacing: .12em; }
+  .session-item { display: flex; justify-content: space-between; align-items: center;
+    gap: 1rem; padding: .5rem 0; border-bottom: 1px solid var(--border-color, #7775); }
+</style>
