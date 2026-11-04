@@ -629,7 +629,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       divider();
       option('Delete Project', undefined,
         'Permanent deletion needs approved retention policy', true);
-      if (!item.archived_at) option('New chat in Project', () => { void createConversation(item.id); });
+      if (!item.archived_at) option('New chat in Project', () => beginDraft(item.id));
     }
     return trigger;
   }
@@ -738,20 +738,53 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     await loadConversation();
   }
 
-  async function createConversation(projectId: string | null = null): Promise<boolean> {
+  function beginDraft(projectId: string | null = null) {
+    // No UUID, chat entry or ACP database row until the first Send.
+    pollingGeneration += 1;
+    activeConversation = null;
+    activeProject = projectId;
+    window.sessionStorage.removeItem('qp:last-conversation-id');
+    if (activeTitle) activeTitle.textContent = 'New research conversation';
+    if (modelProvenance) modelProvenance.textContent =
+      'No model run yet — this draft has not been saved.';
+    if (status) status.textContent =
+      'New unsaved conversation. Send a message to save it.';
+    renderMessages([]);
+    renderSidebar();
+    if (message) message.value = '';
+    message?.focus();
+  }
+
+  function suggestConversationTitle(firstMessage: string): string {
+    return firstMessage.replace(/\s+/g, ' ').trim().slice(0, 80) || 'New chat';
+  }
+
+  async function createConversation(firstMessage: string): Promise<boolean> {
     if (newChat) newChat.disabled = true;
     try {
-      const response = await csrfJsonFetch('/api/v1/agent/conversations/', {
-        method: 'POST',
-        body: JSON.stringify({ title: 'New chat', ...(projectId ? { project_id: projectId } : {}) }),
+      const payload = {
+        title: suggestConversationTitle(firstMessage),
+        ...(activeProject ? { project_id: activeProject } : {}),
+      };
+      let response = await csrfJsonFetch('/api/v1/agent/conversations/', {
+        method: 'POST', body: JSON.stringify(payload),
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.detail ?? 'Unable to create conversation.');
-      activeConversation = payload.id;
-      activeProject = payload.project_id ?? null;
-      window.sessionStorage.setItem('qp:last-conversation-id', payload.id);
-      await loadSidebar(payload.id);
-      message?.focus();
+      // The same opening question can be sent twice. Preserve uniqueness
+      // without rejecting an otherwise valid first message.
+      if (response.status === 409) {
+        response = await csrfJsonFetch('/api/v1/agent/conversations/', {
+          method: 'POST',
+          body: JSON.stringify({ ...payload, title: 'New chat' }),
+        });
+      }
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.id) {
+        throw new Error(body.detail ?? 'Unable to create conversation.');
+      }
+      activeConversation = body.id;
+      activeProject = body.project_id ?? null;
+      window.sessionStorage.setItem('qp:last-conversation-id', body.id);
+      await loadSidebar(body.id);
       return true;
     } catch (error) {
       if (status) status.textContent =
@@ -1171,7 +1204,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     await loadSidebar();
     // Creating a project does not create an unwanted empty conversation.
   });
-  newChat?.addEventListener('click', () => void createConversation());
+  newChat?.addEventListener('click', () => beginDraft());
   toggleSidebar?.addEventListener('click', () => {
     const collapsed = shell?.classList.toggle('nav-collapsed') ?? false;
     toggleSidebar.setAttribute('aria-expanded', String(!collapsed));
@@ -1196,7 +1229,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     ) return;
 
     event.preventDefault();
-    if (!message.value.trim() || !activeConversation || send?.disabled) return;
+    if (!message.value.trim() || send?.disabled) return;
     turnForm?.requestSubmit();
   });
 
@@ -1204,12 +1237,20 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     event.preventDefault();
     const content = message?.value.trim();
 
-    if (!content || !send) return;
-    if (!activeConversation && !await createConversation()) return;
-    const submittedConversation = activeConversation;
-    if (!submittedConversation) return;
-
+    if (!content || !send || send.disabled) return;
+    // Lock submissions before creating a canonical conversation, so a double
+    // click cannot produce two empty "New chat" rows.
     send.disabled = true;
+    if (!activeConversation && !await createConversation(content)) {
+      send.disabled = false;
+      return;
+    }
+    const submittedConversation = activeConversation;
+    if (!submittedConversation) {
+      send.disabled = false;
+      return;
+    }
+
     if (status) status.textContent = 'Agent run queued…';
 
     const idempotencyKey = crypto.randomUUID();
@@ -1267,7 +1308,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     window.sessionStorage.removeItem('qp:workspace-new-chat');
     if (projectNewChat) {
       const project = availableProjects.find(p => p.id === projectNewChat && !p.archived_at);
-      if (project) void createConversation(project.id);
+      if (project) beginDraft(project.id);
     }
     const editRequest = window.sessionStorage.getItem('qp:workspace-edit');
     window.sessionStorage.removeItem('qp:workspace-edit');
@@ -1321,14 +1362,14 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const handoff = window.sessionStorage.getItem('qp:guide-draft');
     if (handoff) {
       const needsNew = window.sessionStorage.getItem('qp:guide-new-chat') === '1';
-      if (!needsNew || await createConversation()) {
-        if (message) {
-          message.value = handoff;
-          message.focus();
-        }
-        window.sessionStorage.removeItem('qp:guide-draft');
-        window.sessionStorage.removeItem('qp:guide-new-chat');
+      if (needsNew) beginDraft();
+      // A cross-page question is still an unsent draft. No ACP record until Send.
+      if (message) {
+        message.value = handoff;
+        message.focus();
       }
+      window.sessionStorage.removeItem('qp:guide-draft');
+      window.sessionStorage.removeItem('qp:guide-new-chat');
     }
   }
 </script>
