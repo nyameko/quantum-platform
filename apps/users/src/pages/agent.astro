@@ -161,11 +161,37 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       </div>
     </details>
 
+    <details class="panel memory-panel" id="skills-details">
+      <summary>Reviewed research resources <span class="memory-summary-hint">Versioned, owner-enabled Git references</span></summary>
+      <div class="memory-content">
+        <p class="note">Only human-reviewed, immutable Git notebook references can be enabled.
+          Enabling a reference grants no execution, model tools, scheduler, or GPU access.
+          Open the notebook source yourself and use normal approved Workbench resources.</p>
+        <button type="button" id="skills-refresh" class="secondary">Refresh reviewed resources</button>
+        <p id="skills-status" role="status" aria-live="polite"></p>
+        <div id="skills-items" class="memory-list"></div>
+      </div>
+    </details>
+    <p class="note">
+      ACP stores private approved memory and explicit reviewed resource bindings;
+      saving a memory does not guarantee inference hydration is enabled. Model routing
+      and execution remain governed independently.
+    <details class="panel memory-panel" id="reviewed-resource-details">
+      <summary>Reviewed learning resources <span class="memory-summary-hint">
+        Versioned Git references, never automatic execution
+      </span></summary>
+      <p class="note">Only independently reviewed notebooks appear here. Proposals are not
+        approved skills. Enabling a reference never runs it or grants a GPU/QPU allocation.</p>
+      <button id="reload-reviewed-resources" type="button" class="secondary">
+        Refresh reviewed resources
+      </button>
+      <p id="reviewed-resource-status" role="status" aria-live="polite"></p>
+      <div id="reviewed-resource-list"></div>
+    </details>
     <p class="note">
       Research memories remain private and require approval. Their use by Hermes
       is separately controlled by ACP deployment settings; saving a memory does not
-      guarantee it has been enabled for inference. Skills and the polished Guide
-      remain separate roadmap milestones.
+      guarantee it has been enabled for inference.
     </p>
       </main>
     </div>
@@ -245,6 +271,9 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const toggleSidebar = document.querySelector<HTMLButtonElement>('#toggle-sidebar');
   const toggleWidth = document.querySelector<HTMLButtonElement>('#toggle-width');
   const memoryDetails = document.querySelector<HTMLDetailsElement>('#memory-details');
+  const skillsStatus = document.querySelector<HTMLElement>('#skills-status');
+  const skillsItems = document.querySelector<HTMLElement>('#skills-items');
+  const skillsRefresh = document.querySelector<HTMLButtonElement>('#skills-refresh');
   const activeTitle = document.querySelector<HTMLElement>('#active-title');
   const transcript = document.querySelector<HTMLElement>('#transcript');
   const turnForm = document.querySelector<HTMLFormElement>('#turn-form');
@@ -334,6 +363,104 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
 
   let activeProject: string | null = null;
+  const reviewedResourceList = document.querySelector<HTMLElement>('#reviewed-resource-list');
+  const reviewedResourceStatus = document.querySelector<HTMLElement>('#reviewed-resource-status');
+  const reloadReviewedResources = document.querySelector<HTMLButtonElement>(
+    '#reload-reviewed-resources',
+  );
+
+  type ReviewedResource = {
+    id: string; version: string; source_commit: string; manifest_sha256: string;
+    resource_path: string; reviewed_by: string;
+    required_capabilities: string[]; automatic_code_execution: boolean;
+  };
+  type ResourceBinding = {
+    skill_id: string; version: string; revision: number;
+    status: 'enabled' | 'revoked'; currently_reviewed: boolean;
+  };
+
+  async function refreshReviewedResources() {
+    if (!reviewedResourceList || !reviewedResourceStatus) return;
+    reviewedResourceList.replaceChildren();
+    reviewedResourceStatus.textContent = 'Checking the reviewed resource catalog…';
+    const [catalogReply, bindingReply] = await Promise.all([
+      fetch('/api/v1/agent/skills/', { credentials: 'same-origin', cache: 'no-store' }),
+      fetch('/api/v1/agent/skills/bindings/', {
+        credentials: 'same-origin', cache: 'no-store',
+      }),
+    ]);
+    if (!catalogReply.ok || !bindingReply.ok) {
+      reviewedResourceStatus.textContent = 'Reviewed resources are not available until ACP schema v8 and its API are deployed.';
+      return;
+    }
+    const catalog = await catalogReply.json();
+    const bindings = await bindingReply.json();
+    const resources: ReviewedResource[] = Array.isArray(catalog.items) ? catalog.items : [];
+    const owned: ResourceBinding[] = Array.isArray(bindings.items) ? bindings.items : [];
+    if (!resources.length) {
+      reviewedResourceStatus.textContent =
+        'No independently reviewed resources have been published yet. Existing notebook proposals remain available in Git for review.';
+      return;
+    }
+    reviewedResourceStatus.textContent = resources.length + ' reviewed resource(s).';
+    for (const item of resources) {
+      if (typeof item.id !== 'string' || typeof item.version !== 'string'
+          || !/^[0-9a-f]{40}$/.test(item.source_commit)
+          || !/^labs\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.ipynb$/.test(item.resource_path)
+          || item.automatic_code_execution !== false
+          || JSON.stringify(item.required_capabilities) !== '["resource:read"]') continue;
+      const card = document.createElement('article');
+      card.className = 'memory-item';
+      const label = document.createElement('strong');
+      label.textContent = item.id + ' · v' + item.version;
+      const provenance = document.createElement('p');
+      provenance.textContent = 'Git ' + item.source_commit.slice(0, 12)
+        + ' · independently reviewed by ' + item.reviewed_by;
+      const link = document.createElement('a');
+      link.textContent = 'View immutable notebook source';
+      link.href = 'https://github.com/nyameko/quantum-workflows/blob/'
+        + item.source_commit + '/' + item.resource_path;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      const current = owned.find(
+        entry => entry.skill_id === item.id && entry.version === item.version,
+      );
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary';
+      const enabled = current?.status === 'enabled' && current.currently_reviewed;
+      button.textContent = enabled ? 'Disable reference' : 'Enable reference';
+      button.addEventListener('click', () => {
+        button.disabled = true;
+        void (async () => {
+          try {
+            const endpoint = '/api/v1/agent/skills/' + encodeURIComponent(item.id)
+              + '/versions/' + encodeURIComponent(item.version) + '/binding/';
+            const response = await csrfJsonFetch(endpoint, {
+              method: enabled ? 'POST' : 'PUT',
+              headers: { 'If-Match': '"' + (current?.revision ?? 0) + '"' },
+              body: '{}',
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(response.status === 412
+              ? 'Skill binding changed in another session. Refresh before retrying.'
+              : result.detail ?? 'Skill binding was denied.');
+            reviewedResourceStatus.textContent =
+              'Reference state updated in ACP. This did not run a notebook.';
+            await refreshReviewedResources();
+          } catch (error) {
+            reviewedResourceStatus.textContent = error instanceof Error
+              ? error.message : 'Reference update failed.';
+            button.disabled = false;
+          }
+        })();
+      });
+      card.append(label, provenance, link, button);
+      reviewedResourceList.append(card);
+    }
+  }
+  reloadReviewedResources?.addEventListener('click', () => void refreshReviewedResources());
+
   const modelProvenance = document.querySelector<HTMLElement>('#model-provenance');
   const reviewButton = document.querySelector<HTMLButtonElement>('#review-conversation');
   const reviewPanel = document.querySelector<HTMLDetailsElement>('#conversation-review');
@@ -1544,9 +1671,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   });
 
 
-  // M4c first slice: read-only programme-room discovery through the existing
-  // live-membership-checked, signed ACP proxy. Private chats remain separate.
+  // M4c first usable slice: ACP owns the canonical programme transcript.
+  // This dialog posts USER messages only; no shared model/tool invocation.
   async function showProgrammeRoom(programmeId: number, roomId: string) {
+    const endpoint = '/api/v1/agent/programmes/' + programmeId
+      + '/conversations/' + encodeURIComponent(roomId) + '/';
     const dialog = document.createElement('dialog');
     dialog.className = 'programme-room-dialog';
     dialog.setAttribute('aria-label', 'Shared programme conversation');
@@ -1554,31 +1683,57 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     heading.textContent = 'Loading shared conversation…';
     const messages = document.createElement('div');
     messages.className = 'programme-room-messages';
-    const foot = document.createElement('p');
-    foot.className = 'small-note';
-    foot.textContent = 'Read-only preview. Shared replies and approvals are separate M4c work.';
+    const feedback = document.createElement('p');
+    feedback.className = 'small-note';
+    feedback.setAttribute('role', 'status');
+    const form = document.createElement('form');
+    const label = document.createElement('label');
+    label.textContent = 'Write a shared programme message (visible to authorized members)';
+    const input = document.createElement('textarea');
+    input.rows = 3;
+    input.maxLength = 4000;
+    input.required = true;
+    input.setAttribute('aria-label', 'Shared programme message');
+    label.append(input);
+    const sendButton = document.createElement('button');
+    sendButton.type = 'submit';
+    sendButton.textContent = 'Post message';
+    form.append(label, sendButton);
+    const refreshButton = document.createElement('button');
+    refreshButton.type = 'button';
+    refreshButton.className = 'secondary';
+    refreshButton.textContent = 'Refresh room';
     const close = document.createElement('button');
-    close.type = 'button';
+    close.type = 'button'; close.className = 'secondary';
     close.textContent = 'Close';
     close.addEventListener('click', () => dialog.close());
-    dialog.append(heading, messages, foot, close);
+    dialog.append(heading, messages, feedback, form, refreshButton, close);
     document.body.append(dialog);
     dialog.addEventListener('close', () => dialog.remove(), { once: true });
     dialog.showModal();
-    try {
-      const reply = await fetch(
-        '/api/v1/agent/programmes/' + programmeId + '/conversations/'
-          + encodeURIComponent(roomId) + '/', {
-          credentials: 'same-origin', cache: 'no-store',
-        });
-      if (!reply.ok) throw new Error(
-        reply.status === 403 || reply.status === 404
-          ? 'Programme membership or room access was revoked.'
-          : 'The programme conversation could not be loaded.',
-      );
+
+    let requestGeneration = 0;
+    let accessRevoked = false;
+    const refreshRoom = async () => {
+      const generation = ++requestGeneration;
+      const reply = await fetch(endpoint, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (generation !== requestGeneration || !dialog.open) return;
+      if (!reply.ok) {
+        messages.replaceChildren();
+        if ([401, 403, 404].includes(reply.status)) {
+          accessRevoked = true;
+          sendButton.disabled = true;
+          input.disabled = true;
+          throw new Error('Programme room access is no longer authorized.');
+        }
+        throw new Error('Unable to load programme conversation.');
+      }
       const room = await reply.json();
       heading.textContent = String(room.title ?? 'Shared conversation');
       const entries = Array.isArray(room.messages) ? room.messages : [];
+      messages.replaceChildren();
       for (const entry of entries) {
         const row = document.createElement('article');
         const author = document.createElement('strong');
@@ -1590,13 +1745,162 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         row.append(author, body);
         messages.append(row);
       }
-      if (!entries.length) {
-        messages.textContent = 'No messages yet.';
-      }
+      if (!entries.length) messages.textContent = 'No shared messages yet.';
+      feedback.textContent = 'Shared conversation loaded. Messages are visible only to current members.';
+    };
+    refreshButton.addEventListener('click', () => void refreshRoom().catch(error => {
+      feedback.textContent = error instanceof Error ? error.message : 'Refresh failed.';
+    }));
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text || accessRevoked || sendButton.disabled) return;
+      sendButton.disabled = true;
+      feedback.textContent = 'Posting your shared message…';
+      void (async () => {
+        try {
+          const reply = await csrfJsonFetch(endpoint + 'messages/', {
+            method: 'POST',
+            body: JSON.stringify({
+              content: { text },
+              client_message_id: crypto.randomUUID(),
+            }),
+          });
+          if (!reply.ok) {
+            if ([401, 403, 404].includes(reply.status)) {
+              accessRevoked = true;
+              input.disabled = true;
+              messages.replaceChildren();
+              throw new Error('Programme access denied or revoked. No message was posted.');
+            }
+            const failure = await reply.json().catch(() => ({}));
+            throw new Error(failure.detail ?? 'Shared message could not be posted.');
+          }
+          input.value = '';
+          await refreshRoom();
+          feedback.textContent = 'Message saved in the canonical programme transcript.';
+        } catch (error) {
+          feedback.textContent = error instanceof Error
+            ? error.message : 'Shared post failed.';
+        } finally {
+          if (!accessRevoked) sendButton.disabled = false;
+        }
+      })();
+    });
+    try {
+      await refreshRoom();
     } catch (error) {
       heading.textContent = 'Unable to open shared room';
-      messages.textContent = error instanceof Error
-        ? error.message : 'Room unavailable.';
+      feedback.textContent = error instanceof Error ? error.message : 'Room unavailable.';
+    }
+  }
+
+  type ReviewedResource = {
+    id: string; version: string; source_commit: string; manifest_sha256: string;
+    resource_path: string; reviewed_by: string;
+    required_capabilities: string[]; automatic_code_execution: boolean;
+  };
+  type ReviewedBinding = {
+    skill_id: string; version: string; status: 'enabled' | 'revoked';
+    revision: number; currently_reviewed: boolean;
+  };
+  skillsRefresh?.addEventListener('click', () => void loadReviewedSkills());
+
+  async function loadReviewedSkills() {
+    if (!skillsItems || !skillsStatus) return;
+    skillsItems.replaceChildren();
+    skillsStatus.textContent = 'Loading reviewed Git references from ACP…';
+    const root = '/api/v1/agent/skills/';
+    try {
+      const [catalogRes, bindingsRes] = await Promise.all([
+        fetch(root + 'catalog/', { credentials: 'same-origin', cache: 'no-store' }),
+        fetch(root + 'bindings/', { credentials: 'same-origin', cache: 'no-store' }),
+      ]);
+      if (!catalogRes.ok || !bindingsRes.ok) {
+        throw new Error(catalogRes.status === 503 || bindingsRes.status === 503
+          ? 'Reviewed resources are not deployed or schema v8 is unavailable.'
+          : 'Cannot load reviewed resource bindings.');
+      }
+      const catalog = await catalogRes.json();
+      const bound = await bindingsRes.json();
+      if (!Array.isArray(catalog.items) || !Array.isArray(bound.items)) {
+        throw new Error('Invalid reviewed resource response.');
+      }
+      if (catalog.items.length === 0) {
+        skillsStatus.textContent =
+          'No reviewed notebook versions published yet. Proposed resources are not executable skills.';
+        return;
+      }
+      skillsStatus.textContent = catalog.items.length
+        + ' human-reviewed notebook reference(s); inspect and explicitly enable as needed.';
+      for (const entry of catalog.items as ReviewedResource[]) {
+        if (!/^[a-z][a-z0-9_.-]{0,119}$/.test(entry.id)
+            || !/^[0-9]+(?:\.[0-9]+){0,3}(?:[-.][a-z0-9]+)*$/.test(entry.version)
+            || !/^[a-f0-9]{40}$/.test(entry.source_commit)
+            || !/^[a-zA-Z0-9_./-]+$/.test(entry.resource_path)
+            || !entry.resource_path.startsWith('labs/')
+            || !entry.resource_path.endsWith('.ipynb')
+            || entry.resource_path.split('/').includes('..')
+            || entry.automatic_code_execution !== false) continue;
+        const binding = (bound.items as ReviewedBinding[]).find(value =>
+          value.skill_id === entry.id && value.version === entry.version,
+        );
+        const card = document.createElement('article');
+        card.className = 'memory-item';
+        const label = document.createElement('strong');
+        label.textContent = entry.id + ' · v' + entry.version;
+        const info = document.createElement('p');
+        info.textContent = 'Reviewed by ' + entry.reviewed_by
+          + ' · Git ' + entry.source_commit.slice(0, 12)
+          + ' · ' + (binding?.status ?? 'not enabled');
+        const source = document.createElement('a');
+        source.href = 'https://github.com/nyameko/quantum-workflows/blob/'
+          + entry.source_commit + '/' + entry.resource_path;
+        source.target = '_blank';
+        source.rel = 'noopener noreferrer';
+        source.textContent = 'Inspect immutable notebook source';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'secondary';
+        toggle.textContent = binding?.status === 'enabled' ? 'Revoke' : 'Enable reviewed reference';
+        toggle.disabled = Boolean(binding && !binding.currently_reviewed);
+        if (toggle.disabled) toggle.title = 'Version no longer in reviewed catalog';
+        toggle.addEventListener('click', () => {
+          const revoke = binding?.status === 'enabled';
+          if (!window.confirm(
+            (revoke ? 'Revoke' : 'Enable') + ' reviewed notebook reference '
+            + entry.id + ' v' + entry.version + '?\nThis does not execute any code.'
+          )) return;
+          toggle.disabled = true;
+          void (async () => {
+            try {
+              const target = root + encodeURIComponent(entry.id)
+                + '/versions/' + encodeURIComponent(entry.version) + '/binding/';
+              const result = await csrfJsonFetch(target, {
+                method: revoke ? 'POST' : 'PUT',
+                headers: { 'If-Match': '"' + (binding?.revision ?? 0) + '"' },
+                body: JSON.stringify({}),
+              });
+              if (!result.ok) {
+                const err = await result.json().catch(() => ({}));
+                throw new Error(result.status === 412
+                  ? 'Binding changed elsewhere; reload and confirm again.'
+                  : err.detail ?? 'Skill binding request denied.');
+              }
+              await loadReviewedSkills();
+            } catch (error) {
+              skillsStatus.textContent = error instanceof Error
+                ? error.message : 'Unable to update reviewed resource.';
+              toggle.disabled = false;
+            }
+          })();
+        });
+        card.append(label, info, source, toggle);
+        skillsItems.append(card);
+      }
+    } catch (error) {
+      skillsStatus.textContent = error instanceof Error
+        ? error.message : 'Reviewed resource service unavailable.';
     }
   }
 
@@ -1604,6 +1908,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     await loadSidebar();
     await loadMemories();
     await loadPersonalProfile();
+    await loadReviewedSkills();
+    await refreshReviewedResources();
     // A sidebar menu on another portal page can navigate to the canonical
     // workspace editor without transferring credentials or workspace content.
     const projectNewChat = window.sessionStorage.getItem('qp:workspace-new-chat');
@@ -1703,8 +2009,59 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
                 }
               })();
             };
+            const roomCreateForm = document.createElement('form');
+            roomCreateForm.className = 'compact-actions';
+            const roomTitle = document.createElement('input');
+            roomTitle.placeholder = 'Shared conversation title';
+            roomTitle.maxLength = 200;
+            roomTitle.required = true;
+            roomTitle.setAttribute('aria-label', 'New programme conversation title');
+            const createRoom = document.createElement('button');
+            createRoom.type = 'submit';
+            createRoom.textContent = 'Create shared room';
+            const roomCreateStatus = document.createElement('small');
+            roomCreateStatus.className = 'small-note';
+            roomCreateStatus.setAttribute('role', 'status');
+            roomCreateForm.append(roomTitle, createRoom, roomCreateStatus);
+            // This is a UX affordance only. Django checks current membership and
+            // PI/delegate status again on every POST, independent of browser hints.
+            const role = String(m.role ?? '');
+            if (role === 'pi' || role === 'admin') {
+              roomCreateForm.addEventListener('submit', event => {
+                event.preventDefault();
+                const title = roomTitle.value.trim();
+                if (!title || createRoom.disabled) return;
+                createRoom.disabled = true;
+                roomCreateStatus.textContent = 'Creating authorized programme room…';
+                void (async () => {
+                  try {
+                    const reply = await csrfJsonFetch(
+                      '/api/v1/agent/programmes/' + programmeId + '/conversations/',
+                      { method: 'POST', body: JSON.stringify({ title }) },
+                    );
+                    if (!reply.ok) {
+                      const err = await reply.json().catch(() => ({}));
+                      throw new Error([401, 403, 404].includes(reply.status)
+                        ? 'PI/delegate access to this programme is no longer authorized.'
+                        : (err.detail ?? 'Could not create programme room.'));
+                    }
+                    roomTitle.value = '';
+                    roomCreateStatus.textContent = 'Shared room created.';
+                    // Reread authoritative membership and list; no UI-only records.
+                    if (folder.open) onExpand();
+                  } catch (error) {
+                    roomCreateStatus.textContent = error instanceof Error
+                      ? error.message : 'Room creation failed.';
+                  } finally {
+                    createRoom.disabled = false;
+                  }
+                })();
+              });
+            }
             folder.addEventListener('toggle', onExpand);
-            folder.append(label, settings, rooms);
+            folder.append(label, settings);
+            if (role === 'pi' || role === 'admin') folder.append(roomCreateForm);
+            folder.append(rooms);
             root.append(folder);
           }
         }

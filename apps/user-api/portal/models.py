@@ -307,3 +307,32 @@ class ExecutionRecord(models.Model):
 
     def __str__(self):
         return f"{self.user.username} — {self.offering} — {self.state}"
+
+
+class TerminalPairing(models.Model):
+    """Explicit user-approved terminal pairing; stores digests, never raw secrets."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending browser approval"
+        APPROVED = "approved", "Approved"
+        REVOKED = "revoked", "Revoked"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    verification_code_sha256 = models.CharField(max_length=64, unique=True)
+    proof_sha256 = models.CharField(max_length=64, unique=True)
+    device_label = models.CharField(max_length=80)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="terminal_pairings",
+    )
+    status = models.CharField(max_length=16, choices=Status, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
