@@ -19,17 +19,8 @@ const { slug, notebookUrl, filename, notesUrl } = Astro.props;
     <a class="notebook-action jupyter-action" href="/workbench/"
       aria-label="Open JupyterLab Workbench" aria-describedby={slug + '-jupyter-tip'}
       title="Open JupyterLab Workbench">
-      <svg viewBox="0 0 32 32" width="27" height="27" aria-hidden="true" focusable="false">
-        <g fill="none" stroke="#f37726" stroke-width="2.7" stroke-linecap="round">
-          <path d="M5.5 15.3c0-6.2 4.5-11 10.5-11.2"/>
-          <path d="M26.5 16.7c0 6.2-4.5 11-10.5 11.2"/>
-          <path d="M7.8 22c-3.3-4.4-2.9-9.8.9-14.1"/>
-          <path d="M24.2 10c3.3 4.4 2.9 9.8-.9 14.1"/>
-        </g>
-        <circle cx="7.2" cy="3.6" r="2.1" fill="#888f98"/>
-        <circle cx="26.2" cy="7" r="1.8" fill="#888f98"/>
-        <circle cx="25" cy="28.1" r="2.1" fill="#888f98"/>
-      </svg>
+      <img src="/assets/guide/jupyter-brand.svg" alt="" width="23" height="30"
+        loading="lazy" decoding="async" />
       <span class="action-tooltip" id={slug + '-jupyter-tip'} role="tooltip">Open JupyterLab Workbench</span>
     </a>
     <a class="notebook-action" href={notesUrl} target="_blank" rel="noopener noreferrer"
