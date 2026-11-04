@@ -82,3 +82,27 @@ not unreviewed notebook files, model messages or a portal-configured URL.
   model tools.** Workbench runs are separate explicit actions.
 - Requires ACP schema v8 and paired M4d ACP API. Source CI is not proof of
   live migration or human `nlisa` acceptance.
+
+## M4f Guide navigation cleanup (source candidate)
+
+The Guide is the **one** workspace and conversation interface. The duplicate
+"Workspace management / Research assistant" sidebar branding and large
+"Workspaces" text button are removed. A small, accessible icon still opens
+and closes **Projects and chats** so the collapsed sidebar remains reachable
+on desktop, tablet and mobile.
+
+"Review conversation" is no longer a top-level chat-header action. Within
+the collapsed **Research memories** panel, **Suggest memories from chat**
+reveals an optional, source-grounded review. It neither saves memory nor
+approves/installs any skill without the existing explicit approval flow.
+The unrelated "Reviewed research resources" panel remains separate.
+
+**Learning Journey is future job-backed UX, not a replacement for memory.**
+A path with DONE/BUSY/TODO badges should be based on real, canonical
+notebook/workflow completion state (with resource/job IDs and scientific result
+provenance), not a hardcoded fake progress list. Do not add a new tracker or
+model-generated completion state before basic authorized job submission and
+result retrieval are usable. Keep the first such view short and optional.
+
+This source change does not deploy the Guide or execute a job. The human
+researcher validates the real browser after approved image promotion.
