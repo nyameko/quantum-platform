@@ -629,13 +629,25 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     return trigger;
   }
 
+  function labelForDuplicate(
+    item: {id: string;title: string},
+    all: Array<{id:string;title:string}>,
+  ) {
+    const count = all.filter(candidate =>
+      candidate.title.trim().toLocaleLowerCase() ===
+      item.title.trim().toLocaleLowerCase()
+    ).length;
+    return count > 1 ? item.title + ' · #' + item.id.slice(0, 6) : item.title;
+  }
+
   function appendChat(parent: HTMLElement, chat: Conversation) {
     const row = document.createElement('div');
     row.className = 'chat-row';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'sidebar-chat' + (chat.id === activeConversation ? ' selected' : '');
-    button.textContent = (chat.archived_at ? 'Archived · ' : '') + (chat.title || 'New chat');
+    button.textContent = (chat.archived_at ? 'Archived · ' : '')
+      + labelForDuplicate(chat, availableConversations);
     button.title = chat.title || 'New chat';
     if (chat.id === activeConversation) button.setAttribute('aria-current', 'page');
     button.addEventListener('click', () => void selectConversation(chat));
@@ -659,7 +671,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       fold.className = 'folder-name';
       const open = !closedFolders.has(project.id);
       fold.textContent = (open ? '▾ ' : '▸ ')
-        + (project.archived_at ? 'Archived · ' : '') + project.title;
+        + (project.archived_at ? 'Archived · ' : '')
+        + labelForDuplicate(project, availableProjects);
       fold.setAttribute('aria-expanded', String(open));
       fold.title = project.title;
       const children = document.createElement('div');
