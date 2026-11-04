@@ -40,6 +40,9 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           <div>
             <p class="eyebrow">RESEARCH ASSISTANT · CANONICAL ACP CONVERSATION</p>
             <h1 id="active-title">Choose a conversation</h1>
+            <p id="model-provenance" class="note" aria-live="polite">
+              Model metadata appears here after a recorded agent run.
+            </p>
           </div>
           <div class="heading-actions">
             <button id="toggle-sidebar" type="button" class="secondary" aria-label="Show workspace management" aria-expanded="false" title="Manage projects and conversations">Workspaces</button>
@@ -189,6 +192,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     author_kind: string;
     content: unknown;
     sequence: number;
+    run_id?: string | null;
   };
 
   const shell = document.querySelector<HTMLElement>('#assistant-shell');
@@ -301,6 +305,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
 
   let activeProject: string | null = null;
+  const modelProvenance = document.querySelector<HTMLElement>('#model-provenance');
   let activeConversation: string | null = null;
   // Session-local pointer only; ACP's authenticated run record remains canonical.
   // Never persist bearer tokens or model output in browser storage.
@@ -848,7 +853,33 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     if (payload.archived_at && status) {
       status.textContent = 'This conversation is archived and read-only. Use ⋯ to restore it.';
     }
-    renderMessages(payload.messages ?? []);
+    const messages: Message[] = payload.messages ?? [];
+    renderMessages(messages);
+    if (modelProvenance) {
+      modelProvenance.textContent = 'Model metadata not recorded for this conversation.';
+      const lastRun = [...messages].reverse().find(item =>
+        item.author_kind === 'assistant' && item.run_id,
+      )?.run_id;
+      if (lastRun) {
+        const selectedConversation = activeConversation;
+        try {
+          const response = await fetch(
+            '/api/v1/agent/runs/' + encodeURIComponent(lastRun) + '/', {
+              credentials: 'same-origin', cache: 'no-store',
+            },
+          );
+          const detail = await response.json().catch(() => ({}));
+          if (activeConversation === selectedConversation && response.ok
+            && detail.conversation_id === selectedConversation
+            && typeof detail.model === 'string' && detail.model) {
+            modelProvenance.textContent = 'Last response model: ' + detail.model
+              + ' · Harness: ' + (detail.profile ?? 'configured runner');
+          }
+        } catch {
+          // Inference provenance is supplementary; transcript remains usable.
+        }
+      }
+    }
     await refreshRunStatus(activeConversation);
   }
 
