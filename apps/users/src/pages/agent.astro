@@ -536,9 +536,9 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       }
       const label = kind === 'project' ? 'project' : 'conversation';
       if (!window.confirm(
-        'Permanently delete this EMPTY ' + label + '?\\n\\n'
-        + current.title + '\\nID: ' + item.id
-        + '\\n\\nThis cannot be undone. Chats with messages or runs and projects'
+        'Permanently delete this EMPTY ' + label + '?\n\n'
+        + current.title + '\nID: ' + item.id
+        + '\n\nThis cannot be undone. Chats with messages or runs and projects'
         + ' with conversations cannot be deleted.'
       )) return;
       const reply = await csrfJsonFetch(endpoint, {
