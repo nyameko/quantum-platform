@@ -63,6 +63,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
               </svg>
             </button>
             <button id="toggle-width" type="button" class="secondary icon-control" aria-pressed="false" aria-label="Expand reading area" title="Expand reading area">⤢</button>
+            <a href="/runs/" class="run-jobs-link" title="Submit and inspect research jobs">Run jobs</a>
             <button id="refresh" type="button" class="secondary" title="Refresh conversation and memories">Refresh</button>
           </div>
         </header>
@@ -2088,6 +2089,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   }
   .conversation-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
   .heading-actions { flex-shrink: 0; }
+  .run-jobs-link {
+    display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 .7rem;
+    border: 1px solid var(--border); border-radius: .65rem;
+    color: var(--text); text-decoration: none; font-weight: 600;
+    white-space: nowrap;
+  }
   .transcript {
     display: flex; flex-direction: column; gap: .85rem; min-height: 22rem;
     max-height: 53vh; overflow-y: auto; margin: 1rem 0; padding: .75rem;
