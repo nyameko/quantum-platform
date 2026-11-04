@@ -6,10 +6,6 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   <section class="section container page-shell">
     <div class="assistant-shell nav-collapsed" id="assistant-shell">
       <aside class="assistant-sidebar" id="assistant-sidebar" aria-label="Research assistant navigation">
-        <div class="sidebar-brand">
-          <strong>Workspace management</strong>
-          <span>Research assistant</span>
-        </div>
         <button id="new-chat" type="button" class="new-chat">New chat</button>
 
         <div class="sidebar-section-heading">
@@ -59,10 +55,14 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             </details>
           </div>
           <div class="heading-actions">
-            <button id="toggle-sidebar" type="button" class="secondary" aria-label="Show workspace management" aria-expanded="false" title="Manage projects and conversations">Workspaces</button>
+            <button id="toggle-sidebar" type="button" class="secondary icon-control" aria-label="Show projects and chats" aria-expanded="false" aria-controls="assistant-sidebar" title="Projects and chats">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <button id="toggle-width" type="button" class="secondary icon-control" aria-pressed="false" aria-label="Expand reading area" title="Expand reading area">⤢</button>
-            <button id="review-conversation" type="button" class="secondary"
-              title="Review conversation and curate reusable research context">Review conversation</button>
             <button id="refresh" type="button" class="secondary" title="Refresh conversation and memories">Refresh</button>
           </div>
         </header>
@@ -80,21 +80,6 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           </div>
         </form>
         <p id="status" role="status" aria-live="polite"></p>
-
-    <details class="panel memory-panel" id="conversation-review" hidden>
-      <summary>Conversation review <span class="memory-summary-hint">Suggested context, awaiting your approval</span></summary>
-      <div class="memory-content">
-        <p id="conversation-review-status" class="note" role="status" aria-live="polite"></p>
-        <p id="conversation-review-summary" class="note"></p>
-        <div id="conversation-review-candidates" class="memory-list"></div>
-        <div id="conversation-review-skill"></div>
-        <p class="note">
-          This first review extracts explicit statements from the entire canonical chat.
-          It is not an AI-generated scientific conclusion. Suggestions are drafts only;
-          no memory or skill is created unless you explicitly take action.
-        </p>
-      </div>
-    </details>
 
     <details class="panel memory-panel" id="profile-details">
       <summary>Assistant preferences <span class="memory-summary-hint">Portable ACP profile</span></summary>
@@ -130,10 +115,26 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         <button id="refresh-memories" type="button" class="secondary">Reload memories</button>
       </div>
       <p class="note">
-        Use <strong>Review conversation</strong> to inspect suggested preferences and
-        project notes. Edit a grounded draft, propose it, then approve it explicitly.
-        Only approved memories can be used in later sessions.
+        Capture source-backed research preferences from a saved chat. No memory
+        is stored until you propose and approve it.
       </p>
+      <button id="review-conversation" type="button" class="secondary"
+        title="Find source-backed memory suggestions in the selected chat">Suggest memories from chat</button>
+    <details class="panel memory-panel" id="conversation-review" hidden>
+      <summary>Suggested memory notes <span class="memory-summary-hint">Source-backed drafts, not saved</span></summary>
+      <div class="memory-content">
+        <p id="conversation-review-status" class="note" role="status" aria-live="polite"></p>
+        <p id="conversation-review-summary" class="note"></p>
+        <div id="conversation-review-candidates" class="memory-list"></div>
+        <div id="conversation-review-skill"></div>
+        <p class="note">
+          This first review extracts explicit statements from the selected canonical chat.
+          It is not an AI-generated scientific conclusion. Suggestions are drafts only;
+          no memory or skill is created unless you explicitly take action.
+        </p>
+      </div>
+    </details>
+
       <form id="memory-form">
         <p id="memory-source" class="note" aria-live="polite">
           Review a conversation and choose a source-backed suggestion first.
@@ -1466,7 +1467,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const collapsed = shell?.classList.toggle('nav-collapsed') ?? false;
     toggleSidebar.setAttribute('aria-expanded', String(!collapsed));
     toggleSidebar.setAttribute('aria-label',
-      collapsed ? 'Show workspace management' : 'Hide workspace management');
+      collapsed ? 'Show projects and chats' : 'Hide projects and chats');
   });
   toggleWidth?.addEventListener('click', () => {
     const wide = shell?.classList.toggle('reading-wide') ?? false;
@@ -2001,9 +2002,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     border: 0;
     overflow: hidden;
   }
-  .sidebar-brand { display: grid; gap: .25rem; margin-bottom: 1rem; }
-  .sidebar-brand strong { font-size: 1.2rem; }
-  .sidebar-brand span, .small-note { color: var(--muted); font-size: .8rem; }
+  .small-note { color: var(--muted); font-size: .8rem; }
   .new-chat {
     width: 100%; text-align: left; margin-bottom: 1.2rem;
     background: transparent; border: 0; color: var(--text);
