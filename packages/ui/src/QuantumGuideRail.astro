@@ -437,9 +437,22 @@
     return conversation;
   }
 
-  async function ensureInlineConversation(): Promise<string> {
+  function suggestConversationTitle(firstMessage: string): string {
+    // A new conversation is persisted only after the researcher sends a turn.
+    // Never use unsent drafts or model-generated text as server-side history.
+    return firstMessage.replace(/\\s+/g, ' ').trim().slice(0, 80) || 'New chat';
+  }
+
+  async function ensureInlineConversation(firstMessage: string): Promise<string> {
     if (railConversationId) return railConversationId;
-    const response = await postJson('/api/v1/agent/conversations/', { title: 'New chat' });
+    let response = await postJson('/api/v1/agent/conversations/', {
+      title: suggestConversationTitle(firstMessage),
+    });
+    // A repeated first question must not create a duplicate visible title.
+    // ACP allocates unique numbered "New chat" titles only for SENT turns.
+    if (response.status === 409) {
+      response = await postJson('/api/v1/agent/conversations/', { title: 'New chat' });
+    }
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.id) throw new Error(body.detail ?? 'Could not create conversation.');
     railConversationId = body.id;
@@ -910,27 +923,13 @@
 
   newChat?.addEventListener('click', () => {
     if (sending || newChat.disabled) return;
-    // Save an actual empty ACP conversation immediately, just as full Guide
-    // does; the canonical API assigns a nonduplicating title.
-    void (async () => {
-      newChat.disabled = true;
-      if (chatStatus) chatStatus.textContent = 'Creating an empty conversation…';
-      try {
-        railConversationId = null;
-        const id = await ensureInlineConversation();
-        inlineTranscript?.replaceChildren();
-        if (chatStatus) chatStatus.textContent =
-          'Empty conversation saved. You can return to it later.';
-        await showRail();
-        railConversationId = id;
-        prompt?.focus();
-      } catch (error) {
-        if (chatStatus) chatStatus.textContent = error instanceof Error
-          ? error.message : 'Could not save a new conversation.';
-      } finally {
-        newChat.disabled = false;
-      }
-    })();
+    // Drafts are transient UI state. No ACP UUID or database row on click.
+    railConversationId = null;
+    window.sessionStorage.removeItem('qp:last-conversation-id');
+    inlineTranscript?.replaceChildren();
+    if (chatStatus) chatStatus.textContent =
+      'New unsaved conversation. Your first message will create the chat.';
+    prompt?.focus();
   });
 
   promptForm?.addEventListener('submit', (event) => {
@@ -943,7 +942,7 @@
       if (sendButton) sendButton.disabled = true;
       if (newChat) newChat.disabled = true;
       try {
-        const conversationId = await ensureInlineConversation();
+        const conversationId = await ensureInlineConversation(value);
         const response = await postJson(
           '/api/v1/agent/conversations/' + encodeURIComponent(conversationId) + '/turns/',
           {
