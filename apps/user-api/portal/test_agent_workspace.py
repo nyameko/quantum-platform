@@ -75,3 +75,48 @@ class WorkspaceProxyTests(TestCase):
         )
         self.assertIn(response.status_code, {401, 403})
         call.assert_not_called()
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_delete_empty_workspace_proxies_signed_owner_and_revision(self, call):
+        for collection in ("projects", "conversations"):
+            object_id = uuid4()
+            path = f"/api/v1/agent/{collection}/{object_id}/"
+            call.return_value = {}
+            response = self.client.delete(
+                path, HTTP_IF_MATCH='"2026-11-04T08:00:00+00:00"',
+            )
+            self.assertEqual(response.status_code, 204)
+            call.assert_called_with(
+                self.user, "DELETE", f"/v1/{collection}/{object_id}",
+                scope="agent:personal",
+                if_match='"2026-11-04T08:00:00+00:00"',
+            )
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_delete_without_revision_is_blocked_and_never_proxied(self, call):
+        response = self.client.delete(f"/api/v1/agent/conversations/{uuid4()}/")
+        self.assertEqual(response.status_code, 400)
+        call.assert_not_called()
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_anonymous_delete_is_denied(self, call):
+        self.client.logout()
+        response = self.client.delete(
+            f"/api/v1/agent/projects/{uuid4()}/",
+            HTTP_IF_MATCH='"2026-11-04T08:00:00+00:00"',
+        )
+        self.assertIn(response.status_code, {401, 403})
+        call.assert_not_called()
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_delete_conflict_passed_through_unchanged(self, call):
+        from portal.agent_client import AgentServiceError
+        call.side_effect = AgentServiceError(
+            "Conversation has messages or runs; archive it instead", status_code=409,
+        )
+        response = self.client.delete(
+            f"/api/v1/agent/conversations/{uuid4()}/",
+            HTTP_IF_MATCH='"2026-11-04T08:00:00+00:00"',
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("messages or runs", response.json()["detail"])
