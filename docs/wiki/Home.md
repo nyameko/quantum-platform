@@ -2,7 +2,7 @@
 
 Quantum Platform provides the web experience, human identity, research programmes, access, notebooks, durable runs and a doorway to persistent research agents. This wiki is for **researchers, educators, programme administrators, developers and support agents**.
 
-**Source basis:** `main` as of 4 November 2026; the deployed site can differ. A source route, planned contract or green CI check is **not** proof of production availability.
+**Published source:** reviewed `dev` documentation; check the source commit and production release separately. A source route, proposed contract, published Wiki or green CI check is **not** proof of production availability.
 
 ## Find the right guide
 

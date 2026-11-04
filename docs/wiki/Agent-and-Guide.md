@@ -45,3 +45,18 @@ updated thin terminal client in ACP. Source/CI tests are synthetic. **The
 human operator performs all real `nlisa` browser/SSH tests**, including a
 wrong-user attempt, expired proof and immediate subsequent-request denial
 after revocation. No deployment or human acceptance is claimed here.
+## M4c shared programme conversation baseline (source candidate)
+
+The Guide programme folder can now offer **Create shared room** to a current
+programme PI/delegate, with a distinct programme transcript and a **Post
+message** form for approved members. This uses the existing signed Quantum
+Platform → ACP C2 endpoints; it does **not** turn a personal chat into a shared
+room, automatically expose private research memory, or invoke an agent model.
+
+- The server rechecks current programme approval/status before every list,
+  create, read and post; a browser role label is never authorization.
+- Refreshing a room re-reads the shared canonical transcript. A denied/revoked
+  response clears the previously displayed content and disables further posts.
+- This is a **source implementation**, not observed live `nlisa` acceptance.
+  A human PI and separately approved researcher must prove create, post,
+  outsider denial and revocation in the deployed interface.
