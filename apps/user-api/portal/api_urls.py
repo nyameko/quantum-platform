@@ -29,6 +29,11 @@ from .terminal_pairing_api import (
     terminal_gateway_turn,
     terminal_gateway_run,
 )
+from .agent_skills_api import (
+    reviewed_skill_catalog,
+    reviewed_skill_bindings,
+    reviewed_skill_binding,
+)
 from .access_keys_api import (
     revoke_ssh_key,
     revoke_wireguard_key,
@@ -117,6 +122,13 @@ urlpatterns = [
         name="agent-turn",
     ),
     path("agent/runs/<uuid:run_id>/", agent_run, name="agent-run"),
+    path("agent/skills/catalog/", reviewed_skill_catalog, name="agent-skill-catalog"),
+    path("agent/skills/bindings/", reviewed_skill_bindings, name="agent-skill-bindings"),
+    path(
+        "agent/skills/<str:skill_id>/versions/<str:version>/binding/",
+        reviewed_skill_binding,
+        name="agent-skill-binding",
+    ),
     path("agent/memories/", agent_memories, name="agent-memories"),
     path("agent/memories/<uuid:memory_id>/", agent_memory, name="agent-memory"),
     path("agent/memories/<uuid:memory_id>/approve/", agent_memory_approve, name="agent-memory-approve"),
