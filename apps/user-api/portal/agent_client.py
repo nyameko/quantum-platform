@@ -96,7 +96,7 @@ def call(
         query["offset"] = offset
 
     kwargs = {"params": query}
-    if method != "GET":
+    if method in {"POST", "PUT", "PATCH"}:
         kwargs["json"] = (
             json_body
             if json_body is not None
@@ -134,6 +134,8 @@ def call(
                     except (ValueError, AttributeError):
                         pass
                 raise AgentServiceError(detail, status_code=response.status_code)
+            if response.status_code == 204:
+                return {}
             if response.status_code not in {200, 201, 202}:
                 raise AgentServiceError("The agent service is unavailable. Please try again.")
             body = bytearray()
