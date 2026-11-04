@@ -829,7 +829,7 @@
       const chats: Array<{id: string; title?: string; project_id?: string | null; archived_at?: string | null}> = conversationPayload.items ?? [];
       if (railConversationId === null && !sending) {
         const last = window.sessionStorage.getItem('qp:last-conversation-id');
-        if (last && chats.some(chat => chat.id === last)) {
+        if (last && chats.some(chat => chat.id === last && !chat.archived_at)) {
           railConversationId = last;
           void refreshInlineConversation().catch(() => {
             if (chatStatus) chatStatus.textContent = 'Open full Guide to resume the last chat.';
@@ -855,10 +855,17 @@
           Boolean(project.archived_at)));
         projectRoot?.append(wrapper);
       }
-      // Recent means recently updated conversations, including those filed under projects.
-      chats.filter(chat => !chat.archived_at
-        && !projects.some(p => p.id === chat.project_id && p.archived_at)).slice(0, 12)
+      // Project chats appear in their project only; Recent chats is the unfiled
+      // inbox rather than a second copy of every project conversation.
+      chats.filter(chat => !chat.archived_at && !chat.project_id)
+        .slice(0, 8)
         .forEach(chat => recentRoot?.append(chatButton(chat)));
+      if (recentRoot && !recentRoot.childElementCount) {
+        const empty = document.createElement('small');
+        empty.className = 'rail-note';
+        empty.textContent = 'No unfiled chats';
+        recentRoot.append(empty);
+      }
       const archivedProjects = projects.filter(p => Boolean(p.archived_at));
       const archivedChats = chats.filter(chat => Boolean(chat.archived_at)
         && !archivedProjects.some(p => p.id === chat.project_id));
@@ -886,11 +893,28 @@
   }
 
   newChat?.addEventListener('click', () => {
-    if (sending) return;
-    railConversationId = null;
-    inlineTranscript?.replaceChildren();
-    if (chatStatus) chatStatus.textContent = 'New conversation ready. Type your question.';
-    prompt?.focus();
+    if (sending || newChat.disabled) return;
+    // Save an actual empty ACP conversation immediately, just as full Guide
+    // does; the canonical API assigns a nonduplicating title.
+    void (async () => {
+      newChat.disabled = true;
+      if (chatStatus) chatStatus.textContent = 'Creating an empty conversation…';
+      try {
+        railConversationId = null;
+        const id = await ensureInlineConversation();
+        inlineTranscript?.replaceChildren();
+        if (chatStatus) chatStatus.textContent =
+          'Empty conversation saved. You can return to it later.';
+        await showRail();
+        railConversationId = id;
+        prompt?.focus();
+      } catch (error) {
+        if (chatStatus) chatStatus.textContent = error instanceof Error
+          ? error.message : 'Could not save a new conversation.';
+      } finally {
+        newChat.disabled = false;
+      }
+    })();
   });
 
   promptForm?.addEventListener('submit', (event) => {
