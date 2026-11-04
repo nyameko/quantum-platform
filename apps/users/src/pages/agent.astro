@@ -1361,14 +1361,14 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     const handoff = window.sessionStorage.getItem('qp:guide-draft');
     if (handoff) {
       const needsNew = window.sessionStorage.getItem('qp:guide-new-chat') === '1';
-      if (!needsNew || await createConversation()) {
-        if (message) {
-          message.value = handoff;
-          message.focus();
-        }
-        window.sessionStorage.removeItem('qp:guide-draft');
-        window.sessionStorage.removeItem('qp:guide-new-chat');
+      if (needsNew) beginDraft();
+      // A cross-page question is still an unsent draft. No ACP record until Send.
+      if (message) {
+        message.value = handoff;
+        message.focus();
       }
+      window.sessionStorage.removeItem('qp:guide-draft');
+      window.sessionStorage.removeItem('qp:guide-new-chat');
     }
   }
 </script>
