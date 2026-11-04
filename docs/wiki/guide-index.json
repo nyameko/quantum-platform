@@ -1,0 +1,142 @@
+{
+  "schema": "qc-guide-document-index/v1",
+  "repository": "nyameko/quantum-platform",
+  "source_root": "docs/wiki",
+  "public": true,
+  "description": "Discovery index only; verify source commit, deployment and permissions before use.",
+  "pages": [
+    {
+      "slug": "API-and-integration",
+      "title": "API and integration",
+      "source_path": "docs/wiki/API-and-integration.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/API-and-integration.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-and-integration"
+    },
+    {
+      "slug": "API-development-and-tests",
+      "title": "API development and tests",
+      "source_path": "docs/wiki/API-development-and-tests.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/API-development-and-tests.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-development-and-tests"
+    },
+    {
+      "slug": "Account-and-access",
+      "title": "Account and access",
+      "source_path": "docs/wiki/Account-and-access.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Account-and-access.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Account-and-access"
+    },
+    {
+      "slug": "Administrator-guide",
+      "title": "Administrator guide",
+      "source_path": "docs/wiki/Administrator-guide.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Administrator-guide.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Administrator-guide"
+    },
+    {
+      "slug": "Agent-and-Guide",
+      "title": "Agent and Guide",
+      "source_path": "docs/wiki/Agent-and-Guide.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Agent-and-Guide.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Agent-and-Guide"
+    },
+    {
+      "slug": "Authentication-MFA-and-key-management",
+      "title": "Authentication MFA and key management",
+      "source_path": "docs/wiki/Authentication-MFA-and-key-management.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Authentication-MFA-and-key-management.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Authentication-MFA-and-key-management"
+    },
+    {
+      "slug": "Contributing",
+      "title": "Contributing",
+      "source_path": "docs/wiki/Contributing.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Contributing.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Contributing"
+    },
+    {
+      "slug": "Developer-guide",
+      "title": "Developer guide",
+      "source_path": "docs/wiki/Developer-guide.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Developer-guide.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Developer-guide"
+    },
+    {
+      "slug": "Guide-assistance",
+      "title": "Guide assistance",
+      "source_path": "docs/wiki/Guide-assistance.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Guide-assistance.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Guide-assistance"
+    },
+    {
+      "slug": "Guide-knowledge-and-source-ingestion",
+      "title": "Guide knowledge and source ingestion",
+      "source_path": "docs/wiki/Guide-knowledge-and-source-ingestion.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Guide-knowledge-and-source-ingestion.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Guide-knowledge-and-source-ingestion"
+    },
+    {
+      "slug": "Guide-support-and-ticket-workflows",
+      "title": "Guide support and ticket workflows",
+      "source_path": "docs/wiki/Guide-support-and-ticket-workflows.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Guide-support-and-ticket-workflows.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Guide-support-and-ticket-workflows"
+    },
+    {
+      "slug": "Home",
+      "title": "Home",
+      "source_path": "docs/wiki/Home.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Home.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Home"
+    },
+    {
+      "slug": "JupyterHub-and-SSH-identity",
+      "title": "JupyterHub and SSH identity",
+      "source_path": "docs/wiki/JupyterHub-and-SSH-identity.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/JupyterHub-and-SSH-identity.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/JupyterHub-and-SSH-identity"
+    },
+    {
+      "slug": "Programme-approval-and-resource-entitlements",
+      "title": "Programme approval and resource entitlements",
+      "source_path": "docs/wiki/Programme-approval-and-resource-entitlements.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Programme-approval-and-resource-entitlements.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Programme-approval-and-resource-entitlements"
+    },
+    {
+      "slug": "Research-programme-administration",
+      "title": "Research programme administration",
+      "source_path": "docs/wiki/Research-programme-administration.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Research-programme-administration.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Research-programme-administration"
+    },
+    {
+      "slug": "Researcher-guide",
+      "title": "Researcher guide",
+      "source_path": "docs/wiki/Researcher-guide.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Researcher-guide.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Researcher-guide"
+    },
+    {
+      "slug": "Security",
+      "title": "Security",
+      "source_path": "docs/wiki/Security.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Security.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Security"
+    },
+    {
+      "slug": "Troubleshooting",
+      "title": "Troubleshooting",
+      "source_path": "docs/wiki/Troubleshooting.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Troubleshooting.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Troubleshooting"
+    },
+    {
+      "slug": "Workbench-and-runs",
+      "title": "Workbench and runs",
+      "source_path": "docs/wiki/Workbench-and-runs.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/main/docs/wiki/Workbench-and-runs.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Workbench-and-runs"
+    }
+  ]
+}
