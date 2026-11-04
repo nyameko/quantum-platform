@@ -517,6 +517,59 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     workspacePopovers.clear();
   }
 
+  async function deleteEmptyWorkspace(kind: WorkspaceKind, item: Workspace) {
+    // Read the current owner-scoped record before confirmation, and send its
+    // latest ETag to ACP. Neither the browser nor a title match authorizes deletion.
+    const collection = kind === 'project' ? 'projects' : 'conversations';
+    const endpoint = '/api/v1/agent/' + collection + '/' + item.id + '/';
+    try {
+      const detail = await fetch(endpoint, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      const current = await detail.json().catch(() => ({}));
+      if (!detail.ok || !current.updated_at) {
+        throw new Error(current.detail ?? 'Workspace no longer available.');
+      }
+      if (kind === 'conversation' && Array.isArray(current.messages)
+          && current.messages.length > 0) {
+        throw new Error('This chat contains messages. Archive it instead; permanent deletion is only available for empty chats.');
+      }
+      const label = kind === 'project' ? 'project' : 'conversation';
+      if (!window.confirm(
+        'Permanently delete this EMPTY ' + label + '?\\n\\n'
+        + current.title + '\\nID: ' + item.id
+        + '\\n\\nThis cannot be undone. Chats with messages or runs and projects'
+        + ' with conversations cannot be deleted.'
+      )) return;
+      const reply = await csrfJsonFetch(endpoint, {
+        method: 'DELETE',
+        headers: { 'If-Match': '"' + current.updated_at + '"' },
+      });
+      if (!reply.ok) {
+        const error = await reply.json().catch(() => ({}));
+        throw new Error(reply.status === 412
+          ? 'Workspace changed. Refresh and confirm again before deleting.'
+          : (error.detail ?? 'Deletion was denied. Archive instead.'));
+      }
+      if (kind === 'conversation') {
+        window.sessionStorage.removeItem(runKey(item.id));
+        if (activeConversation === item.id) {
+          activeConversation = null;
+          activeProject = null;
+          window.sessionStorage.removeItem('qp:last-conversation-id');
+        }
+      } else {
+        closedFolders.delete(item.id);
+        if (activeProject === item.id && !activeConversation) activeProject = null;
+      }
+      await loadSidebar();
+      if (status) status.textContent = 'Empty ' + label + ' permanently deleted.';
+    } catch (error) {
+      if (status) status.textContent =
+        error instanceof Error ? error.message : 'Deletion failed.';
+    }
+  }
+
   function workspaceMenu(kind: WorkspaceKind, item: Workspace) {
     const trigger = document.createElement('button');
     trigger.type = 'button';
@@ -675,8 +728,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         ('project_id' in item && item.project_id) ? () => mutate({ project_id: null }) : undefined,
         ('project_id' in item && item.project_id) ? undefined : 'Conversation is not in a project');
       divider();
-      option('Delete permanently', undefined,
-        'Permanent deletion needs approved ACP retention policy', true);
+      option('Delete empty chat permanently',
+        () => { void deleteEmptyWorkspace(kind, item); }, undefined, true);
     } else {
       submenu('Share to Programme', 'programmes');
       divider();
@@ -686,8 +739,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       option(item.archived_at ? 'Restore Project' : 'Remove Project from sidebar',
         () => mutate({ archived: !item.archived_at }));
       divider();
-      option('Delete Project', undefined,
-        'Permanent deletion needs approved retention policy', true);
+      option('Delete empty project',
+        () => { void deleteEmptyWorkspace(kind, item); }, undefined, true);
       if (!item.archived_at) option('New chat in Project', () => beginDraft(item.id));
     }
     return trigger;
