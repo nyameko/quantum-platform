@@ -176,6 +176,22 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       ACP stores private approved memory and explicit reviewed resource bindings;
       saving a memory does not guarantee inference hydration is enabled. Model routing
       and execution remain governed independently.
+    <details class="panel memory-panel" id="reviewed-resource-details">
+      <summary>Reviewed learning resources <span class="memory-summary-hint">
+        Versioned Git references, never automatic execution
+      </span></summary>
+      <p class="note">Only independently reviewed notebooks appear here. Proposals are not
+        approved skills. Enabling a reference never runs it or grants a GPU/QPU allocation.</p>
+      <button id="reload-reviewed-resources" type="button" class="secondary">
+        Refresh reviewed resources
+      </button>
+      <p id="reviewed-resource-status" role="status" aria-live="polite"></p>
+      <div id="reviewed-resource-list"></div>
+    </details>
+    <p class="note">
+      Research memories remain private and require approval. Their use by Hermes
+      is separately controlled by ACP deployment settings; saving a memory does not
+      guarantee it has been enabled for inference.
     </p>
       </main>
     </div>
@@ -347,6 +363,104 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
 
   let activeProject: string | null = null;
+  const reviewedResourceList = document.querySelector<HTMLElement>('#reviewed-resource-list');
+  const reviewedResourceStatus = document.querySelector<HTMLElement>('#reviewed-resource-status');
+  const reloadReviewedResources = document.querySelector<HTMLButtonElement>(
+    '#reload-reviewed-resources',
+  );
+
+  type ReviewedResource = {
+    id: string; version: string; source_commit: string; manifest_sha256: string;
+    resource_path: string; reviewed_by: string;
+    required_capabilities: string[]; automatic_code_execution: boolean;
+  };
+  type ResourceBinding = {
+    skill_id: string; version: string; revision: number;
+    status: 'enabled' | 'revoked'; currently_reviewed: boolean;
+  };
+
+  async function refreshReviewedResources() {
+    if (!reviewedResourceList || !reviewedResourceStatus) return;
+    reviewedResourceList.replaceChildren();
+    reviewedResourceStatus.textContent = 'Checking the reviewed resource catalog…';
+    const [catalogReply, bindingReply] = await Promise.all([
+      fetch('/api/v1/agent/skills/', { credentials: 'same-origin', cache: 'no-store' }),
+      fetch('/api/v1/agent/skills/bindings/', {
+        credentials: 'same-origin', cache: 'no-store',
+      }),
+    ]);
+    if (!catalogReply.ok || !bindingReply.ok) {
+      reviewedResourceStatus.textContent = 'Reviewed resources are not available until ACP schema v8 and its API are deployed.';
+      return;
+    }
+    const catalog = await catalogReply.json();
+    const bindings = await bindingReply.json();
+    const resources: ReviewedResource[] = Array.isArray(catalog.items) ? catalog.items : [];
+    const owned: ResourceBinding[] = Array.isArray(bindings.items) ? bindings.items : [];
+    if (!resources.length) {
+      reviewedResourceStatus.textContent =
+        'No independently reviewed resources have been published yet. Existing notebook proposals remain available in Git for review.';
+      return;
+    }
+    reviewedResourceStatus.textContent = resources.length + ' reviewed resource(s).';
+    for (const item of resources) {
+      if (typeof item.id !== 'string' || typeof item.version !== 'string'
+          || !/^[0-9a-f]{40}$/.test(item.source_commit)
+          || !/^labs\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.ipynb$/.test(item.resource_path)
+          || item.automatic_code_execution !== false
+          || JSON.stringify(item.required_capabilities) !== '["resource:read"]') continue;
+      const card = document.createElement('article');
+      card.className = 'memory-item';
+      const label = document.createElement('strong');
+      label.textContent = item.id + ' · v' + item.version;
+      const provenance = document.createElement('p');
+      provenance.textContent = 'Git ' + item.source_commit.slice(0, 12)
+        + ' · independently reviewed by ' + item.reviewed_by;
+      const link = document.createElement('a');
+      link.textContent = 'View immutable notebook source';
+      link.href = 'https://github.com/nyameko/quantum-workflows/blob/'
+        + item.source_commit + '/' + item.resource_path;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      const current = owned.find(
+        entry => entry.skill_id === item.id && entry.version === item.version,
+      );
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary';
+      const enabled = current?.status === 'enabled' && current.currently_reviewed;
+      button.textContent = enabled ? 'Disable reference' : 'Enable reference';
+      button.addEventListener('click', () => {
+        button.disabled = true;
+        void (async () => {
+          try {
+            const endpoint = '/api/v1/agent/skills/' + encodeURIComponent(item.id)
+              + '/versions/' + encodeURIComponent(item.version) + '/binding/';
+            const response = await csrfJsonFetch(endpoint, {
+              method: enabled ? 'POST' : 'PUT',
+              headers: { 'If-Match': '"' + (current?.revision ?? 0) + '"' },
+              body: '{}',
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(response.status === 412
+              ? 'Skill binding changed in another session. Refresh before retrying.'
+              : result.detail ?? 'Skill binding was denied.');
+            reviewedResourceStatus.textContent =
+              'Reference state updated in ACP. This did not run a notebook.';
+            await refreshReviewedResources();
+          } catch (error) {
+            reviewedResourceStatus.textContent = error instanceof Error
+              ? error.message : 'Reference update failed.';
+            button.disabled = false;
+          }
+        })();
+      });
+      card.append(label, provenance, link, button);
+      reviewedResourceList.append(card);
+    }
+  }
+  reloadReviewedResources?.addEventListener('click', () => void refreshReviewedResources());
+
   const modelProvenance = document.querySelector<HTMLElement>('#model-provenance');
   const reviewButton = document.querySelector<HTMLButtonElement>('#review-conversation');
   const reviewPanel = document.querySelector<HTMLDetailsElement>('#conversation-review');
@@ -1795,6 +1909,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     await loadMemories();
     await loadPersonalProfile();
     await loadReviewedSkills();
+    await refreshReviewedResources();
     // A sidebar menu on another portal page can navigate to the canonical
     // workspace editor without transferring credentials or workspace content.
     const projectNewChat = window.sessionStorage.getItem('qp:workspace-new-chat');
