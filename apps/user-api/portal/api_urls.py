@@ -11,6 +11,9 @@ from .agent_api import (
     agent_projects,
     agent_project,
     agent_profile,
+    agent_reviewed_skills,
+    agent_skill_bindings,
+    agent_skill_binding,
     agent_programme_conversations,
     agent_programme_conversation,
     agent_programme_message,
@@ -63,6 +66,10 @@ from .views import (
 
 urlpatterns = [
     path("health/", health, name="health"),
+    path("agent/skills/", agent_reviewed_skills, name="agent-reviewed-skills"),
+    path("agent/skills/bindings/", agent_skill_bindings, name="agent-skill-bindings"),
+    path("agent/skills/<str:skill_id>/versions/<str:version>/binding/",
+         agent_skill_binding, name="agent-skill-binding"),
     path("agent/profile/", agent_profile, name="agent-profile"),
     path("agent/projects/", agent_projects, name="agent-projects"),
     path("agent/programmes/<int:programme_id>/conversations/",
