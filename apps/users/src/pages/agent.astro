@@ -43,6 +43,20 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             <p id="model-provenance" class="note" aria-live="polite">
               Model metadata appears here after a recorded agent run.
             </p>
+            <details id="processing-status" class="processing-status" data-effort="unreported">
+              <summary title="Read-only processing and execution provenance">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 18V5a3 3 0 0 0-6 0 4 4 0 0 0-1.5 7.5A4 4 0 0 0 8 20a4 4 0 0 0 4-2Z"/>
+                  <path d="M12 18V5a3 3 0 0 1 6 0 4 4 0 0 1 1.5 7.5A4 4 0 0 1 16 20a4 4 0 0 1-4-2Z"/>
+                </svg>
+                <span id="processing-status-label">Processing class unavailable</span>
+              </summary>
+              <p id="processing-provenance" class="note">
+                No certified execution-effort class is reported. This indicator does not select a model.
+              </p>
+            </details>
           </div>
           <div class="heading-actions">
             <button id="toggle-sidebar" type="button" class="secondary" aria-label="Show workspace management" aria-expanded="false" title="Manage projects and conversations">Workspaces</button>
@@ -79,14 +93,9 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           <textarea id="assistant-profile-notes" maxlength="2000" rows="3"
             placeholder="Preferred explanation style, research priorities and notation. No secrets."></textarea>
         </label>
-        <label for="assistant-profile-route">Preferred model category
-          <select id="assistant-profile-route">
-            <option value="general">General</option>
-            <option value="reasoning">Reasoning</option>
-            <option value="coding">Coding</option>
-          </select>
-        </label>
-        <p class="note">Model selection is a preference only; actual routing depends on permitted LiteLLM configuration.</p>
+        <p class="note">Model and harness selection is automatic and policy-governed.
+          You can inspect recorded processing details above; profile notes never override access or budgets.
+        </p>
         <button type="submit" id="assistant-profile-save" disabled>Save ACP profile</button>
         <p id="assistant-profile-status" role="status" aria-live="polite">
           Checking whether the profile service is available…
@@ -228,10 +237,11 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   const profileForm = document.querySelector<HTMLFormElement>('#assistant-profile-form');
   const profileName = document.querySelector<HTMLInputElement>('#assistant-profile-name');
   const profileNotes = document.querySelector<HTMLTextAreaElement>('#assistant-profile-notes');
-  const profileRoute = document.querySelector<HTMLSelectElement>('#assistant-profile-route');
   const profileSave = document.querySelector<HTMLButtonElement>('#assistant-profile-save');
   const profileStatus = document.querySelector<HTMLElement>('#assistant-profile-status');
   let profileRevision = 0;
+  // Keep the legacy API field unchanged without presenting an ineffective routing selector.
+  let legacyModelRoute: 'general' | 'reasoning' | 'coding' = 'general';
 
   async function loadPersonalProfile() {
     try {
@@ -247,7 +257,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       profileRevision = profile?.revision ?? 0;
       if (profileName) profileName.value = profile?.display_name ?? 'Research assistant';
       if (profileNotes) profileNotes.value = profile?.instructions ?? '';
-      if (profileRoute) profileRoute.value = profile?.model_route ?? 'general';
+      legacyModelRoute = ['general', 'reasoning', 'coding'].includes(profile?.model_route)
+        ? profile.model_route : 'general';
       if (profileStatus) profileStatus.textContent = profile
         ? 'Preferences loaded from ACP revision ' + profileRevision + '.'
         : 'No saved ACP profile yet. Create one below.';
@@ -261,7 +272,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   profileForm?.addEventListener('submit', (event) => {
     event.preventDefault();
-    if (!profileName || !profileNotes || !profileRoute || !profileSave) return;
+    if (!profileName || !profileNotes || !profileSave) return;
     profileSave.disabled = true;
     if (profileStatus) profileStatus.textContent = 'Saving your preferences…';
     void (async () => {
@@ -272,7 +283,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           body: JSON.stringify({
             display_name: profileName.value.trim(),
             instructions: profileNotes.value,
-            model_route: profileRoute.value,
+            model_route: legacyModelRoute,
           }),
         });
         const data = await response.json().catch(() => ({}));
@@ -306,6 +317,54 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   let activeProject: string | null = null;
   const modelProvenance = document.querySelector<HTMLElement>('#model-provenance');
+  const processingStatus = document.querySelector<HTMLDetailsElement>('#processing-status');
+  const processingStatusLabel = document.querySelector<HTMLElement>('#processing-status-label');
+  const processingProvenance = document.querySelector<HTMLElement>('#processing-provenance');
+  const effortLabels = {
+    unreported: 'Processing class unavailable', lookup: 'Quick lookup',
+    standard: 'Standard response', extended: 'Extended analysis',
+    intensive: 'Intensive synthesis',
+  } as const;
+  function renderProcessingStatus(run: Record<string, unknown> | null) {
+    const routing = run?.routing && typeof run.routing === 'object' && !Array.isArray(run.routing)
+      ? run.routing as Record<string, unknown> : null;
+    const rawClass = routing?.effective_effort_class;
+    const hasPolicy = typeof routing?.policy_revision === 'string'
+      && routing.policy_revision.trim().length > 0;
+    const observedClass = run?.status === 'succeeded' && hasPolicy
+      && typeof rawClass === 'string'
+      && Object.prototype.hasOwnProperty.call(effortLabels, rawClass)
+      ? rawClass as keyof typeof effortLabels : 'unreported';
+    if (processingStatus) processingStatus.dataset.effort = observedClass;
+    if (processingStatusLabel) processingStatusLabel.textContent = effortLabels[observedClass];
+    if (!processingProvenance) return;
+    if (!run) {
+      processingProvenance.textContent =
+        'No recorded run selected. Classification requires observed, policy-certified execution.';
+      return;
+    }
+    const value = (v: unknown) =>
+      typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : 'not reported';
+    const count = (v: unknown) =>
+      typeof v === 'number' && Number.isSafeInteger(v) && v >= 0
+        ? String(v) : 'not reported';
+    const roles = Array.isArray(routing?.agent_roles)
+      ? routing.agent_roles.filter((role): role is string => typeof role === 'string').slice(0, 8)
+      : [];
+    processingProvenance.textContent = [
+      'Effort: ' + effortLabels[observedClass],
+      'Run status: ' + value(run.status),
+      'Policy revision: ' + value(routing?.policy_revision),
+      'Logical route: ' + value(routing?.logical_route),
+      'Model: ' + value(routing?.model ?? run.model),
+      'Harness: ' + value(routing?.harness),
+      'Runtime profile: ' + value(run.profile),
+      'Agent roles: ' + (roles.length ? roles.join(', ') : 'not reported'),
+      'Input tokens: ' + count(routing?.input_tokens),
+      'Output tokens: ' + count(routing?.output_tokens),
+      'Execution duration (ms): ' + count(routing?.execution_ms),
+    ].join('\n');
+  }
   let activeConversation: string | null = null;
   // Session-local pointer only; ACP's authenticated run record remains canonical.
   // Never persist bearer tokens or model output in browser storage.
@@ -844,6 +903,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   }
 
   async function loadConversation() {
+    renderProcessingStatus(null);
     sourceConversationId = null;
     sourceMessageId = null;
     if (proposeMemory) proposeMemory.disabled = true;
@@ -906,7 +966,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
             && detail.conversation_id === selectedConversation
             && typeof detail.model === 'string' && detail.model) {
             modelProvenance.textContent = 'Last response model: ' + detail.model
-              + ' · Harness: ' + (detail.profile ?? 'configured runner');
+              + ' · Runtime profile: ' + (detail.profile ?? 'not reported');
+            renderProcessingStatus(detail);
           }
         } catch {
           // Inference provenance is supplementary; transcript remains usable.
@@ -942,6 +1003,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       if (status) status.textContent = 'Run does not belong to this conversation.';
       return;
     }
+    renderProcessingStatus(run);
     if (run.status === 'succeeded') {
       clearRememberedRun(conversationId, runId);
       if (status) status.textContent = 'Response persisted.';
@@ -1252,6 +1314,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     }
 
     if (status) status.textContent = 'Agent run queued…';
+    renderProcessingStatus(null);
 
     const idempotencyKey = crypto.randomUUID();
     const clientMessageId = crypto.randomUUID();
@@ -1773,4 +1836,25 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     border-radius:.45rem; font:inherit; font-size:.8rem; cursor:pointer;
   }
   .programme-room-link:hover { background:var(--background-soft); }
+  .processing-status { margin:.15rem 0 .55rem; --effort-color:var(--muted-strong); }
+  .processing-status[data-effort="lookup"] { --effort-color:#4285e6; }
+  .processing-status[data-effort="standard"] { --effort-color:#29986b; }
+  .processing-status[data-effort="extended"] { --effort-color:#c58c23; }
+  .processing-status[data-effort="intensive"] { --effort-color:#c64c57; }
+  .processing-status summary {
+    display:inline-flex; align-items:center; gap:.45rem;
+    color:var(--text); font-size:.76rem; cursor:pointer;
+    list-style:none; border:1px solid var(--border); border-radius:999px;
+    padding:.22rem .6rem; background:var(--surface);
+  }
+  .processing-status summary::-webkit-details-marker { display:none; }
+  .processing-status summary svg { color:var(--effort-color); flex-shrink:0; }
+  .processing-status summary:hover, .processing-status summary:focus-visible {
+    background:var(--background-soft);
+  }
+  .processing-status > p {
+    margin:.4rem 0 .3rem; padding:.6rem .75rem; border:1px solid var(--border);
+    border-radius:.55rem; background:var(--surface); white-space:pre-line;
+    overflow-wrap:anywhere; max-width:42rem;
+  }
 </style>
