@@ -184,6 +184,13 @@ def agent_conversation(request, conversation_id):
     return _workspace_patch(request, path, conversation=True)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def agent_conversation_review(request, conversation_id):
+    """Read-only, signed proxy; ACP scopes the whole transcript to its owner."""
+    return _call(request, "GET", f"/v1/conversations/{conversation_id}/review")
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def agent_turn(request, conversation_id):
