@@ -120,3 +120,32 @@ class WorkspaceProxyTests(TestCase):
         )
         self.assertEqual(response.status_code, 409)
         self.assertIn("messages or runs", response.json()["detail"])
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_conversation_review_is_read_only_and_personal(self, call):
+        conv_id = uuid4()
+        call.return_value = {
+            "conversation_id": str(conv_id),
+            "review_type": "extractive_preview",
+            "candidates": [],
+            "topics": [],
+        }
+        reply = self.client.get(
+            f"/api/v1/agent/conversations/{conv_id}/review/"
+        )
+        self.assertEqual(reply.status_code, 200)
+        self.assertEqual(reply.json()["review_type"], "extractive_preview")
+        call.assert_called_once_with(
+            self.user, "GET", f"/v1/conversations/{conv_id}/review",
+            scope="agent:personal",
+            key=None, params=None, json_body=None,
+        )
+
+    @patch("portal.agent_api.agent_client.call")
+    def test_conversation_review_rejects_anonymous_user(self, call):
+        self.client.logout()
+        reply = self.client.get(
+            f"/api/v1/agent/conversations/{uuid4()}/review/"
+        )
+        self.assertIn(reply.status_code, {401, 403})
+        call.assert_not_called()

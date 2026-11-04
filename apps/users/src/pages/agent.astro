@@ -61,6 +61,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           <div class="heading-actions">
             <button id="toggle-sidebar" type="button" class="secondary" aria-label="Show workspace management" aria-expanded="false" title="Manage projects and conversations">Workspaces</button>
             <button id="toggle-width" type="button" class="secondary icon-control" aria-pressed="false" aria-label="Expand reading area" title="Expand reading area">⤢</button>
+            <button id="review-conversation" type="button" class="secondary"
+              title="Review conversation and curate reusable research context">Review conversation</button>
             <button id="refresh" type="button" class="secondary" title="Refresh conversation and memories">Refresh</button>
           </div>
         </header>
@@ -78,6 +80,21 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           </div>
         </form>
         <p id="status" role="status" aria-live="polite"></p>
+
+    <details class="panel memory-panel" id="conversation-review" hidden>
+      <summary>Conversation review <span class="memory-summary-hint">Suggested context, awaiting your approval</span></summary>
+      <div class="memory-content">
+        <p id="conversation-review-status" class="note" role="status" aria-live="polite"></p>
+        <p id="conversation-review-summary" class="note"></p>
+        <div id="conversation-review-candidates" class="memory-list"></div>
+        <div id="conversation-review-skill"></div>
+        <p class="note">
+          This first review extracts explicit statements from the entire canonical chat.
+          It is not an AI-generated scientific conclusion. Suggestions are drafts only;
+          no memory or skill is created unless you explicitly take action.
+        </p>
+      </div>
+    </details>
 
     <details class="panel memory-panel" id="profile-details">
       <summary>Assistant preferences <span class="memory-summary-hint">Portable ACP profile</span></summary>
@@ -113,12 +130,13 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         <button id="refresh-memories" type="button" class="secondary">Reload memories</button>
       </div>
       <p class="note">
-        Use “Remember this” on one of your messages, review the proposed summary,
-        and approve it explicitly. Only approved memories can be used in later sessions.
+        Use <strong>Review conversation</strong> to inspect suggested preferences and
+        project notes. Edit a grounded draft, propose it, then approve it explicitly.
+        Only approved memories can be used in later sessions.
       </p>
       <form id="memory-form">
         <p id="memory-source" class="note" aria-live="polite">
-          Choose “Remember this” beside a message you wrote.
+          Review a conversation and choose a source-backed suggestion first.
         </p>
         <label>
           What should the assistant remember?
@@ -317,6 +335,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   let activeProject: string | null = null;
   const modelProvenance = document.querySelector<HTMLElement>('#model-provenance');
+  const reviewButton = document.querySelector<HTMLButtonElement>('#review-conversation');
+  const reviewPanel = document.querySelector<HTMLDetailsElement>('#conversation-review');
+  const reviewStatus = document.querySelector<HTMLElement>('#conversation-review-status');
+  const reviewSummary = document.querySelector<HTMLElement>('#conversation-review-summary');
+  const reviewCandidates = document.querySelector<HTMLElement>('#conversation-review-candidates');
+  const reviewSkill = document.querySelector<HTMLElement>('#conversation-review-skill');
   const processingStatus = document.querySelector<HTMLDetailsElement>('#processing-status');
   const processingStatusLabel = document.querySelector<HTMLElement>('#processing-status-label');
   const processingProvenance = document.querySelector<HTMLElement>('#processing-provenance');
@@ -931,37 +955,142 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       body.textContent = displayContent(item.content);
 
       article.append(role, body);
-      if (item.author_kind === 'user' && activeConversation) {
-        const remember = document.createElement('button');
-        remember.type = 'button';
-        remember.className = 'secondary remember-action';
-        remember.textContent = 'Remember this';
-        remember.addEventListener('click', () => {
-          sourceConversationId = activeConversation;
-          if (memoryDetails) memoryDetails.open = true;
-          sourceMessageId = item.id;
-          if (memoryBody) memoryBody.value = displayContent(item.content).slice(0, 2000);
-          if (memorySource) {
-            memorySource.textContent = 'Source: this message in the current conversation.';
-          }
-          if (proposeMemory) proposeMemory.disabled = false;
-          memoryBody?.focus();
-        });
-        article.append(remember);
-      }
       transcript.append(article);
     }
 
     transcript.scrollTop = transcript.scrollHeight;
   }
 
+  reviewButton?.addEventListener('click', () => void reviewConversation());
+
+  async function reviewConversation() {
+    const conversationId = activeConversation;
+    if (!conversationId || !reviewPanel || !reviewSummary || !reviewCandidates
+        || !reviewSkill || !reviewStatus) {
+      if (status) status.textContent = 'Send or choose a saved conversation first.';
+      return;
+    }
+    reviewPanel.hidden = false;
+    reviewPanel.open = true;
+    reviewCandidates.replaceChildren();
+    reviewSkill.replaceChildren();
+    reviewSummary.textContent = '';
+    reviewStatus.textContent = 'Reviewing canonical ACP conversation…';
+    if (reviewButton) reviewButton.disabled = true;
+    try {
+      const response = await fetch(
+        '/api/v1/agent/conversations/' + conversationId + '/review/',
+        { credentials: 'same-origin', cache: 'no-store' },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (activeConversation !== conversationId) return;
+      if (!response.ok) throw new Error(data.detail ?? 'Conversation review unavailable.');
+      if (data.review_type !== 'extractive_preview'
+          || !Array.isArray(data.candidates) || !Array.isArray(data.topics)) {
+        throw new Error('Unexpected review format.');
+      }
+      reviewSummary.textContent = 'Reviewed ' + Number(data.user_turns || 0)
+        + ' researcher turns and ' + Number(data.assistant_turns || 0)
+        + ' assistant responses. Extracted topics (not a model-generated summary):';
+      const topics = document.createElement('ul');
+      for (const topic of data.topics) {
+        const li = document.createElement('li');
+        li.textContent = 'Message ' + topic.sequence + ': ' + String(topic.excerpt);
+        topics.append(li);
+      }
+      if (!topics.childElementCount) {
+        const li = document.createElement('li');
+        li.textContent = 'No substantive researcher requests found.';
+        topics.append(li);
+      }
+      reviewCandidates.append(topics);
+      const heading = document.createElement('h3');
+      heading.textContent = 'Suggested reusable context (' + data.candidates.length + ')';
+      reviewCandidates.append(heading);
+      if (!data.candidates.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No clear reusable preference found. Nothing was saved.';
+        reviewCandidates.append(empty);
+      }
+      for (const candidate of data.candidates as Array<{
+        body: string; kind: string; source_message_id: string;
+        source_conversation_id: string; source_sequence: number;
+      }>) {
+        const card = document.createElement('article');
+        card.className = 'memory-item';
+        const body = document.createElement('p');
+        body.textContent = candidate.body;
+        const provenance = document.createElement('small');
+        provenance.textContent = 'Source: your message #' + candidate.source_sequence
+          + ' · ' + candidate.kind + ' · unapproved suggestion';
+        const choose = document.createElement('button');
+        choose.type = 'button';
+        choose.className = 'secondary';
+        choose.textContent = 'Edit as memory proposal';
+        choose.addEventListener('click', () => {
+          if (activeConversation !== conversationId) return;
+          sourceConversationId = candidate.source_conversation_id;
+          sourceMessageId = candidate.source_message_id;
+          if (memoryBody) memoryBody.value = candidate.body.slice(0, 2000);
+          if (memoryKind) memoryKind.value =
+            ['preference', 'project_note', 'semantic', 'episodic'].includes(candidate.kind)
+              ? candidate.kind : 'project_note';
+          if (memorySource) memorySource.textContent =
+            'Proposal grounded in your message #' + candidate.source_sequence + '.';
+          if (proposeMemory) proposeMemory.disabled = false;
+          if (memoryDetails) {
+            memoryDetails.open = true;
+            memoryDetails.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+          memoryBody?.focus();
+        });
+        card.append(body, provenance, choose);
+        reviewCandidates.append(card);
+      }
+      const skill = data.skill_draft;
+      if (skill && typeof skill.markdown === 'string') {
+        const title = document.createElement('h3');
+        title.textContent = 'Proposed reusable workflow / skill (not installed)';
+        const draft = document.createElement('textarea');
+        draft.value = skill.markdown;
+        draft.readOnly = true;
+        draft.rows = 7;
+        draft.setAttribute('aria-label', 'Draft skill for Git review');
+        const copy = document.createElement('button');
+        copy.type = 'button'; copy.className = 'secondary';
+        copy.textContent = 'Copy draft for review';
+        copy.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(draft.value);
+            if (reviewStatus) reviewStatus.textContent =
+              'Draft copied; it is not an active or approved skill.';
+          } catch {
+            if (reviewStatus) reviewStatus.textContent =
+              'Clipboard unavailable; select and copy the draft manually.';
+          }
+        });
+        reviewSkill.append(title, draft, copy);
+      }
+      reviewStatus.textContent = 'Preview ready. No memories or skills saved.';
+    } catch (error) {
+      if (reviewStatus) reviewStatus.textContent = error instanceof Error
+        ? error.message : 'Review failed.';
+    } finally {
+      if (reviewButton) reviewButton.disabled = false;
+    }
+  }
+
   async function loadConversation() {
+    if (reviewPanel) {
+      reviewPanel.hidden = true;
+      reviewPanel.open = false;
+    }
     renderProcessingStatus(null);
     sourceConversationId = null;
     sourceMessageId = null;
     if (proposeMemory) proposeMemory.disabled = true;
     if (memorySource) {
-      memorySource.textContent = 'Choose “Remember this” beside a message you wrote.';
+      memorySource.textContent = 'Review a conversation and choose a source-backed suggestion.';
     }
     if (!activeConversation) {
       if (activeTitle) activeTitle.textContent = 'New research conversation';
