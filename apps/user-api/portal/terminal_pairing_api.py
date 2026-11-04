@@ -89,6 +89,8 @@ def terminal_pair_start(request):
     """Unprivileged device-code request; it confers NO identity or ACP access."""
     if _rate_limited(request, "start", limit=10):
         return _no_store(Response({"detail": "Try pairing later."}, status=429))
+    if not isinstance(request.data, dict):
+        return Response({"detail": "JSON object required."}, status=400)
     label = request.data.get("device_label", "Research terminal")
     if not isinstance(label, str) or not 1 <= len(label.strip()) <= 80:
         return Response({"detail": "Device label must be 1–80 characters."}, status=400)
@@ -121,6 +123,8 @@ def terminal_pair_start(request):
 @permission_classes([AllowAny])
 def terminal_pair_status(request):
     """Only a terminal holding the unguessable proof may poll this state."""
+    if not isinstance(request.data, dict):
+        return _no_store(Response({"detail": "Pairing unavailable."}, status=404))
     proof = request.data.get("pairing_proof")
     try:
         pair_id = UUID(str(request.data.get("pairing_id", "")))
@@ -142,8 +146,10 @@ def terminal_pair_approve(request):
     """Human explicitly approves a displayed code in their logged-in browser."""
     if _rate_limited(request, "approve:" + str(request.user.pk), limit=8):
         return _no_store(Response({"detail": "Too many approval attempts."}, status=429))
+    if not isinstance(request.data, dict):
+        return _no_store(Response({"detail": "Pairing code unavailable."}, status=404))
     code = request.data.get("verification_code")
-    if not isinstance(code, str) or len(code) != 12:
+    if not isinstance(code, str) or len(code) != 12 or not code.isascii():
         return _no_store(Response({"detail": "Pairing code unavailable."}, status=404))
     with transaction.atomic():
         pair = TerminalPairing.objects.select_for_update().filter(
