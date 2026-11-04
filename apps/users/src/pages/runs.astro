@@ -161,6 +161,43 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         error.textContent = run.error_message;
         item.append(error);
       }
+      if (run.offering === 'bell-aer' && run.state === 'completed') {
+        const actions = document.createElement('div');
+        actions.className = 'bell-actions';
+        const notebook = document.createElement('a');
+        notebook.href = '/notebooks/#bell-state';
+        notebook.className = 'secondary-link';
+        notebook.textContent = 'Open reviewed Bell notebook';
+        const workbench = document.createElement('a');
+        workbench.href = '/workbench/';
+        workbench.className = 'secondary-link';
+        workbench.textContent = 'Open JupyterLab';
+        const note = document.createElement('button');
+        note.className = 'secondary';
+        note.type = 'button';
+        note.textContent = 'Copy provenance note';
+        note.addEventListener('click', async () => {
+          const record = [
+            'Bell-state experiment (Qiskit Aer, CPU via Slurm)',
+            'Execution: ' + run.state,
+            'Slurm job: ' + (run.scheduler_job_id ?? 'not recorded'),
+            'Run artifact directory: ' + run.result_path,
+            'Measurement counts and environment versions: inspect run outputs;',
+            'do not infer correlations or CHSH violation from job completion alone.',
+            'Reviewed notebook: https://github.com/nyameko/quantum-workflows/blob/' +
+              '6867222b0eda57e55796143c466a61660102a6d7/' +
+              'labs/01-intro-quantum-computing/02-bell-cpu-gpu-qpu.ipynb',
+          ].join('\n');
+          try {
+            await navigator.clipboard.writeText(record);
+            note.textContent = 'Copied · paste into Guide to propose a memory';
+          } catch {
+            note.textContent = 'Copy unavailable in this browser';
+          }
+        });
+        actions.append(notebook, workbench, note);
+        item.append(actions);
+      }
 
       if (!['completed', 'failed', 'cancelled'].includes(run.state) && run.scheduler_job_id) {
         const cancel = document.createElement('button');
