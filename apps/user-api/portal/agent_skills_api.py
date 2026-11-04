@@ -21,6 +21,9 @@ def _proxy(request, method, path, *, version=None):
         kwargs = {"scope": "agent:personal"}
         if version is not None:
             kwargs["if_match"] = version
+        if method in {"PUT", "POST"}:
+            # This is a reference-binding operation, not an ACP diagnostic turn.
+            kwargs["json_body"] = {}
         result = agent_client.call(request.user, method, path, **kwargs)
         return Response(result, status=200)
     except agent_client.AgentServiceError as exc:
