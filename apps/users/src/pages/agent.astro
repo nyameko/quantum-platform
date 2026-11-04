@@ -1771,8 +1771,59 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
                 }
               })();
             };
+            const roomCreateForm = document.createElement('form');
+            roomCreateForm.className = 'compact-actions';
+            const roomTitle = document.createElement('input');
+            roomTitle.placeholder = 'Shared conversation title';
+            roomTitle.maxLength = 200;
+            roomTitle.required = true;
+            roomTitle.setAttribute('aria-label', 'New programme conversation title');
+            const createRoom = document.createElement('button');
+            createRoom.type = 'submit';
+            createRoom.textContent = 'Create shared room';
+            const roomCreateStatus = document.createElement('small');
+            roomCreateStatus.className = 'small-note';
+            roomCreateStatus.setAttribute('role', 'status');
+            roomCreateForm.append(roomTitle, createRoom, roomCreateStatus);
+            // This is a UX affordance only. Django checks current membership and
+            // PI/delegate status again on every POST, independent of browser hints.
+            const role = String(m.role ?? '');
+            if (role === 'pi' || role === 'admin') {
+              roomCreateForm.addEventListener('submit', event => {
+                event.preventDefault();
+                const title = roomTitle.value.trim();
+                if (!title || createRoom.disabled) return;
+                createRoom.disabled = true;
+                roomCreateStatus.textContent = 'Creating authorized programme room…';
+                void (async () => {
+                  try {
+                    const reply = await csrfJsonFetch(
+                      '/api/v1/agent/programmes/' + programmeId + '/conversations/',
+                      { method: 'POST', body: JSON.stringify({ title }) },
+                    );
+                    if (!reply.ok) {
+                      const err = await reply.json().catch(() => ({}));
+                      throw new Error([401, 403, 404].includes(reply.status)
+                        ? 'PI/delegate access to this programme is no longer authorized.'
+                        : (err.detail ?? 'Could not create programme room.'));
+                    }
+                    roomTitle.value = '';
+                    roomCreateStatus.textContent = 'Shared room created.';
+                    // Reread authoritative membership and list; no UI-only records.
+                    if (folder.open) onExpand();
+                  } catch (error) {
+                    roomCreateStatus.textContent = error instanceof Error
+                      ? error.message : 'Room creation failed.';
+                  } finally {
+                    createRoom.disabled = false;
+                  }
+                })();
+              });
+            }
             folder.addEventListener('toggle', onExpand);
-            folder.append(label, settings, rooms);
+            folder.append(label, settings);
+            if (role === 'pi' || role === 'admin') folder.append(roomCreateForm);
+            folder.append(rooms);
             root.append(folder);
           }
         }
