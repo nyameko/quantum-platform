@@ -42,12 +42,72 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/main/labs/01-i
       </p>
     </article>
 
+    <article class="notebook-card" id="bell-state">
+      <p class="eyebrow">BELL STATE · CPU FIRST · OPTIONAL GPU/QPU</p>
+      <h2>Bell-state experiment: Qiskit Aer to hybrid execution</h2>
+      <p>
+        Prepare |Φ⁺⟩, run repeatable shot-based measurements and inspect
+        correlations. The notebook starts with Qiskit Aer on CPU and discusses
+        additional backends without requiring GPU/QPU access.
+      </p>
+      <p class="note">
+        Z-basis parity alone is not proof of entanglement or a CHSH Bell-inequality
+        violation. See the notebook for basis-dependent measurements and limitations.
+      </p>
+      <div class="resource-actions">
+        <a href="/workbench/">Open JupyterLab</a>
+        <a href={source + '02-bell-cpu-gpu-qpu.ipynb'}
+          target="_blank" rel="noopener noreferrer">Inspect Bell notebook source</a>
+        <a href={source + 'README.md'}
+          target="_blank" rel="noopener noreferrer">Environment instructions</a>
+        <button type="button" id="copy-bell-import">Copy notebook import command</button>
+      </div>
+      <p id="bell-import-status" class="note" role="status" aria-live="polite"></p>
+      <p class="note">
+        To work with your own copy, open a JupyterLab Terminal, paste the import
+        command, then open <code>notebooks/quantum-foundations/Bell_State_CPU_GPU_QPU.ipynb</code>.
+        The command downloads one reviewed, commit-pinned notebook into your
+        own research home. It never creates a shared workspace or submits a job.
+      </p>
+      <p class="note">
+        Research note: CPU Bell measurements, shots/seed, Qiskit versions and
+        run artifact paths are reproducibility evidence. You can summarise them
+        in Guide and explicitly approve an ACP memory; raw job output should
+        not be silently promoted to long-term memory.
+      </p>
+    </article>
+
     <p class="note">
       Notebook execution uses upstream Python SDKs directly. Resource entitlements,
       reviewed ACP skills and later Slurm/remote-QPU dispatch are separate capabilities.
     </p>
   </section>
 </SiteLayout>
+
+<script>
+  const importButton = document.querySelector<HTMLButtonElement>('#copy-bell-import');
+  const importStatus = document.querySelector<HTMLElement>('#bell-import-status');
+  const pinnedNotebook =
+    'https://raw.githubusercontent.com/nyameko/quantum-workflows/' +
+    '6867222b0eda57e55796143c466a61660102a6d7/' +
+    'labs/01-intro-quantum-computing/02-bell-cpu-gpu-qpu.ipynb';
+  const importCommand = [
+    'mkdir -p "$HOME/notebooks/quantum-foundations"',
+    'curl -fL --retry 2 --output "$HOME/notebooks/quantum-foundations/Bell_State_CPU_GPU_QPU.ipynb" '
+       + pinnedNotebook,
+  ].join('\n');
+  importButton?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(importCommand);
+      if (importStatus) importStatus.textContent =
+        'Import command copied. Paste it into your JupyterLab Terminal.';
+    } catch {
+      if (importStatus) importStatus.textContent =
+        'Clipboard unavailable. Inspect the source notebook and download it through JupyterLab.';
+    }
+  });
+</script>
+
 
 <style>
   .notebook-catalog { max-width:70rem; }
@@ -56,8 +116,10 @@ const source = 'https://github.com/nyameko/quantum-workflows/blob/main/labs/01-i
     border-radius:1rem; background:var(--surface); }
   h2 { font-size:1.45rem; margin:.4rem 0 1rem; }
   .resource-actions { display:flex; gap:.6rem; flex-wrap:wrap; margin:1.3rem 0; }
-  .resource-actions a { color:var(--text); text-decoration:none; border:1px solid var(--border);
-    border-radius:.6rem; padding:.7rem .85rem; }
+  .resource-actions a, .resource-actions button { color:var(--text); text-decoration:none;
+    border:1px solid var(--border); border-radius:.6rem; padding:.7rem .85rem;
+    background:var(--surface); font:inherit; font-size:.9rem; cursor:pointer; }
+  .resource-actions a:hover, .resource-actions button:hover { background:var(--background-soft); }
   .resource-actions a:hover { background:var(--background-soft); }
   .note { color:var(--muted-strong); font-size:.9rem; }
 </style>
