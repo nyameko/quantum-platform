@@ -33,8 +33,17 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           No provider account or GPU allocation is needed.
         </p>
       </div>
-      <button id="submit-bell" type="button">Run Bell experiment on CPU</button>
+      <div class="bell-actions">
+        <button id="submit-bell" type="button">Run Bell experiment on CPU</button>
+        <a class="secondary-link" href="/workbench/">Open JupyterLab</a>
+        <a class="secondary-link" href="/notebooks/#bell-state">Reviewed Bell notebook</a>
+      </div>
       <p id="submit-bell-message" role="status" aria-live="polite"></p>
+      <p class="help">
+        JupyterLab opens your entitled workbench; it does not automatically
+        import the notebook or execute a Slurm job. See the reviewed notebook
+        for source, setup and reproducibility instructions.
+      </p>
     </article>
 
     <section class="runs">
@@ -271,6 +280,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
   .panel, .run { border:1px solid var(--border); border-radius:1rem; background:var(--surface); }
   .submit-panel { margin-top:2rem; padding:1.5rem; display:grid; gap:1rem; }
   .runs { margin-top:2.5rem; }
+  .bell-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; }
+  a.secondary-link { display:inline-flex; align-items:center; justify-content:center;
+    min-height:2.7rem; padding:0 .9rem; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); border-radius:.65rem;
+    text-decoration:none; font-weight:700; font-size:.9rem; box-sizing:border-box; }
+  a.secondary-link:hover, a.secondary-link:focus-visible { background:var(--background-soft); }
   .section-heading, .run > div { display:flex; justify-content:space-between; gap:1rem; align-items:center; }
   #run-list, #slurm-history-list { display:grid; gap:.8rem; margin-top:1rem; }
   .help, #slurm-history-status, .run small { color:var(--muted-strong); }
