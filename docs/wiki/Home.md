@@ -23,3 +23,7 @@ Quantum Platform provides the web experience, human identity, research programme
 Infrastructure deploys the environment; Quantum Platform owns user and programme policy; Quantum Workflows owns scientific runners, notebooks and provenance; ACP owns durable agent conversations, profiles and memory; PhotonicsLab owns optics/quantum photonics teaching models. Keep unique identifiers for the person, programme, ACP AgentPrincipal, POSIX account, Slurm job and scientific run.
 
 Begin with [root README](https://github.com/nyameko/quantum-platform/blob/main/README.md), [quick start](https://github.com/nyameko/quantum-platform/blob/main/docs/QUICK_START.md), [identity/programmes](https://github.com/nyameko/quantum-platform/blob/main/docs/identity-programmes.md) and [researcher learning path](https://github.com/nyameko/quantum-platform/blob/main/docs/RESEARCHER-LEARNING-R1-R5.md).
+
+## Guide and automated help
+
+See [Guide integration and ticket routing](Guide-assistance.md) and the [machine-readable discovery index](guide-index.json). Public documentation is not an execution authorization.

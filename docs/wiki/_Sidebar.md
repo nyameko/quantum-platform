@@ -10,3 +10,4 @@
 - [Troubleshooting](Troubleshooting.md)
 - [Security](Security.md)
 - [Contributing](Contributing.md)
+- [Guide integration and support](Guide-assistance.md)
