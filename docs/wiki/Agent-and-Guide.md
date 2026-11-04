@@ -82,18 +82,3 @@ not unreviewed notebook files, model messages or a portal-configured URL.
   model tools.** Workbench runs are separate explicit actions.
 - Requires ACP schema v8 and paired M4d ACP API. Source CI is not proof of
   live migration or human `nlisa` acceptance.
-## M4d reviewed notebook references (source candidate)
-
-The Guide contains a **Reviewed learning resources** panel. It only lists
-independently Git-reviewed notebook references returned by ACP's
-`GET /v1/skills/catalog` endpoint and their exact source revisions.
-`quantum-workflows` catalog proposals are **not** reviewed by default,
-and the initial trusted ACP list is intentionally **empty**.
-
-Once a notebook source and its manifest have been reviewed and pinned in
-ACP source through a separate PR, the researcher may **Enable reference**
-or **Disable reference**. ACP schema v8 persists this owner-private,
-revision-checked choice. This is discovery and preference only: opening
-a Git notebook link is not an HPC or QPU job submission, and the
-reference does not permit tools, model-key access or shell execution.
-The corresponding ACP schema v8/operator release must be approved first.
