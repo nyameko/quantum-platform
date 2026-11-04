@@ -751,6 +751,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       'New unsaved conversation. Send a message to save it.';
     renderMessages([]);
     renderSidebar();
+    if (message) message.value = '';
     message?.focus();
   }
 
