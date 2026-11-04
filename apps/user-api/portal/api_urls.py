@@ -2,6 +2,7 @@ from django.urls import path
 
 from .agent_api import (
     agent_conversation,
+    agent_conversation_review,
     agent_memories,
     agent_memory,
     agent_memory_approve,
@@ -76,6 +77,11 @@ urlpatterns = [
         "agent/conversations/<uuid:conversation_id>/",
         agent_conversation,
         name="agent-conversation",
+    ),
+    path(
+        "agent/conversations/<uuid:conversation_id>/review/",
+        agent_conversation_review,
+        name="agent-conversation-review",
     ),
     path(
         "agent/conversations/<uuid:conversation_id>/turns/",
