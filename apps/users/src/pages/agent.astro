@@ -61,6 +61,8 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           <div class="heading-actions">
             <button id="toggle-sidebar" type="button" class="secondary" aria-label="Show workspace management" aria-expanded="false" title="Manage projects and conversations">Workspaces</button>
             <button id="toggle-width" type="button" class="secondary icon-control" aria-pressed="false" aria-label="Expand reading area" title="Expand reading area">⤢</button>
+            <button id="review-conversation" type="button" class="secondary"
+              title="Review conversation and curate reusable research context">Review conversation</button>
             <button id="refresh" type="button" class="secondary" title="Refresh conversation and memories">Refresh</button>
           </div>
         </header>
@@ -78,6 +80,21 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
           </div>
         </form>
         <p id="status" role="status" aria-live="polite"></p>
+
+    <details class="panel memory-panel" id="conversation-review" hidden>
+      <summary>Conversation review <span class="memory-summary-hint">Suggested context, awaiting your approval</span></summary>
+      <div class="memory-content">
+        <p id="conversation-review-status" class="note" role="status" aria-live="polite"></p>
+        <p id="conversation-review-summary" class="note"></p>
+        <div id="conversation-review-candidates" class="memory-list"></div>
+        <div id="conversation-review-skill"></div>
+        <p class="note">
+          This first review extracts explicit statements from the entire canonical chat.
+          It is not an AI-generated scientific conclusion. Suggestions are drafts only;
+          no memory or skill is created unless you explicitly take action.
+        </p>
+      </div>
+    </details>
 
     <details class="panel memory-panel" id="profile-details">
       <summary>Assistant preferences <span class="memory-summary-hint">Portable ACP profile</span></summary>
@@ -113,12 +130,13 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
         <button id="refresh-memories" type="button" class="secondary">Reload memories</button>
       </div>
       <p class="note">
-        Use “Remember this” on one of your messages, review the proposed summary,
-        and approve it explicitly. Only approved memories can be used in later sessions.
+        Use <strong>Review conversation</strong> to inspect suggested preferences and
+        project notes. Edit a grounded draft, propose it, then approve it explicitly.
+        Only approved memories can be used in later sessions.
       </p>
       <form id="memory-form">
         <p id="memory-source" class="note" aria-live="polite">
-          Choose “Remember this” beside a message you wrote.
+          Review a conversation and choose a source-backed suggestion first.
         </p>
         <label>
           What should the assistant remember?
@@ -317,6 +335,12 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
 
   let activeProject: string | null = null;
   const modelProvenance = document.querySelector<HTMLElement>('#model-provenance');
+  const reviewButton = document.querySelector<HTMLButtonElement>('#review-conversation');
+  const reviewPanel = document.querySelector<HTMLDetailsElement>('#conversation-review');
+  const reviewStatus = document.querySelector<HTMLElement>('#conversation-review-status');
+  const reviewSummary = document.querySelector<HTMLElement>('#conversation-review-summary');
+  const reviewCandidates = document.querySelector<HTMLElement>('#conversation-review-candidates');
+  const reviewSkill = document.querySelector<HTMLElement>('#conversation-review-skill');
   const processingStatus = document.querySelector<HTMLDetailsElement>('#processing-status');
   const processingStatusLabel = document.querySelector<HTMLElement>('#processing-status-label');
   const processingProvenance = document.querySelector<HTMLElement>('#processing-provenance');
@@ -931,24 +955,6 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
       body.textContent = displayContent(item.content);
 
       article.append(role, body);
-      if (item.author_kind === 'user' && activeConversation) {
-        const remember = document.createElement('button');
-        remember.type = 'button';
-        remember.className = 'secondary remember-action';
-        remember.textContent = 'Remember this';
-        remember.addEventListener('click', () => {
-          sourceConversationId = activeConversation;
-          if (memoryDetails) memoryDetails.open = true;
-          sourceMessageId = item.id;
-          if (memoryBody) memoryBody.value = displayContent(item.content).slice(0, 2000);
-          if (memorySource) {
-            memorySource.textContent = 'Source: this message in the current conversation.';
-          }
-          if (proposeMemory) proposeMemory.disabled = false;
-          memoryBody?.focus();
-        });
-        article.append(remember);
-      }
       transcript.append(article);
     }
 
@@ -961,7 +967,7 @@ import SiteLayout from '@nyameko/ui/SiteLayout.astro';
     sourceMessageId = null;
     if (proposeMemory) proposeMemory.disabled = true;
     if (memorySource) {
-      memorySource.textContent = 'Choose “Remember this” beside a message you wrote.';
+      memorySource.textContent = 'Review a conversation and choose a source-backed suggestion.';
     }
     if (!activeConversation) {
       if (activeTitle) activeTitle.textContent = 'New research conversation';
