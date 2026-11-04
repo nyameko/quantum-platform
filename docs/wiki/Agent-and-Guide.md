@@ -60,3 +60,19 @@ room, automatically expose private research memory, or invoke an agent model.
 - This is a **source implementation**, not observed live `nlisa` acceptance.
   A human PI and separately approved researcher must prove create, post,
   outsider denial and revocation in the deployed interface.
+
+## M4d reviewed notebook references (source candidate)
+
+The Guide contains a **Reviewed learning resources** panel. It only lists
+independently Git-reviewed notebook references returned by ACP's
+`GET /v1/skills/catalog` endpoint and their exact source revisions.
+`quantum-workflows` catalog proposals are **not** reviewed by default,
+and the initial trusted ACP list is intentionally **empty**.
+
+Once a notebook source and its manifest have been reviewed and pinned in
+ACP source through a separate PR, the researcher may **Enable reference**
+or **Disable reference**. ACP schema v8 persists this owner-private,
+revision-checked choice. This is discovery and preference only: opening
+a Git notebook link is not an HPC or QPU job submission, and the
+reference does not permit tools, model-key access or shell execution.
+The corresponding ACP schema v8/operator release must be approved first.
