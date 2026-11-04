@@ -121,12 +121,29 @@ def _workspace_patch(request, path, *, conversation=False):
         return Response({"detail": str(exc)}, status=exc.status_code)
 
 
-@api_view(["GET", "PATCH"])
+def _workspace_delete(request, path):
+    """Delete only via ACP's owner/ETag-protected empty-workspace endpoint."""
+    version = request.headers.get("If-Match", "")
+    if not (2 < len(version) <= 100 and version.startswith('"') and version.endswith('"')):
+        return Response({"detail": "Quoted current workspace version required."}, status=400)
+    try:
+        agent_client.call(
+            request.user, "DELETE", path,
+            scope="agent:personal", if_match=version,
+        )
+        return Response(status=204)
+    except agent_client.AgentServiceError as exc:
+        return Response({"detail": str(exc)}, status=exc.status_code)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def agent_project(request, project_id):
     path = f"/v1/projects/{project_id}"
     if request.method == "GET":
         return _call(request, "GET", path)
+    if request.method == "DELETE":
+        return _workspace_delete(request, path)
     return _workspace_patch(request, path)
 
 
@@ -156,12 +173,14 @@ def agent_conversations(request):
     return _call(request, "POST", "/v1/conversations", body=body)
 
 
-@api_view(["GET", "PATCH"])
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def agent_conversation(request, conversation_id):
     path = f"/v1/conversations/{conversation_id}"
     if request.method == "GET":
         return _call(request, "GET", path)
+    if request.method == "DELETE":
+        return _workspace_delete(request, path)
     return _workspace_patch(request, path, conversation=True)
 
 
