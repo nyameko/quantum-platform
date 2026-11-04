@@ -17,3 +17,18 @@ The Guide may display a **passive reasoning/processing status** reflecting obser
 Programme conversations require current membership authorization on every relevant call, distinct from private agent projects. The secure terminal pairing/broker contract in ACP ADR 0012 remains a proposed integration until separately implemented and live-accepted; a POSIX SSH login must not be promoted to ACP identity proof.
 
 See [ACP documentation](https://github.com/nyameko/agent-control-plane/blob/main/docs/M4-PERSISTENT-AGENTS.md), [M4 conformance](https://github.com/nyameko/agent-control-plane/blob/main/docs/conformance/m4c-m4g-live-release-gates.md) and [portal agent proxy](https://github.com/nyameko/quantum-platform/blob/main/apps/user-api/portal/agent_api.py).
+## M4c shared programme conversation baseline (source candidate)
+
+The Guide programme folder can now offer **Create shared room** to a current
+programme PI/delegate, with a distinct programme transcript and a **Post
+message** form for approved members. This uses the existing signed Quantum
+Platform → ACP C2 endpoints; it does **not** turn a personal chat into a shared
+room, automatically expose private research memory, or invoke an agent model.
+
+- The server rechecks current programme approval/status before every list,
+  create, read and post; a browser role label is never authorization.
+- Refreshing a room re-reads the shared canonical transcript. A denied/revoked
+  response clears the previously displayed content and disables further posts.
+- This is a **source implementation**, not observed live `nlisa` acceptance.
+  A human PI and separately approved researcher must prove create, post,
+  outsider denial and revocation in the deployed interface.
