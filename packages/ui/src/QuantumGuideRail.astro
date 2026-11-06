@@ -1,5 +1,6 @@
 <button id="rail-expand-handle" type="button" hidden
-  title="Expand Quantum Guide" aria-label="Expand Quantum Guide">
+  title="Expand Quantum Guide" aria-label="Expand Quantum Guide"
+  aria-controls="quantum-guide-rail" aria-expanded="false">
   <span class="rail-symbol panel" aria-hidden="true"></span> Guide
 </button>
 <aside id="quantum-guide-rail" class="quantum-guide-rail" aria-label="Quantum Guide" hidden>
@@ -177,9 +178,12 @@
   @media (max-width: 900px) {
     .quantum-guide-rail { top: 0; left: 0; width: min(85vw, 21rem); height: 100vh; border-radius: 0; z-index: 40; transform: translateX(-110%); visibility: hidden; }
     :global(body.has-guide-rail > main), :global(body.has-guide-rail > .site-footer) { margin-left: 0; }
-    :global(body.guide-rail-mobile-open .quantum-guide-rail) { transform: translateX(0); visibility: visible; }
+    :global(body.guide-rail-mobile-open .quantum-guide-rail) {
+      display: block !important; transform: translateX(0); visibility: visible;
+    }
     .rail-close { display: inline-block; }
-    #rail-expand-handle { display:none !important; }
+    /* Reuse the left-side opener on mobile; do not require a second header Guide button. */
+    #rail-expand-handle { top: 7.25rem; }
   }
 </style>
 
@@ -332,7 +336,6 @@
   const promptForm = document.querySelector<HTMLFormElement>('#rail-prompt-form');
   const prompt = document.querySelector<HTMLTextAreaElement>('#rail-prompt');
   const close = document.querySelector<HTMLButtonElement>('#rail-close');
-  const mobileToggle = document.querySelector<HTMLButtonElement>('#portal-guide-toggle');
   const collapse = document.querySelector<HTMLButtonElement>('#rail-collapse');
   const expandHandle = document.querySelector<HTMLButtonElement>('#rail-expand-handle');
   const searchToggle = document.querySelector<HTMLButtonElement>('#rail-search-toggle');
@@ -349,14 +352,19 @@
   let railConversationId: string | null = null;
   let sending = false;
 
+  function updateExpandHandle() {
+    if (!expandHandle) return;
+    const mobile = window.matchMedia('(max-width: 900px)').matches;
+    const expanded = mobile
+      ? document.body.classList.contains('guide-rail-mobile-open')
+      : !document.body.classList.contains('guide-rail-collapsed');
+    expandHandle.hidden = expanded;
+    expandHandle.setAttribute('aria-expanded', String(expanded));
+  }
   function setDesktopCollapsed(collapsed: boolean) {
     document.body.classList.toggle('guide-rail-collapsed', collapsed);
-    if (expandHandle) expandHandle.hidden = !collapsed;
     window.sessionStorage.setItem('qp:guide-collapsed', String(collapsed));
-    mobileToggle?.setAttribute('aria-expanded', String(!collapsed));
-    if (mobileToggle) {
-      mobileToggle.title = collapsed ? 'Expand Quantum Guide' : 'Collapse Quantum Guide';
-    }
+    updateExpandHandle();
   }
   function filterRail() {
     const term = searchInput?.value.trim().toLocaleLowerCase() ?? '';
@@ -824,9 +832,10 @@
       }
       rail.hidden = false;
       document.body.classList.add('has-guide-rail');
-      if (mobileToggle) mobileToggle.hidden = false;
       if (window.matchMedia('(min-width: 901px)').matches) {
         setDesktopCollapsed(window.sessionStorage.getItem('qp:guide-collapsed') === 'true');
+      } else {
+        updateExpandHandle();
       }
       const [projectsResponse, conversationsResponse] = await Promise.all([
         fetch('/api/v1/agent/projects/', { credentials: 'same-origin', cache: 'no-store' }),
@@ -984,18 +993,18 @@
 
   const toggleGuide = () => {
     if (window.matchMedia('(max-width: 900px)').matches) {
-      const opened = document.body.classList.toggle('guide-rail-mobile-open');
-      mobileToggle?.setAttribute('aria-expanded', String(opened));
+      document.body.classList.toggle('guide-rail-mobile-open');
+      updateExpandHandle();
     } else {
       setDesktopCollapsed(!document.body.classList.contains('guide-rail-collapsed'));
     }
   };
-  mobileToggle?.addEventListener('click', toggleGuide);
   collapse?.addEventListener('click', toggleGuide);
-  expandHandle?.addEventListener('click', () => setDesktopCollapsed(false));
+  expandHandle?.addEventListener('click', toggleGuide);
   close?.addEventListener('click', () => {
     document.body.classList.remove('guide-rail-mobile-open');
-    mobileToggle?.setAttribute('aria-expanded', 'false');
+    updateExpandHandle();
   });
+  window.matchMedia('(max-width: 900px)').addEventListener('change', updateExpandHandle);
   void showRail();
 </script>
