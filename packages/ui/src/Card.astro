@@ -48,6 +48,13 @@ const { eyebrow, title, href, icon, description, brandIcon = false, class: class
     transform: translateY(-2px);
   }
 
+  /* The hover transform creates a stacking context. Raise the whole card so
+     its help popover paints above neighbouring cards in the same grid. */
+  a.card[data-help]:hover,
+  a.card[data-help]:focus-visible {
+    z-index: 2;
+  }
+
   .card-visual {
     display: block; width: 3.2rem; height: 3.2rem;
     margin: 0 0 1.15rem;
@@ -75,6 +82,13 @@ const { eyebrow, title, href, icon, description, brandIcon = false, class: class
   a.card.tooltip-right[data-help]:hover::after,
   a.card.tooltip-right[data-help]:focus-visible::after {
     left:calc(100% - 1.4rem); right:auto;
+  }
+  /* On a single-column/mobile grid keep the popover inside the card. */
+  @media (max-width: 800px) {
+    a.card.tooltip-right[data-help]:hover::after,
+    a.card.tooltip-right[data-help]:focus-visible::after {
+      left:auto; right:1rem;
+    }
   }
   .card-eyebrow {
     margin: 0 0 0.65rem;
