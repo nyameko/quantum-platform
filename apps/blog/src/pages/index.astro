@@ -8,21 +8,21 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
 <SiteLayout
-  title="Research Blog"
+  title="Research News"
   siteName="Quantum Platform"
   section="Blog"
-  description="Research notes, engineering journals and ideas from the Quantum Platform."
+  description="Quantum Platform news, research developments, engineering field notes and scientific milestones."
 >
   <section class="hero container">
     <div class="hero-copy">
-      <p class="eyebrow">PUBLIC RESEARCH · ENGINEERING · IDEAS</p>
-      <h1>Building the future of quantum-centric computing.</h1>
+      <p class="eyebrow">QUANTUM PLATFORM · NEWS &amp; RESEARCH</p>
+      <h1>Research news and field notes.</h1>
       <p class="lede">
-        Research notes and engineering work spanning HPC, AI, quantum computing and the infrastructure that brings them together.
+        Updates from the Quantum Platform: reproducible research, HPC and quantum-computing developments, engineering progress and the people building them.
       </p>
       <div class="actions">
         <Button href="https://quantum.nyameko.com" variant="primary">Explore the Quantum Platform</Button>
-        <Button href="https://github.com/nyameko/quantum-platform" variant="secondary">View the platform</Button>
+        <Button href="https://github.com/nyameko/quantum-platform" variant="secondary">Source on GitHub</Button>
       </div>
     </div>
 
@@ -34,10 +34,10 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft))
   <section class="section container">
     <div class="section-heading">
       <div>
-        <p class="eyebrow">LATEST</p>
-        <h2>Research and engineering notes</h2>
+        <p class="eyebrow">LATEST STORIES</p>
+        <h2>From the research platform</h2>
       </div>
-      <p>Everything published here remains plain Markdown in Git, so the research record stays portable and reviewable.</p>
+      <p>Research notes and announcements are published from reviewed Markdown in Git.</p>
     </div>
 
     {posts.length ? (
@@ -52,8 +52,8 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft))
         ))}
       </div>
     ) : (
-      <Card title="The first posts are coming soon.">
-        <p>The blog is connected to the Markdown content pipeline and ready for research writing.</p>
+      <Card title="New stories are on their way.">
+        <p>News and research updates appear here after editorial review.</p>
       </Card>
     )}
   </section>
@@ -61,19 +61,19 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft))
 
 <style>
   .hero {
-    min-height: 68vh;
+    min-height: 40vh;
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
     align-items: center;
     gap: 4rem;
-    padding-top: 6rem;
+    padding-top: 3.5rem;
   }
 
   h1 {
     max-width: 900px;
     margin: 0.8rem 0 0;
-    font-size: clamp(3rem, 7vw, 6.5rem);
-    line-height: 0.94;
+    font-size: clamp(2.6rem, 5vw, 4.6rem);
+    line-height: 1.05;
     letter-spacing: -0.06em;
   }
 
@@ -89,7 +89,7 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft))
     grid-template-columns: repeat(5, 1fr);
     gap: 0.65rem;
     align-items: end;
-    height: 15rem;
+    height: 11rem;
     padding: 1rem;
     border: 1px solid var(--border);
     border-radius: 1rem;
@@ -131,12 +131,12 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft))
     .hero {
       min-height: auto;
       grid-template-columns: 1fr;
-      padding-top: 5rem;
+      padding-top: 2.5rem;
       gap: 2.5rem;
     }
 
     .signal {
-      height: 10rem;
+      height: 8rem;
     }
   }
 </style>
