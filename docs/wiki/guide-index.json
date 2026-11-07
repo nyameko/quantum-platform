@@ -62,6 +62,13 @@
       "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Developer-guide"
     },
     {
+      "slug": "Getting-started",
+      "title": "Getting started",
+      "source_path": "docs/wiki/Getting-started.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/dev/docs/wiki/Getting-started.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Getting-started"
+    },
+    {
       "slug": "Guide-assistance",
       "title": "Guide assistance",
       "source_path": "docs/wiki/Guide-assistance.md",

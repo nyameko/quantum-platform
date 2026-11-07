@@ -8,6 +8,7 @@ Quantum Platform provides the web experience, human identity, research programme
 
 | Task | Article |
 |---|---|
+| First visit: student, PI, account security and first CPU run | [Getting started](Getting-started.md) |
 | Create an account, join a programme, get resources | [Account and access](Account-and-access.md) |
 | Organize work and learn in the portal | [Researcher guide](Researcher-guide.md) |
 | Launch notebooks, submit work, retrieve results | [Workbench and runs](Workbench-and-runs.md) |
