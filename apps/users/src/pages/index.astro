@@ -28,6 +28,38 @@ import Card from '@nyameko/ui/Card.astro';
       <p>Create your profile, join or apply for a research programme, and then connect to the available services.</p>
       <p class="muted">CPU, GPU and QPU access depends on approved entitlements and availability.</p>
     </div>
+    <section class="entry-tracks" aria-labelledby="choose-your-path">
+      <p class="eyebrow">FIRST VISIT · CHOOSE YOUR PATH</p>
+      <h2 id="choose-your-path">Find your way into the research platform</h2>
+      <div class="grid grid-3 home-paths">
+        <article class="entry-card">
+          <span class="track-number" aria-hidden="true">01</span>
+          <h3>Students &amp; research members</h3>
+          <p>Create an account, complete your profile, then request membership in an existing approved research programme.</p>
+          <a href="/getting-started/#students">Student access guide</a>
+        </article>
+        <article class="entry-card">
+          <span class="track-number" aria-hidden="true">02</span>
+          <h3>Principal investigators</h3>
+          <p>Register your identity and institution, then submit a PI application to create a programme for review.</p>
+          <a href="/getting-started/#pis">PI application guide</a>
+        </article>
+        <article class="entry-card">
+          <span class="track-number" aria-hidden="true">03</span>
+          <h3>Learn with open notebooks</h3>
+          <p>Explore the teaching curriculum and available notebooks. CPU/GPU/QPU hardware access is separate and approval-based.</p>
+          <a href="/getting-started/#learning">Learning and notebooks</a>
+        </article>
+      </div>
+      <div class="home-steps" aria-labelledby="first-day-heading">
+        <div>
+          <h3 id="first-day-heading">Your first day</h3>
+          <p>Account → email verification and MFA → research profile → public SSH/WireGuard keys → approved programme → Workbench and Slurm.</p>
+        </div>
+        <a class="guide-link" href="/getting-started/">Follow the getting-started guide</a>
+      </div>
+      <p class="home-access-note">Registering does not automatically grant compute or VPN access. Administrators approve resource entitlements separately.</p>
+    </section>
   </section>
 
   <section id="authenticated-home" class="section container auth-home" hidden>
@@ -36,6 +68,7 @@ import Card from '@nyameko/ui/Card.astro';
         <p class="eyebrow">QUANTUM PLATFORM · YOUR WORKSPACE</p>
         <h1>Research home</h1>
         <p id="identity" class="lede">Loading your account…</p>
+        <p class="home-auth-hint">Need help? <a href="/getting-started/">Getting started</a> · <a href="/account/access-keys/">SSH &amp; WireGuard keys</a> · <a href="/account/mfa/settings/">MFA</a></p>
       </div>
     </div>
 
@@ -147,9 +180,26 @@ import Card from '@nyameko/ui/Card.astro';
   .factor-icon.verified { color:#32b879; }
   .factor-icon.missing { color:#ed6570; }
   .welcome-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-  .home-grid { margin-top: 2rem; }
+  .entry-tracks { grid-column: 1 / -1; padding: 2rem 0 3rem; }
+  .entry-tracks h2 { margin: .4rem 0 1.3rem; font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -.025em; }
+  .home-paths { margin-top: 1rem; }
+  .entry-card { min-width: 0; padding: 1.35rem; background: var(--surface); border: 1px solid var(--border); border-radius: .85rem; }
+  .track-number { font-size: .75rem; font-weight: 800; color: var(--purple); letter-spacing: .12em; }
+  .entry-card h3 { margin: .65rem 0 .55rem; font-size: 1.13rem; }
+  .entry-card p, .home-steps p { line-height: 1.55; color: var(--muted-strong); }
+  .entry-card a, .guide-link, .home-auth-hint a { color: var(--purple); text-underline-offset: .2rem; }
+  .entry-card a:focus-visible, .guide-link:focus-visible { outline: 2px solid var(--purple); outline-offset: 4px; }
+  .home-steps { display: flex; gap: 1.2rem; align-items: center; justify-content: space-between; margin-top: 1.4rem; padding: 1.4rem; border: 1px solid var(--border); border-radius: .85rem; }
+  .home-steps h3 { margin: 0; }
+  .home-steps p { margin: .55rem 0 0; }
+  .guide-link { flex-shrink: 0; font-weight: 700; }
+  .home-access-note { margin-top: 1rem; color: var(--muted); font-size: .87rem; }
+  .home-auth-hint { color: var(--muted-strong); }
+    .home-grid { margin-top: 2rem; }
   @media (max-width: 800px) {
     .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 3rem; }
     .welcome-heading { align-items: start; flex-direction: column; }
+    .entry-tracks { padding-top: .5rem; }
+    .home-steps { flex-direction: column; align-items: flex-start; }
   }
 </style>
