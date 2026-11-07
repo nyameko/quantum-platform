@@ -262,3 +262,15 @@ def terminal_gateway_turn(request, conversation_id):
 @permission_classes([AllowAny])
 def terminal_gateway_run(request, run_id):
     return _forward(request, "GET", f"/v1/runs/{run_id}")
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def terminal_gateway_active_memories(request):
+    """Read current approved private memory through the existing pairing gate.
+
+    Never export the memory ledger or candidate/revoked entries to Herdr.
+    Authorization is rechecked on *every* request, including expiry/revocation.
+    No terminal UID, user-provided tenant, hidden refresh, or local cache.
+    """
+    return _forward(request, "GET", "/v1/memories/retrieve")
