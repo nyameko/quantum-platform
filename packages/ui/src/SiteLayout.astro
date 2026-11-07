@@ -18,7 +18,7 @@ const {
 } = Astro.props;
 
 const links = [
-  ['News', 'https://news.quantum.nyameko.com', 'Blog'],
+  ['News', 'https://blog.nyameko.com', 'Blog'],
   ['Publications', 'https://quantum.nyameko.com/publications/', 'Publications'],
   ['Events', 'https://quantum.nyameko.com/events/', 'Events'],
 ] as const;
@@ -39,7 +39,7 @@ const guideOnPage = section === 'User Portal' && !/^\/(login|account)(\/|$)/.tes
     />
     <title>{title} · {siteName}</title>
     {section === 'Blog' && (
-      <link rel="canonical" href={new URL(Astro.url.pathname, 'https://news.quantum.nyameko.com').toString()} />
+      <link rel="canonical" href={new URL(Astro.url.pathname, 'https://blog.nyameko.com').toString()} />
     )}
 
     <script is:inline>
