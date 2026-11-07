@@ -28,6 +28,7 @@ from .terminal_pairing_api import (
     terminal_gateway_conversation,
     terminal_gateway_turn,
     terminal_gateway_run,
+    terminal_gateway_active_memories,
 )
 from .agent_skills_api import (
     reviewed_skill_catalog,
@@ -88,6 +89,8 @@ urlpatterns = [
          terminal_pair_revoke, name="terminal-pair-revoke"),
     path("agent/terminal-gateway/projects/",
          terminal_gateway_projects, name="terminal-gateway-projects"),
+    path("agent/terminal-gateway/memories/",
+         terminal_gateway_active_memories, name="terminal-gateway-active-memories"),
     path("agent/terminal-gateway/conversations/",
          terminal_gateway_conversations, name="terminal-gateway-conversations"),
     path("agent/terminal-gateway/conversations/<uuid:conversation_id>/",

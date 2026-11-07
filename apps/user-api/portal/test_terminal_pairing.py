@@ -148,3 +148,57 @@ class TerminalPairingTests(TestCase):
             self.assertEqual(
                 gateway.call_args.kwargs["json_body"]["client_message_id"], str(key)
             )
+
+
+    def test_active_memory_requires_browser_approval_and_rechecks_revocation(self):
+        """A memory response is a live ACP retrieval, never a Herdr copy."""
+        memory_path = "/api/v1/agent/terminal-gateway/memories/"
+        created = self.start()
+        self.assertEqual(self.client.get(
+            memory_path, **self.headers(created),
+        ).status_code, 401)
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.post(
+            "/api/v1/agent/terminal-pairings/approve/",
+            data='{"verification_code":"' + created["verification_code"] + '"}',
+            content_type="application/json",
+        ).status_code, 200)
+        with patch("portal.terminal_pairing_api.agent_client.call") as gateway:
+            gateway.return_value = {"items": [{
+                "id": str(uuid4()), "revision": 2,
+                "status": "active", "body": "Approved quantum research preference",
+            }]}
+            result = self.client.get(memory_path, **self.headers(created))
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(len(result.json()["items"]), 1)
+            gateway.assert_called_once_with(
+                self.owner, "GET", "/v1/memories/retrieve",
+                scope="agent:personal", key=None, json_body=None,
+            )
+        # Pairing expiration/revocation must deny before reaching ACP at all.
+        self.assertEqual(self.client.post(
+            f"/api/v1/agent/terminal-pairings/{created['pairing_id']}/revoke/",
+            data="{}", content_type="application/json",
+        ).status_code, 204)
+        with patch("portal.terminal_pairing_api.agent_client.call") as gateway:
+            self.assertEqual(
+                self.client.get(memory_path, **self.headers(created)).status_code, 401,
+            )
+            gateway.assert_not_called()
+
+    def test_memories_gateway_does_not_enable_write_or_arbitrary_status(self):
+        created = self.start()
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.post(
+            "/api/v1/agent/terminal-pairings/approve/",
+            data='{"verification_code":"' + created["verification_code"] + '"}',
+            content_type="application/json",
+        ).status_code, 200)
+        path = "/api/v1/agent/terminal-gateway/memories/"
+        with patch("portal.terminal_pairing_api.agent_client.call") as gateway:
+            self.assertEqual(
+                self.client.post(path, data="{}", content_type="application/json",
+                                 **self.headers(created)).status_code,
+                405,
+            )
+            gateway.assert_not_called()
