@@ -1,5 +1,6 @@
 **Quantum Platform**
 - [Home](Home.md)
+- [Getting started](Getting-started.md)
 - [Account and access](Account-and-access.md)
 - [Researcher guide](Researcher-guide.md)
 - [Workbench and runs](Workbench-and-runs.md)
