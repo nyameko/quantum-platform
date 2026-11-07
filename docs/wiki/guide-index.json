@@ -6,6 +6,20 @@
   "description": "Discovery index only; verify source commit, deployment and permissions before use.",
   "pages": [
     {
+      "slug": "API-and-integration",
+      "title": "API and integration",
+      "source_path": "docs/wiki/API-and-integration.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/dev/docs/wiki/API-and-integration.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-and-integration"
+    },
+    {
+      "slug": "API-development-and-tests",
+      "title": "API development and tests",
+      "source_path": "docs/wiki/API-development-and-tests.md",
+      "source_url": "https://github.com/nyameko/quantum-platform/blob/dev/docs/wiki/API-development-and-tests.md",
+      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-development-and-tests"
+    },
+    {
       "slug": "Account-and-access",
       "title": "Account and access",
       "source_path": "docs/wiki/Account-and-access.md",
@@ -25,20 +39,6 @@
       "source_path": "docs/wiki/Agent-and-Guide.md",
       "source_url": "https://github.com/nyameko/quantum-platform/blob/dev/docs/wiki/Agent-and-Guide.md",
       "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/Agent-and-Guide"
-    },
-    {
-      "slug": "API-and-integration",
-      "title": "API and integration",
-      "source_path": "docs/wiki/API-and-integration.md",
-      "source_url": "https://github.com/nyameko/quantum-platform/blob/dev/docs/wiki/API-and-integration.md",
-      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-and-integration"
-    },
-    {
-      "slug": "API-development-and-tests",
-      "title": "API development and tests",
-      "source_path": "docs/wiki/API-development-and-tests.md",
-      "source_url": "https://github.com/nyameko/quantum-platform/blob/dev/docs/wiki/API-development-and-tests.md",
-      "wiki_url": "https://github.com/nyameko/quantum-platform/wiki/API-development-and-tests"
     },
     {
       "slug": "Authentication-MFA-and-key-management",
