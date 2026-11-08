@@ -1,3 +1,5 @@
+import os
+os.environ.setdefault("DJANGO_SECRET_KEY", "test-only-ephemeral-key-please-do-not-use-in-production")
 """Isolated auth/template tests; production settings remain PostgreSQL-only."""
 from .settings import *  # noqa: F403
 
