@@ -123,10 +123,11 @@ def _gateway(op, arg, stdin=None):
                 logger.warning("Slurm history gateway failure: %s (exit %s)",
                                reason, exc.returncode)
                 raise SlurmGatewayHistoryError(reason) from exc
-            message = (
-                exc.stderr or exc.stdout or "Slurm gateway command failed."
-            ).strip()
-            raise RuntimeError(message) from exc
+            # SSH and privileged helpers may include internal paths, node
+            # details or credentials in diagnostics. Never reflect raw
+            # subprocess stderr/stdout through a researcher-facing API.
+            logger.warning("Slurm gateway %s failed (exit %s)", op, exc.returncode)
+            raise RuntimeError("Slurm gateway request could not be completed.") from exc
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             raise RuntimeError("Slurm gateway is unavailable.") from exc
         return result.stdout.strip()
