@@ -199,3 +199,110 @@ class ExecutionApiTests(TestCase):
         self.client.logout()
         response = self.client.get("/api/v1/executions/slurm-history/")
         self.assertIn(response.status_code, {401, 403})
+
+    @patch("portal.execution_api._gateway", return_value="")
+    def test_cancel_delegates_to_authenticated_posix_owner(self, gateway):
+        record = ExecutionRecord.objects.create(
+            user=self.user,
+            offering="bell-aer",
+            state=ExecutionRecord.State.SUBMITTED,
+            scheduler_job_id="12345",
+        )
+        response = self.client.post(f"/api/v1/executions/{record.pk}/cancel/")
+        self.assertEqual(response.status_code, 200, response.content)
+        gateway.assert_called_once_with("cancel", "nlisa:20999:12345")
+
+    @patch("portal.execution_api._gateway")
+    def test_cancel_never_accepts_browser_supplied_owner_uid_or_job_id(self, gateway):
+        record = ExecutionRecord.objects.create(
+            user=self.user,
+            offering="bell-aer",
+            state=ExecutionRecord.State.SUBMITTED,
+            scheduler_job_id="12345",
+        )
+        response = self.client.post(
+            f"/api/v1/executions/{record.pk}/cancel/",
+            data={"username": "root", "uid": 0, "job_id": "88888"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        gateway.assert_called_once_with("cancel", "nlisa:20999:12345")
+
+    @patch("portal.execution_api._gateway")
+    def test_cancel_cannot_target_other_user_record(self, gateway):
+        other = User.objects.create_user(username="researcher2", password="not-used")
+        record = ExecutionRecord.objects.create(
+            user=other,
+            offering="bell-aer",
+            state=ExecutionRecord.State.SUBMITTED,
+            scheduler_job_id="12345",
+        )
+        response = self.client.post(f"/api/v1/executions/{record.pk}/cancel/")
+        self.assertEqual(response.status_code, 404, response.content)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_cancel_rejects_revoked_programme_membership(self, gateway):
+        record = ExecutionRecord.objects.create(
+            user=self.user,
+            offering="bell-aer",
+            state=ExecutionRecord.State.SUBMITTED,
+            scheduler_job_id="12345",
+        )
+        ProgrammeMembership.objects.filter(person=self.person).update(
+            status=ProgrammeMembership.Status.SUSPENDED
+        )
+        response = self.client.post(f"/api/v1/executions/{record.pk}/cancel/")
+        self.assertEqual(response.status_code, 403, response.content)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_staff_flag_does_not_grant_slurm_execution(self, gateway):
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        ProgrammeMembership.objects.filter(person=self.person).update(
+            status=ProgrammeMembership.Status.SUSPENDED
+        )
+        response = self.client.post("/api/v1/executions/cpu-smoke/", data={},
+                                    content_type="application/json")
+        self.assertEqual(response.status_code, 403, response.content)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_cancel_rejects_missing_posix_identity(self, gateway):
+        record = ExecutionRecord.objects.create(
+            user=self.user,
+            offering="bell-aer",
+            state=ExecutionRecord.State.SUBMITTED,
+            scheduler_job_id="12345",
+        )
+        self.person.posix_uid = None
+        self.person.save(update_fields=["posix_uid"])
+        response = self.client.post(f"/api/v1/executions/{record.pk}/cancel/")
+        self.assertEqual(response.status_code, 409, response.content)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_cancel_rejects_unassigned_job_identifier(self, gateway):
+        record = ExecutionRecord.objects.create(
+            user=self.user,
+            offering="bell-aer",
+            state=ExecutionRecord.State.CREATED,
+            scheduler_job_id="",
+        )
+        response = self.client.post(f"/api/v1/executions/{record.pk}/cancel/")
+        self.assertEqual(response.status_code, 409, response.content)
+        gateway.assert_not_called()
+
+    @patch("portal.execution_api._gateway")
+    def test_cancel_does_not_expose_privileged_gateway_errors(self, gateway):
+        gateway.side_effect = RuntimeError("sensitive private scheduler diagnostics")
+        record = ExecutionRecord.objects.create(
+            user=self.user,
+            offering="bell-aer",
+            state=ExecutionRecord.State.SUBMITTED,
+            scheduler_job_id="12345",
+        )
+        response = self.client.post(f"/api/v1/executions/{record.pk}/cancel/")
+        self.assertEqual(response.status_code, 502, response.content)
+        self.assertNotIn(b"sensitive", response.content)

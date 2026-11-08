@@ -58,8 +58,8 @@ def _audit(actor, event_type, record, metadata=None):
 
 
 def _entitled(user):
-    if user.is_staff or user.is_superuser:
-        return True
+    # Portal staff/superusers are not automatically Slurm research users.
+    # Explicit approved programme membership is required for execution.
     person = getattr(user, "person", None)
     if person is None:
         return False
@@ -123,10 +123,11 @@ def _gateway(op, arg, stdin=None):
                 logger.warning("Slurm history gateway failure: %s (exit %s)",
                                reason, exc.returncode)
                 raise SlurmGatewayHistoryError(reason) from exc
-            message = (
-                exc.stderr or exc.stdout or "Slurm gateway command failed."
-            ).strip()
-            raise RuntimeError(message) from exc
+            # SSH and privileged helpers may include internal paths, node
+            # details or credentials in diagnostics. Never reflect raw
+            # subprocess stderr/stdout through a researcher-facing API.
+            logger.warning("Slurm gateway %s failed (exit %s)", op, exc.returncode)
+            raise RuntimeError("Slurm gateway request could not be completed.") from exc
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             raise RuntimeError("Slurm gateway is unavailable.") from exc
         return result.stdout.strip()
@@ -444,10 +445,42 @@ def cancel_execution(request, execution_id):
     if record.state in TERMINAL_STATES:
         return Response(_payload(record))
 
+    # Fail closed: cancellation needs a fully provisioned research identity,
+    # current research entitlement, and a real scheduler job owned by this
+    # authenticated session. Do not accept owner/UID/job selectors from HTTP.
+    person = getattr(request.user, "person", None)
+    if not _entitled(request.user):
+        return Response(
+            {"detail": "Research execution entitlement is required."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    if person is None or person.posix_uid is None or person.posix_gid is None:
+        return Response(
+            {"detail": "POSIX research identity is not provisioned."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    if not record.scheduler_job_id or not record.scheduler_job_id.isdigit():
+        return Response(
+            {"detail": "No cancellable scheduler job is associated with this execution."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    if not _configured():
+        return Response(
+            {"detail": "The Slurm execution gateway is not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    # The SSH gateway still uses a restricted forced command, but delegates
+    # scancel to the mapped POSIX user. Slurm authorizes the final cancellation.
+    requested = f"{request.user.username}:{person.posix_uid}:{record.scheduler_job_id}"
     try:
-        _gateway("cancel", record.scheduler_job_id)
-    except RuntimeError as exc:
-        return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        _gateway("cancel", requested)
+    except RuntimeError:
+        # Avoid reflecting privileged SSH/sudo/scheduler output to the browser.
+        return Response(
+            {"detail": "Scheduler could not authorize or complete cancellation."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
 
     record.state = ExecutionRecord.State.CANCELLED
     record.scheduler_state = "CANCELLED"

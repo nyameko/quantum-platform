@@ -12,15 +12,21 @@ load_dotenv(BASE_DIR / ".env")
 # Core Django configuration
 # ---------------------------------------------------------------------------
 
-SECRET_KEY = os.getenv(
-    "DJANGO_SECRET_KEY",
-    "development-only-change-me",
-)
-
 DEBUG = os.getenv(
     "DJANGO_DEBUG",
     "false",
 ).lower() == "true"
+
+# Never start an externally reachable application using a predictable signing
+# key. Only explicit local DEBUG environments may use the test fallback.
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "development-only-change-me"
+    else:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set for production")
+
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -271,7 +277,7 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
 }
 
@@ -288,14 +294,14 @@ SECURE_PROXY_SSL_HEADER = (
 SESSION_COOKIE_SECURE = (
     os.getenv(
         "DJANGO_SESSION_COOKIE_SECURE",
-        "false",
+        "false" if DEBUG else "true",
     ).lower() == "true"
 )
 
 CSRF_COOKIE_SECURE = (
     os.getenv(
         "DJANGO_CSRF_COOKIE_SECURE",
-        "false",
+        "false" if DEBUG else "true",
     ).lower() == "true"
 )
 
