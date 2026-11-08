@@ -20,7 +20,7 @@ RUN pip install --upgrade pip \
     && pip install .
 
 RUN DJANGO_DEBUG=false \
-    DJANGO_SECRET_KEY=build-only-not-production \
+    DJANGO_SECRET_KEY=build-only-not-production-explicit-static-asset-key \
     python manage.py collectstatic --noinput
 
 RUN useradd --create-home --uid 10001 quantum
