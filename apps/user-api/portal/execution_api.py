@@ -58,8 +58,8 @@ def _audit(actor, event_type, record, metadata=None):
 
 
 def _entitled(user):
-    if user.is_staff or user.is_superuser:
-        return True
+    # Portal staff/superusers are not automatically Slurm research users.
+    # Explicit approved programme membership is required for execution.
     person = getattr(user, "person", None)
     if person is None:
         return False
