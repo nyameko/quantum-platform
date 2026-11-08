@@ -86,3 +86,15 @@ Logical offerings can include:
 - interoperability/translation.
 
 GPU-specific A100/H200 environments should be represented as environment + execution-provider/resource-profile combinations rather than as ad-hoc notebook Pods permanently holding GPUs.
+
+## M5 batch-first simulator laboratory policy (8 November 2026)
+
+> **Scientific preparation is cheap; expensive execution is scheduled.**
+
+Keep [the existing portal](https://quantum.nyameko.com/) and JupyterHub/KubeSpawner UI unchanged. For introductory quantum simulation, researcher opens a lightweight CPU notebook, prepares circuit/input, explicitly submits an **independent native per-user Slurm batch job**, leaves the workbench, and later retrieves validated results and `sacct` usage. Interactive Slurm-backed GPU notebook sessions and a parallel Open OnDemand portal are not the default model. A notebook is not a GPU entitlement.
+
+Model `framework/SDK` (Qiskit, PennyLane, Cirq, IQM adapter, Pulser), `simulator backend` (Aer, Lightning, qsim/cuQuantum, local IQM fake, Pasqal emu), `execution offering` (CPU, A100/H200 GPU, approved QPU) and `physical provider` as **distinct** concepts. Approved per-programme offerings resolve to versioned scientific environments and a resource profile; do not expose every container as a new product/UI surface. Keep platform security and budgets authoritative, Slurm/physical provider authoritative for allocation, and Quantum Workflows authoritative for numerically verified artifacts.
+
+For each remote job, correlate `site + cluster + scheduler job ID + researcher + programme + resource usage + output artifact URI/checksum`. An H200 scratch path is a separate site-scoped storage resource, *not* a symbolic link assumed to work in all pods. Stage-in/out explicitly and expose only the user's authorized result references. Restrict cross-user status and cancellation: real researcher identity, no portal-selected arbitrary POSIX identity, sudo Slurm helper or shared root job account.
+
+**Acceptance milestones:** P0 per-user native Slurm access and denied cross-user operations; P1 isolated allocated GPU; P2 real A100 Qiskit Aer GPU batch with durable result and accounting; P3 repeat on H200 with verified transfers; P4 approved offerings/usage shown in existing Runs interface; P5 backend-by-backend environment tests; P6 optional research-guide assistance. See [M5 scientific notebook plan](https://github.com/nyameko/quantum-workflows/blob/dev/docs/M5-BATCH-FIRST-SIMULATOR-PATH.md). Documentation is **not** evidence of a deployed H200 resource or completed acceptance.
